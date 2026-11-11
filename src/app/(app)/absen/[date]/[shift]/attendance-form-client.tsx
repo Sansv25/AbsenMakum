@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SingleUpload } from '@/components/upload/single-upload';
-import { TicketUpload } from '@/components/upload/ticket-upload';
 import { NoteAutosave } from '@/components/attendance/note-autosave';
 import {
   CheckCircle2,
@@ -54,7 +53,6 @@ export function AttendanceFormClient({
 
   const mulaiAttachment = attendance.attachments.find((a) => a.kind === 'mulai') ?? null;
   const selesaiAttachment = attendance.attachments.find((a) => a.kind === 'selesai') ?? null;
-  const ticketAttachments = attendance.attachments.filter((a) => a.kind === 'ticket');
 
   useEffect(() => {
     const devId = getOrCreateDeviceId();
@@ -278,9 +276,9 @@ export function AttendanceFormClient({
         </>
       )}
 
-      {/* 2. Form Upload Mulai Kerja */}
+      {/* 2. Bukti Piket 1: Mulai Kerja */}
       <SingleUpload
-        title="1. Mulai Kerja"
+        title="1. Bukti Piket — Mulai Kerja"
         kind="mulai"
         attendanceId={attendance.id}
         userId={userId}
@@ -291,9 +289,9 @@ export function AttendanceFormClient({
         canEdit={canEdit}
       />
 
-      {/* 3. Form Upload Selesai Kerja */}
+      {/* 3. Bukti Piket 2: Selesai Kerja */}
       <SingleUpload
-        title="2. Selesai Kerja"
+        title="2. Bukti Piket — Selesai Kerja"
         kind="selesai"
         attendanceId={attendance.id}
         userId={userId}
@@ -304,18 +302,7 @@ export function AttendanceFormClient({
         canEdit={canEdit}
       />
 
-      {/* 4. Form Picket Ticket */}
-      <TicketUpload
-        attendanceId={attendance.id}
-        userId={userId}
-        workDate={workDate}
-        shiftType={shiftType}
-        initialAttachments={ticketAttachments}
-        onSaved={handleRefresh}
-        canEdit={canEdit}
-      />
-
-      {/* 5. Catatan Piket */}
+      {/* 4. Catatan Piket */}
       <NoteAutosave
         attendanceId={attendance.id}
         initialNote={attendance.note}

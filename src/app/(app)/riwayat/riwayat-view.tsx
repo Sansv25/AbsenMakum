@@ -23,7 +23,7 @@ export interface RiwayatJobDetail {
   is_locked?: boolean;
   mulaiThumbnail: string | null;
   selesaiThumbnail: string | null;
-  ticketCount: number;
+  ticketCount?: number;
 }
 
 export interface RiwayatShiftGroup {
@@ -375,50 +375,47 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                       </Link>
                     </div>
 
-                    {/* Foto Bukti Thumbnails */}
-                    <div className="grid grid-cols-3 gap-2 pt-1">
-                      {/* Mulai */}
-                      <div className="border border-gray-100 rounded-xl p-2 bg-gray-50 text-center">
-                        <span className="text-[10px] text-gray-500 block mb-1 font-medium">Mulai</span>
+                    {/* 2 Bukti Piket (Mulai & Selesai) */}
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      {/* Bukti 1: Mulai Piket */}
+                      <div className="border border-gray-100 rounded-xl p-2.5 bg-gray-50 text-center">
+                        <div className="flex items-center justify-between mb-1.5 px-0.5">
+                          <span className="text-[11px] font-semibold text-gray-700">1. Bukti Mulai</span>
+                          {job?.mulaiThumbnail ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold">Ada</span>
+                          ) : (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-semibold">Kosong</span>
+                          )}
+                        </div>
                         {job?.mulaiThumbnail ? (
-                          <div className="w-full aspect-square rounded-lg overflow-hidden bg-black/10">
+                          <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 shadow-sm">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={job.mulaiThumbnail} alt="Mulai" className="w-full h-full object-cover" />
+                            <img src={job.mulaiThumbnail} alt="Bukti Mulai" className="w-full h-full object-cover" />
                           </div>
                         ) : (
-                          <div className="w-full aspect-square rounded-lg bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+                          <div className="w-full aspect-video rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
                             Kosong
                           </div>
                         )}
                       </div>
 
-                      {/* Selesai */}
-                      <div className="border border-gray-100 rounded-xl p-2 bg-gray-50 text-center">
-                        <span className="text-[10px] text-gray-500 block mb-1 font-medium">Selesai</span>
+                      {/* Bukti 2: Selesai Piket */}
+                      <div className="border border-gray-100 rounded-xl p-2.5 bg-gray-50 text-center">
+                        <div className="flex items-center justify-between mb-1.5 px-0.5">
+                          <span className="text-[11px] font-semibold text-gray-700">2. Bukti Selesai</span>
+                          {job?.selesaiThumbnail ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold">Ada</span>
+                          ) : (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-semibold">Kosong</span>
+                          )}
+                        </div>
                         {job?.selesaiThumbnail ? (
-                          <div className="w-full aspect-square rounded-lg overflow-hidden bg-black/10">
+                          <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 shadow-sm">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={job.selesaiThumbnail} alt="Selesai" className="w-full h-full object-cover" />
+                            <img src={job.selesaiThumbnail} alt="Bukti Selesai" className="w-full h-full object-cover" />
                           </div>
                         ) : (
-                          <div className="w-full aspect-square rounded-lg bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
-                            Kosong
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Bukti Tiket */}
-                      <div className="border border-gray-100 rounded-xl p-2 bg-gray-50 text-center">
-                        <span className="text-[10px] text-gray-500 block mb-1 font-medium">Bukti Tiket</span>
-                        {job?.ticketCount && job.ticketCount > 0 ? (
-                          <div className="w-full aspect-square rounded-lg bg-blue-50 border border-blue-100 flex flex-col items-center justify-center">
-                            <span className="text-base font-bold text-blue-700">
-                              {job.ticketCount}
-                            </span>
-                            <span className="text-[9px] text-blue-500 font-medium">tiket</span>
-                          </div>
-                        ) : (
-                          <div className="w-full aspect-square rounded-lg bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+                          <div className="w-full aspect-video rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
                             Kosong
                           </div>
                         )}
