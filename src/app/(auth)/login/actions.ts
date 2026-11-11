@@ -14,7 +14,10 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword(data);
 
   if (error) {
-    return { error: 'Email atau password salah.' };
+    if (error.status === 400 || error.code === 'invalid_credentials') {
+      return { error: 'Email atau password salah.' };
+    }
+    return { error: error.message || 'Gagal login, periksa koneksi atau kredensial Anda.' };
   }
 
   redirect('/');
