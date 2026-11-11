@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { todayWITA, getDatesInMonth, toYearMonth } from '@/lib/dates';
-import { getRequiredShifts, JOB_TYPES } from '@/lib/shifts';
+import { getRequiredShifts, JOB_TYPES, type JobType } from '@/lib/shifts';
 import { RiwayatView, type RiwayatShiftGroup, type RiwayatJobDetail } from './riwayat-view';
 import type { Holiday, Attendance, Attachment, ShiftStatus } from '@/lib/supabase/types';
 

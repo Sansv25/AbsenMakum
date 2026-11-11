@@ -407,15 +407,21 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                         )}
                       </div>
 
-                      {/* Tiket */}
+                      {/* Bukti Tiket */}
                       <div className="border border-gray-100 rounded-xl p-2 bg-gray-50 text-center">
-                        <span className="text-[10px] text-gray-500 block mb-1 font-medium">Tiket</span>
-                        <div className="w-full aspect-square rounded-lg bg-gray-100 flex flex-col items-center justify-center">
-                          <span className="text-base font-bold text-gray-700">
-                            {job?.ticketCount ?? 0}
-                          </span>
-                          <span className="text-[9px] text-gray-400">tiket</span>
-                        </div>
+                        <span className="text-[10px] text-gray-500 block mb-1 font-medium">Bukti Tiket</span>
+                        {job?.ticketCount && job.ticketCount > 0 ? (
+                          <div className="w-full aspect-square rounded-lg bg-blue-50 border border-blue-100 flex flex-col items-center justify-center">
+                            <span className="text-base font-bold text-blue-700">
+                              {job.ticketCount}
+                            </span>
+                            <span className="text-[9px] text-blue-500 font-medium">tiket</span>
+                          </div>
+                        ) : (
+                          <div className="w-full aspect-square rounded-lg bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
+                            Kosong
+                          </div>
+                        )}
                       </div>
                     </div>
 
