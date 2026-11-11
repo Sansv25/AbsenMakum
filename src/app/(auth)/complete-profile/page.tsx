@@ -27,12 +27,6 @@ export default async function CompleteProfilePage() {
               src="/images/iconnet-colored.svg"
               alt="ICONNET"
               className="h-10 w-auto object-contain"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                if (!target.src.includes('logo.svg')) {
-                  target.src = '/images/logo.svg';
-                }
-              }}
             />
           </div>
           <h1 className="text-2xl font-bold text-center text-gray-900">

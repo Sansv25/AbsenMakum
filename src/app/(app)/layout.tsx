@@ -33,12 +33,6 @@ export default async function AppLayout({
                 src="/images/iconnet-colored.svg"
                 alt="ICONNET"
                 className="h-6 w-auto object-contain"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  if (!target.src.includes('logo.svg')) {
-                    target.src = '/images/logo.svg';
-                  }
-                }}
               />
             </div>
             <div>
