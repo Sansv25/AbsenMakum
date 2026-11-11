@@ -18,9 +18,9 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { getOrCreateDeviceId, getDeviceLabel } from '@/lib/device';
+import { isWithin48Hours } from '@/lib/dates';
 import {
   claimDeviceAction,
-  lockAttendanceAction,
   unlockAttendanceAction,
   resetDeviceAction,
 } from '@/app/(app)/absen/[date]/[shift]/actions';
@@ -62,8 +62,8 @@ export function AttendanceFormClient({
     setClientDeviceLabel(devLabel);
     setIsMounted(true);
 
-    // Jika absensi belum punya device_id dan belum terkunci, dan tanggalnya hari ini:
-    if (!attendance.device_id && !attendance.is_locked && workDate === today && (attendance.user_id === userId || isMaster)) {
+    // Jika absensi belum punya device_id dan belum terkunci, dan masih dalam batas toleransi 48 jam:
+    if (!attendance.device_id && !attendance.is_locked && isWithin48Hours(workDate) && (attendance.user_id === userId || isMaster)) {
       claimDeviceAction(attendance.id, devId, devLabel).then(() => {
         router.refresh();
       });
@@ -71,7 +71,8 @@ export function AttendanceFormClient({
   }, [attendance.device_id, attendance.is_locked, attendance.id, attendance.user_id, userId, isMaster, workDate, today, router]);
 
   // Evaluasi hak akses edit
-  const isToday = workDate === today;
+  const isWithin48 = isWithin48Hours(workDate);
+  const isFuture = workDate > today;
   const isLocked = !!attendance.is_locked;
   const boundDeviceId = attendance.device_id;
   const isAuthor = attendance.user_id === userId;
@@ -80,12 +81,15 @@ export function AttendanceFormClient({
   const isSameDevice = !isMounted || !boundDeviceId || (clientDeviceId && boundDeviceId === clientDeviceId);
 
   let canEdit = true;
-  let lockReason: 'locked' | 'device_mismatch' | 'not_today' | 'other_user' | null = null;
+  let lockReason: 'locked' | 'device_mismatch' | 'expired' | 'future' | 'other_user' | null = null;
 
   if (!isMaster) {
-    if (!isToday) {
+    if (isFuture) {
       canEdit = false;
-      lockReason = 'not_today';
+      lockReason = 'future';
+    } else if (!isWithin48) {
+      canEdit = false;
+      lockReason = 'expired';
     } else if (isLocked) {
       canEdit = false;
       lockReason = 'locked';
@@ -100,27 +104,6 @@ export function AttendanceFormClient({
 
   function handleRefresh() {
     router.refresh();
-  }
-
-  async function handleLockAttendance() {
-    if (!confirm('Kunci absensi ini? Setelah dikunci, data piket tidak dapat diubah lagi oleh akun user biasa.')) {
-      return;
-    }
-    try {
-      setIsProcessing(true);
-      const res = await lockAttendanceAction(attendance.id, workDate, shiftType, clientDeviceId);
-      if (res && !res.success) {
-        alert(`Gagal mengunci: ${res.error || 'Terjadi kesalahan sistem.'}\n\nCatatan: Jika kolom 'is_locked' belum dibuat, mohon jalankan script migrasi di SQL Editor Supabase terlebih dahulu.`);
-        return;
-      }
-      alert('Absensi berhasil dikunci!');
-      router.refresh();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal mengunci absensi.';
-      alert(msg);
-    } finally {
-      setIsProcessing(false);
-    }
   }
 
   async function handleUnlockAttendance() {
@@ -260,13 +243,25 @@ export function AttendanceFormClient({
             </div>
           )}
 
-          {lockReason === 'not_today' && (
+          {lockReason === 'expired' && (
             <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3 text-blue-900 text-xs shadow-sm">
               <Calendar className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-blue-900 text-sm">Absensi Tanggal Lampau</p>
+                <p className="font-bold text-blue-900 text-sm">Batas Waktu Pengisian Berakhir (48 Jam)</p>
                 <p className="text-blue-800 mt-0.5">
-                  Akun user hanya diizinkan mengisi absensi pada tanggal hari berjalan. Absensi tanggal lampau hanya dapat diedit oleh Akun Master.
+                  Absensi shift ini telah melewati batas toleransi pengisian (48 jam) dan otomatis terkunci dalam mode <em>baca (read-only)</em>. Hubungi Akun Master jika membutuhkan koreksi data.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {lockReason === 'future' && (
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-start gap-3 text-gray-700 text-xs shadow-sm">
+              <Calendar className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-gray-900 text-sm">Absensi Belum Dimulai</p>
+                <p className="text-gray-600 mt-0.5">
+                  Tanggal shift ini berada di masa depan. Pengisian absensi baru dapat dilakukan pada saat hari piket tiba.
                 </p>
               </div>
             </div>
@@ -326,27 +321,12 @@ export function AttendanceFormClient({
           <span>Semua foto dan catatan <strong>tersimpan otomatis</strong>.</span>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          {/* Tombol Kunci jika lengkap dan belum terkunci */}
-          {canEdit && !isLocked && isComplete && (
-            <button
-              type="button"
-              onClick={handleLockAttendance}
-              disabled={isProcessing}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold transition-colors min-h-[44px] shadow-sm"
-            >
-              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-              Kunci & Selesaikan Piket
-            </button>
-          )}
-
-          <Link
-            href="/"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors min-h-[44px]"
-          >
-            Selesai & Kembali ke Dashboard
-          </Link>
-        </div>
+        <Link
+          href="/"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors min-h-[44px]"
+        >
+          Selesai & Kembali ke Dashboard
+        </Link>
       </div>
     </div>
   );

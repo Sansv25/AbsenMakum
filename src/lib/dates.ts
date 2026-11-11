@@ -86,3 +86,24 @@ export function nowDateTimeWITA(): string {
     .replace(/:/g, '.');
   return `${dateStr} ${timeStr}`;
 }
+
+/**
+ * Mengecek apakah tanggal absensi masih berada dalam batas toleransi pengisian (maksimal 48 jam).
+ * Dihitung dari awal hari piket (00:00:00 WITA).
+ * Berguna terutama untuk Shift Malam yang selesai lewat tengah malam (dini hari esoknya).
+ */
+export function isWithin48Hours(workDate: string): boolean {
+  const [y, m, d] = workDate.split('-').map(Number);
+  // Jam 00:00:00 WITA = UTC-8 jam
+  const workDateTimestamp = Date.UTC(y, m - 1, d, 0, 0, 0) - (8 * 60 * 60 * 1000);
+  const now = Date.now();
+
+  // Tanggal masa depan tidak boleh diedit
+  const today = todayWITA();
+  if (workDate > today) return false;
+
+  const diffMs = now - workDateTimestamp;
+  const maxMs = 48 * 60 * 60 * 1000; // 48 jam
+
+  return diffMs <= maxMs && diffMs >= 0;
+}
