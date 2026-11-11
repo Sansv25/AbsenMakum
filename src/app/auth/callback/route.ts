@@ -4,7 +4,15 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const errorParam = searchParams.get('error');
+  const errorDescription = searchParams.get('error_description');
   const next = searchParams.get('next') ?? '/';
+
+  // Jika penyedia OAuth mengembalikan error (misal Client Secret salah di Supabase)
+  if (errorParam || errorDescription) {
+    const errorMsg = errorDescription || errorParam || 'Gagal autentikasi Google';
+    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorMsg)}`);
+  }
 
   if (code) {
     const supabase = await createClient();
@@ -37,10 +45,14 @@ export async function GET(request: Request) {
       }
 
       return NextResponse.redirect(`${origin}${next}`);
+    } else {
+      return NextResponse.redirect(
+        `${origin}/login?error=${encodeURIComponent(error.message || 'Gagal tukar sesi autentikasi')}`
+      );
     }
   }
 
-  // Jika gagal tukar kode atau ada error
-  return NextResponse.redirect(`${origin}/login?error=Gagal+autentikasi+Google`);
+  // Jika code tidak ditemukan
+  return NextResponse.redirect(`${origin}/login?error=Kode+autentikasi+tidak+ditemukan`);
 }
 
