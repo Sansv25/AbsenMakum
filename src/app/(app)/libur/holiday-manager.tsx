@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { addHolidayAction, deleteHolidayAction } from './actions';
 import { formatIndonesia } from '@/lib/dates';
+import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import type { Holiday } from '@/lib/supabase/types';
 import { Trash2, Plus, CalendarOff, Loader2 } from 'lucide-react';
 
@@ -39,11 +40,20 @@ export function HolidayManager({ initialHolidays, currentYear }: HolidayManagerP
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Hapus tanggal merah "${name}"?`)) return;
+    const confirmed = await showConfirm(
+      'Hapus Tanggal Merah?',
+      `Apakah Anda yakin ingin menghapus "${name}"?`,
+      'Ya, Hapus',
+      true
+    );
+    if (!confirmed) return;
+
     setDeletingId(id);
     const res = await deleteHolidayAction(id);
     if (res.error) {
-      alert(res.error);
+      showAlert('Gagal', res.error, 'error');
+    } else {
+      showToast(`Tanggal merah "${name}" berhasil dihapus`, 'info');
     }
     setDeletingId(null);
   }

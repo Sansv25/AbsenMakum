@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Upload, Trash2, ArrowUp, ArrowDown, Clipboard, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { compressImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
+import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import type { AttachmentWithUrl } from '@/lib/data/attendance';
 import type { ShiftType } from '@/lib/supabase/types';
 
@@ -111,11 +112,12 @@ export function TicketUpload({
 
       setTickets((prev) => [...prev, ...newItems]);
       setStatusMsg('Tersimpan');
+      showToast('Screenshot tiket berhasil disimpan', 'success');
       setTimeout(() => setStatusMsg(null), 3000);
       onSaved();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mengunggah gambar tiket.';
-      alert(msg);
+      showAlert('Gagal Unggah', msg, 'error');
       setStatusMsg(null);
     } finally {
       setUploading(false);
@@ -123,7 +125,14 @@ export function TicketUpload({
   }
 
   async function handleDelete(ticket: AttachmentWithUrl) {
-    if (!confirm('Hapus screenshot tiket ini?')) return;
+    const confirmed = await showConfirm(
+      'Hapus Screenshot Tiket?',
+      'Apakah Anda yakin ingin menghapus screenshot tiket ini?',
+      'Ya, Hapus',
+      true
+    );
+    if (!confirmed) return;
+
     try {
       const supabase = createClient();
       await supabase.storage.from('evidence').remove([ticket.storage_path]);
@@ -131,9 +140,10 @@ export function TicketUpload({
 
       const remaining = tickets.filter((t) => t.id !== ticket.id);
       setTickets(remaining);
+      showToast('Screenshot tiket dihapus', 'info');
       onSaved();
     } catch {
-      alert('Gagal menghapus tiket.');
+      showAlert('Gagal', 'Terjadi kesalahan saat menghapus screenshot tiket.', 'error');
     }
   }
 

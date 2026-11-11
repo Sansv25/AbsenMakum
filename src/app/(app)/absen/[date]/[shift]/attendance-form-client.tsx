@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getOrCreateDeviceId, getDeviceLabel } from '@/lib/device';
 import { isWithin48Hours } from '@/lib/dates';
+import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import {
   claimDeviceAction,
   unlockAttendanceAction,
@@ -107,42 +108,51 @@ export function AttendanceFormClient({
   }
 
   async function handleUnlockAttendance() {
-    if (!confirm('Buka kunci absensi ini? Akun user pada perangkat yang sah akan dapat mengedit kembali.')) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      'Buka Kunci Absensi?',
+      'Akun user pada perangkat yang sah akan dapat mengedit kembali.',
+      'Ya, Buka Kunci'
+    );
+    if (!confirmed) return;
+
     try {
       setIsProcessing(true);
       const res = await unlockAttendanceAction(attendance.id, workDate, shiftType);
       if (res && !res.success) {
-        alert(`Gagal membuka kunci: ${res.error || 'Terjadi kesalahan sistem.'}`);
+        showAlert('Gagal', res.error || 'Terjadi kesalahan sistem.', 'error');
         return;
       }
-      alert('Kunci absensi berhasil dibuka!');
+      showToast('Kunci absensi berhasil dibuka!', 'success');
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal membuka kunci.';
-      alert(msg);
+      showAlert('Gagal', msg, 'error');
     } finally {
       setIsProcessing(false);
     }
   }
 
   async function handleResetDevice() {
-    if (!confirm('Reset penguncian perangkat? Perangkat berikutnya yang membuka shift ini akan didaftarkan sebagai pemilik sah.')) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      'Reset Perangkat?',
+      'Perangkat berikutnya yang membuka shift ini akan didaftarkan sebagai pemilik sah.',
+      'Ya, Reset Perangkat',
+      true
+    );
+    if (!confirmed) return;
+
     try {
       setIsProcessing(true);
       const res = await resetDeviceAction(attendance.id, workDate, shiftType);
       if (res && !res.success) {
-        alert(`Gagal mereset perangkat: ${res.error || 'Terjadi kesalahan sistem.'}`);
+        showAlert('Gagal', res.error || 'Terjadi kesalahan sistem.', 'error');
         return;
       }
-      alert('Kunci perangkat berhasil di-reset!');
+      showToast('Kunci perangkat berhasil di-reset!', 'success');
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mereset perangkat.';
-      alert(msg);
+      showAlert('Gagal', msg, 'error');
     } finally {
       setIsProcessing(false);
     }

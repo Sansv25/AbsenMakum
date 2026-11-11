@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { formatIndonesia } from '@/lib/dates';
+import { showAlert, showConfirm, showToast } from '@/lib/swal';
 
 interface UserManagerProps {
   initialUsers: AdminUserItem[];
@@ -53,14 +54,14 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
     } else {
       setCreateModalOpen(false);
       setLoadingAction(null);
-      alert('Akun pengguna berhasil dibuat!');
+      showToast('Akun pengguna berhasil dibuat!', 'success');
       router.refresh();
     }
   }
 
   async function handleToggleRole(user: AdminUserItem) {
     if (user.id === currentUserId) {
-      alert('Anda tidak dapat mengubah role akun Anda sendiri.');
+      showAlert('Perhatian', 'Anda tidak dapat mengubah role akun Anda sendiri.', 'warning');
       return;
     }
 
@@ -69,14 +70,16 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       ? `Jadikan akun ${user.email} sebagai Akun Master? Pengguna ini akan memiliki akses penuh.`
       : `Ubah akun ${user.email} menjadi Akun Petugas biasa?`;
 
-    if (!confirm(confirmMsg)) return;
+    const confirmed = await showConfirm('Ubah Role Akun?', confirmMsg, 'Ya, Ubah Role');
+    if (!confirmed) return;
 
     setLoadingAction(`role-${user.id}`);
     const res = await changeUserRoleAction(user.id, nextRole);
 
     if (res.error) {
-      alert(`Gagal mengubah role: ${res.error}`);
+      showAlert('Gagal', `Gagal mengubah role: ${res.error}`, 'error');
     } else {
+      showToast(`Role akun ${user.email} berhasil diubah!`, 'success');
       router.refresh();
     }
     setLoadingAction(null);
@@ -98,30 +101,35 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       setResetError(res.error);
       setLoadingAction(null);
     } else {
+      const email = resetModalUser.email;
       setResetModalUser(null);
       setLoadingAction(null);
-      alert(`Password untuk ${resetModalUser.email} berhasil diubah!`);
+      showToast(`Password untuk ${email} berhasil diubah!`, 'success');
       router.refresh();
     }
   }
 
   async function handleDeleteUser(user: AdminUserItem) {
     if (user.id === currentUserId) {
-      alert('Anda tidak dapat menghapus akun Anda sendiri.');
+      showAlert('Perhatian', 'Anda tidak dapat menghapus akun Anda sendiri.', 'warning');
       return;
     }
 
-    if (!confirm(`Hapus akun ${user.email}? Seluruh akses user ini akan dicabut permanen.`)) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      'Hapus Akun?',
+      `Hapus akun ${user.email}? Seluruh akses pengguna ini akan dicabut secara permanen.`,
+      'Ya, Hapus Akun',
+      true
+    );
+    if (!confirmed) return;
 
     setLoadingAction(`delete-${user.id}`);
     const res = await deleteUserAction(user.id);
 
     if (res.error) {
-      alert(`Gagal menghapus user: ${res.error}`);
+      showAlert('Gagal', `Gagal menghapus user: ${res.error}`, 'error');
     } else {
-      alert(`Akun ${user.email} berhasil dihapus.`);
+      showToast(`Akun ${user.email} berhasil dihapus.`, 'info');
       router.refresh();
     }
     setLoadingAction(null);

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { todayWITA, getDatesInMonth, toYearMonth } from '@/lib/dates';
 import { getRequiredShifts, JOB_TYPES } from '@/lib/shifts';
-import { RiwayatView, type RiwayatItem } from './riwayat-view';
+import { RiwayatView, type RiwayatShiftGroup, type RiwayatJobDetail } from './riwayat-view';
 import type { Holiday, Attendance, Attachment, ShiftStatus } from '@/lib/supabase/types';
 
 interface RiwayatPageProps {
@@ -84,9 +84,12 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
     attendanceByDateShiftJob.set(`${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`, a);
   }
 
-  // Build items for each day in month (descending order, newest first)
-  const dates = getDatesInMonth(currentMonth).reverse();
-  const items: RiwayatItem[] = [];
+  // Build items for each day in month (descending order, newest first, only today and backwards)
+  const dates = getDatesInMonth(currentMonth)
+    .filter((d) => d <= today)
+    .reverse();
+
+  const items: RiwayatShiftGroup[] = [];
 
   for (const date of dates) {
     const requiredShifts = getRequiredShifts(date, holidaySet);
@@ -94,6 +97,10 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
     const holidayName = holidayMap.get(date);
 
     for (const shift of requiredShifts) {
+      const jobs: Record<string, RiwayatJobDetail> = {};
+      let lengkapCount = 0;
+      let partiallyFilled = false;
+
       for (const job of JOB_TYPES) {
         const att = attendanceByDateShiftJob.get(`${date}-${shift}-${job}`);
         const attList = att ? (attachByAttendance.get(att.id) ?? []) : [];
@@ -106,13 +113,16 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
         const hasSelesai = !!selesai;
 
         let status: ShiftStatus = 'kosong';
-        if (hasMulai && hasSelesai) status = 'lengkap';
-        else if (hasMulai || hasSelesai || tickets.length > 0 || (att?.note && att.note.trim().length > 0)) status = 'sebagian';
+        if (hasMulai && hasSelesai) {
+          status = 'lengkap';
+          lengkapCount++;
+        } else if (hasMulai || hasSelesai || tickets.length > 0 || (att?.note && att.note.trim().length > 0)) {
+          status = 'sebagian';
+          partiallyFilled = true;
+        }
 
-        items.push({
+        jobs[job] = {
           id: att?.id,
-          work_date: date,
-          shift_type: shift,
           job_type: job,
           status,
           note: att?.note ?? null,
@@ -120,10 +130,24 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
           mulaiThumbnail: mulai ? (signedUrlMap.get(mulai.storage_path) ?? null) : null,
           selesaiThumbnail: selesai ? (signedUrlMap.get(selesai.storage_path) ?? null) : null,
           ticketCount: tickets.length,
-          isHoliday,
-          holidayName,
-        });
+        };
       }
+
+      let overallStatus: ShiftStatus = 'kosong';
+      if (lengkapCount === JOB_TYPES.length) {
+        overallStatus = 'lengkap';
+      } else if (lengkapCount > 0 || partiallyFilled) {
+        overallStatus = 'sebagian';
+      }
+
+      items.push({
+        work_date: date,
+        shift_type: shift,
+        isHoliday,
+        holidayName,
+        overallStatus,
+        jobs: jobs as Record<any, RiwayatJobDetail>,
+      });
     }
   }
 

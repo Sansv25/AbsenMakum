@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { saveShiftSettingsAction, resetAllAttendanceDataAction } from './actions';
+import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import type { ShiftSetting } from '@/lib/supabase/types';
 import { Clock, Check, Loader2, AlertOctagon, Trash2 } from 'lucide-react';
 
@@ -20,25 +21,38 @@ export function SettingsForm({ settings, isMaster = false }: SettingsFormProps) 
   const [error, setError] = useState<string | null>(null);
 
   async function handleResetData() {
-    if (!confirm('PERINGATAN: Apakah Anda yakin ingin menghapus SELURUH data absensi, catatan, dan foto piket? Tindakan ini tidak dapat dibatalkan.')) {
-      return;
-    }
-    if (!confirm('Konfirmasi terakhir: Seluruh foto di storage dan riwayat absensi akan dihapus bersih. Lanjutkan?')) {
-      return;
-    }
+    const firstConfirm = await showConfirm(
+      'Hapus Seluruh Data Absensi?',
+      'PERINGATAN: Tindakan ini akan menghapus SELURUH data absensi, catatan, dan foto piket di storage. Tindakan ini tidak dapat dibatalkan.',
+      'Ya, Lanjutkan',
+      true
+    );
+    if (!firstConfirm) return;
+
+    const secondConfirm = await showConfirm(
+      'Konfirmasi Terakhir',
+      'Seluruh foto di storage dan riwayat absensi akan dibersihkan secara total. Anda yakin?',
+      'Ya, Bersihkan Semua',
+      true
+    );
+    if (!secondConfirm) return;
 
     try {
       setResetting(true);
       setError(null);
       const res = await resetAllAttendanceDataAction();
       if (res.error) {
-        alert(`Gagal mereset data: ${res.error}\n\nJika ada pembatasan RLS, Anda juga dapat menjalankan script pembersihan di SQL Editor Supabase.`);
+        showAlert(
+          'Gagal Reset',
+          `Gagal mereset data: ${res.error}\n\nJika ada batasan RLS, Anda dapat menjalankan script pembersihan di SQL Editor Supabase.`,
+          'error'
+        );
       } else {
-        alert('Seluruh data absensi dan foto berhasil dibersihkan!');
+        await showAlert('Berhasil', 'Seluruh data absensi dan foto berhasil dibersihkan!', 'success');
         window.location.href = '/';
       }
     } catch {
-      alert('Terjadi kesalahan saat mereset data.');
+      showAlert('Error', 'Terjadi kesalahan saat mereset data.', 'error');
     } finally {
       setResetting(false);
     }

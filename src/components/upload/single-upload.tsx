@@ -5,6 +5,7 @@ import { Camera, Upload, Trash2, Loader2, CheckCircle2, Lock } from 'lucide-reac
 import { CameraModal } from './camera-modal';
 import { compressImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
+import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import type { AttachmentWithUrl } from '@/lib/data/attendance';
 import type { AttachmentKind, ShiftType } from '@/lib/supabase/types';
 
@@ -97,11 +98,12 @@ export function SingleUpload({
       });
 
       setStatusMsg('Tersimpan');
+      showToast(`Foto ${title} berhasil disimpan`, 'success');
       setTimeout(() => setStatusMsg(null), 3000);
       onSaved();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mengunggah foto.';
-      alert(msg);
+      showAlert('Gagal Unggah', msg, 'error');
       setStatusMsg(null);
     } finally {
       setUploading(false);
@@ -110,7 +112,13 @@ export function SingleUpload({
 
   async function handleDelete() {
     if (!attachment) return;
-    if (!confirm(`Hapus foto ${title}?`)) return;
+    const confirmed = await showConfirm(
+      'Hapus Foto?',
+      `Apakah Anda yakin ingin menghapus foto ${title}?`,
+      'Ya, Hapus',
+      true
+    );
+    if (!confirmed) return;
 
     try {
       setDeleting(true);
@@ -124,10 +132,11 @@ export function SingleUpload({
 
       setAttachment(null);
       setStatusMsg('Foto terhapus');
+      showToast(`Foto ${title} berhasil dihapus`, 'info');
       setTimeout(() => setStatusMsg(null), 3000);
       onSaved();
     } catch {
-      alert('Gagal menghapus foto.');
+      showAlert('Gagal', 'Terjadi kesalahan saat menghapus foto.', 'error');
     } finally {
       setDeleting(false);
     }
