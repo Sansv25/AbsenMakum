@@ -6,18 +6,13 @@ import { formatIndonesia } from '@/lib/dates';
 import { shiftLabel, jobLabel, JOB_TYPES, type JobType } from '@/lib/shifts';
 import type { ShiftType, ShiftStatus } from '@/lib/supabase/types';
 import {
-  CalendarCheck,
-  AlertCircle,
-  Circle,
   Filter,
   ChevronLeft,
   ChevronRight,
   FileText,
-  Lock,
   X,
   ExternalLink,
   Layers,
-  Sparkles,
 } from 'lucide-react';
 
 export interface RiwayatJobDetail {

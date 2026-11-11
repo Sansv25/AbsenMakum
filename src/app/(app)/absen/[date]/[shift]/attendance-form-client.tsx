@@ -158,7 +158,6 @@ export function AttendanceFormClient({
     }
   }
 
-  const isComplete = !!mulaiAttachment && !!selesaiAttachment;
 
   return (
     <div className="space-y-6">

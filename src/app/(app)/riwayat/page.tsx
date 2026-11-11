@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { todayWITA, getDatesInMonth, toYearMonth } from '@/lib/dates';
-import { getRequiredShifts, JOB_TYPES } from '@/lib/shifts';
+import { getRequiredShifts, JOB_TYPES, type JobType } from '@/lib/shifts';
 import { RiwayatView, type RiwayatShiftGroup, type RiwayatJobDetail } from './riwayat-view';
 import type { Holiday, Attendance, Attachment, ShiftStatus } from '@/lib/supabase/types';
 
@@ -97,7 +97,7 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
     const holidayName = holidayMap.get(date);
 
     for (const shift of requiredShifts) {
-      const jobs: Record<string, RiwayatJobDetail> = {};
+      const jobs: Record<JobType, RiwayatJobDetail> = {} as Record<JobType, RiwayatJobDetail>;
       let lengkapCount = 0;
       let partiallyFilled = false;
 
@@ -146,7 +146,7 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
         isHoliday,
         holidayName,
         overallStatus,
-        jobs: jobs as Record<any, RiwayatJobDetail>,
+        jobs,
       });
     }
   }

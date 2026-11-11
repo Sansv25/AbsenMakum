@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { saveShiftSettingsAction, resetAllAttendanceDataAction } from './actions';
-import { showAlert, showConfirm, showToast } from '@/lib/swal';
+import { showAlert, showConfirm } from '@/lib/swal';
 import type { ShiftSetting } from '@/lib/supabase/types';
 import { Clock, Check, Loader2, AlertOctagon, Trash2 } from 'lucide-react';
 

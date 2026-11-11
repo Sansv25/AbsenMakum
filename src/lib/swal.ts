@@ -74,3 +74,4 @@ export function showToast(title: string, icon: 'success' | 'error' | 'info' = 's
 }
 
 export default customSwal;
+
