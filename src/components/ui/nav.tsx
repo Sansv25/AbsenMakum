@@ -52,24 +52,26 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white border-r border-gray-200 p-4 gap-1 fixed top-0 left-0 bottom-0">
-      <div className="mb-6 px-2 flex flex-col items-start gap-2.5">
-        <div className="bg-slate-900 px-3 py-2 rounded-xl shadow-sm inline-flex items-center justify-center">
+      <div className="mb-6 px-2 flex flex-col items-start gap-3">
+        <div className="p-2 rounded-2xl bg-sky-50/80 border border-sky-100 shadow-sm inline-flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/images/logo.png"
-            alt="PLN Icon Plus"
-            className="h-7 w-auto object-contain"
+            src="/images/iconnet-colored.svg"
+            alt="ICONNET"
+            className="h-9 w-auto object-contain"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              if (!target.src.includes('logowhitepln.png')) {
-                target.src = '/images/logowhitepln.png';
+              if (!target.src.includes('logo.svg')) {
+                target.src = '/images/logo.svg';
               }
             }}
           />
         </div>
         <div>
           <h1 className="text-base font-bold text-gray-900 leading-tight">Absensi Piket</h1>
-          <p className="text-[11px] text-gray-400 font-medium">Macan Kumbang</p>
+          <p className="text-[11px] text-sky-700 font-semibold tracking-wide mt-0.5">
+            ICONNET &bull; Macan Kumbang
+          </p>
         </div>
       </div>
       {navItems.map(({ href, label, icon: Icon }) => {

@@ -26,16 +26,16 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8">
         <div className="flex flex-col items-center mb-6">
-          <div className="bg-slate-900 px-4 py-2.5 rounded-2xl shadow-sm mb-3.5 flex items-center justify-center">
+          <div className="p-3.5 rounded-2xl bg-sky-50/80 border border-sky-100 shadow-sm mb-3 flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/logo.png"
-              alt="PLN Icon Plus"
-              className="h-10 w-auto object-contain"
+              src="/images/iconnet-colored.svg"
+              alt="ICONNET"
+              className="h-12 w-auto object-contain"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                if (!target.src.includes('logowhitepln.png')) {
-                  target.src = '/images/logowhitepln.png';
+                if (!target.src.includes('logo.svg')) {
+                  target.src = '/images/logo.svg';
                 }
               }}
             />
@@ -43,6 +43,9 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold text-center text-gray-900">
             Absensi Piket
           </h1>
+          <p className="text-center text-sky-700 text-xs font-semibold mt-0.5">
+            ICONNET &bull; Macan Kumbang
+          </p>
           <p className="text-center text-gray-500 text-xs mt-1">
             Masuk untuk melanjutkan
           </p>
