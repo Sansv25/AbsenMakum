@@ -278,6 +278,7 @@ export function AttendanceFormClient({
 
       {/* 2. Bukti Piket 1: Mulai Kerja */}
       <SingleUpload
+        key={`${attendance.id}-mulai`}
         title="1. Bukti Piket — Mulai Kerja"
         kind="mulai"
         attendanceId={attendance.id}
@@ -291,6 +292,7 @@ export function AttendanceFormClient({
 
       {/* 3. Bukti Piket 2: Selesai Kerja */}
       <SingleUpload
+        key={`${attendance.id}-selesai`}
         title="2. Bukti Piket — Selesai Kerja"
         kind="selesai"
         attendanceId={attendance.id}
@@ -304,6 +306,7 @@ export function AttendanceFormClient({
 
       {/* 4. Catatan Piket */}
       <NoteAutosave
+        key={`${attendance.id}-note`}
         attendanceId={attendance.id}
         initialNote={attendance.note}
         canEdit={canEdit}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Camera, Upload, Trash2, Loader2, CheckCircle2, Lock } from 'lucide-react';
 import { CameraModal } from './camera-modal';
 import { compressImage } from '@/lib/image';
@@ -35,6 +35,10 @@ export function SingleUpload({
   const [attachment, setAttachment] = useState<AttachmentWithUrl | null>(
     initialAttachment ?? null
   );
+
+  useEffect(() => {
+    setAttachment(initialAttachment ?? null);
+  }, [initialAttachment, attendanceId]);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);

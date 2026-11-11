@@ -23,6 +23,10 @@ export function NoteAutosave({
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    setNote(initialNote ?? '');
+  }, [initialNote, attendanceId]);
+
+  useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };

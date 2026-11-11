@@ -152,6 +152,7 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
 
       {/* Main interactive form */}
       <AttendanceFormClient
+        key={`${attendance.id}-${jobType}`}
         attendance={attendance}
         userId={user.id}
         workDate={date}
