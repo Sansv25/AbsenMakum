@@ -6,6 +6,8 @@ export interface AdminUserItem {
   id: string;
   email: string;
   role: UserRole;
+  full_name?: string | null;
+  phone?: string | null;
   created_at: string;
   last_sign_in_at: string | null;
 }

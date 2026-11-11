@@ -198,7 +198,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-gray-900 text-sm truncate">
-                      {user.email}
+                      {user.full_name ? user.full_name : user.email}
                     </span>
                     {isSelf && (
                       <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">
@@ -216,9 +216,19 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                     )}
                   </div>
 
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Dibuat: {formatIndonesia(user.created_at.slice(0, 10))}
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap text-[11px] text-gray-500 mt-1">
+                    <span>{user.email}</span>
+                    {user.phone && (
+                      <>
+                        <span className="text-gray-300">&bull;</span>
+                        <span className="text-emerald-700 font-medium">{user.phone}</span>
+                      </>
+                    )}
+                    <span className="text-gray-300">&bull;</span>
+                    <span className="text-gray-400">
+                      Dibuat: {formatIndonesia(user.created_at.slice(0, 10))}
+                    </span>
+                  </div>
                 </div>
               </div>
 

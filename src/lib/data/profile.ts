@@ -13,6 +13,8 @@ export async function getCurrentUserProfile(): Promise<{
   email: string | null;
   role: UserRole;
   isMaster: boolean;
+  fullName: string | null;
+  phone: string | null;
 }> {
   const supabase = await createClient();
   const {
@@ -25,6 +27,8 @@ export async function getCurrentUserProfile(): Promise<{
       email: null,
       role: 'user',
       isMaster: false,
+      fullName: null,
+      phone: null,
     };
   }
 
@@ -49,6 +53,8 @@ export async function getCurrentUserProfile(): Promise<{
         email: user.email ?? null,
         role: 'master',
         isMaster: true,
+        fullName: profile.full_name ?? null,
+        phone: profile.phone ?? null,
       };
     }
 
@@ -58,16 +64,22 @@ export async function getCurrentUserProfile(): Promise<{
       email: user.email ?? null,
       role: profile.role,
       isMaster,
+      fullName: profile.full_name ?? null,
+      phone: profile.phone ?? null,
     };
   }
 
   // Jika belum ada di tabel profiles (fallback self-healing)
   const defaultRole: UserRole = isMasterEmail ? 'master' : 'user';
+  const metaFullName = (user.user_metadata?.full_name || user.user_metadata?.name || '') as string;
+  const metaPhone = (user.user_metadata?.phone || user.user_metadata?.phone_number || '') as string;
 
   await supabase.from('profiles').upsert({
     id: user.id,
     email: user.email ?? '',
     role: defaultRole,
+    full_name: metaFullName || null,
+    phone: metaPhone || null,
   });
 
   return {
@@ -75,5 +87,39 @@ export async function getCurrentUserProfile(): Promise<{
     email: user.email ?? null,
     role: defaultRole,
     isMaster: defaultRole === 'master',
+    fullName: metaFullName || null,
+    phone: metaPhone || null,
   };
+}
+
+/**
+ * Memperbarui data nama lengkap dan nomor telepon pengguna aktif
+ */
+export async function updateCurrentUserProfile(
+  fullName: string,
+  phone: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'Tidak terautentikasi.' };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      full_name: fullName.trim(),
+      phone: phone.trim(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', user.id);
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
 }

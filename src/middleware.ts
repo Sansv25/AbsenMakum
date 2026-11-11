@@ -30,15 +30,20 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isLoginPage = pathname === '/login';
+  const publicPaths = ['/login', '/register', '/verify-otp', '/auth/callback'];
+  const isPublicPage = publicPaths.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`)
+  );
 
-  if (!user && !isLoginPage) {
+  // Jika belum login dan mengakses halaman yang dilindungi
+  if (!user && !isPublicPage) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
-  if (user && isLoginPage) {
+  // Jika sudah login dan mencoba mengakses halaman login/register
+  if (user && (pathname === '/login' || pathname === '/register')) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);
