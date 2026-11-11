@@ -15,6 +15,7 @@ import {
   Calendar,
   Loader2,
   RotateCcw,
+  ShieldAlert,
 } from 'lucide-react';
 import { getOrCreateDeviceId, getDeviceLabel } from '@/lib/device';
 import {
@@ -62,22 +63,24 @@ export function AttendanceFormClient({
     setIsMounted(true);
 
     // Jika absensi belum punya device_id dan belum terkunci, dan tanggalnya hari ini:
-    if (!attendance.device_id && !attendance.is_locked && workDate === today) {
+    if (!attendance.device_id && !attendance.is_locked && workDate === today && (attendance.user_id === userId || isMaster)) {
       claimDeviceAction(attendance.id, devId, devLabel).then(() => {
         router.refresh();
       });
     }
-  }, [attendance.device_id, attendance.is_locked, attendance.id, workDate, today, router]);
+  }, [attendance.device_id, attendance.is_locked, attendance.id, attendance.user_id, userId, isMaster, workDate, today, router]);
 
   // Evaluasi hak akses edit
   const isToday = workDate === today;
   const isLocked = !!attendance.is_locked;
   const boundDeviceId = attendance.device_id;
+  const isAuthor = attendance.user_id === userId;
+  const hasExistingData = !!boundDeviceId || !!mulaiAttachment || !!selesaiAttachment || !!attendance.note;
   // Jika belum di-mount (SSR), anggap sama agar tidak flicker
   const isSameDevice = !isMounted || !boundDeviceId || (clientDeviceId && boundDeviceId === clientDeviceId);
 
   let canEdit = true;
-  let lockReason: 'locked' | 'device_mismatch' | 'not_today' | null = null;
+  let lockReason: 'locked' | 'device_mismatch' | 'not_today' | 'other_user' | null = null;
 
   if (!isMaster) {
     if (!isToday) {
@@ -86,6 +89,9 @@ export function AttendanceFormClient({
     } else if (isLocked) {
       canEdit = false;
       lockReason = 'locked';
+    } else if (!isAuthor && hasExistingData) {
+      canEdit = false;
+      lockReason = 'other_user';
     } else if (!isSameDevice) {
       canEdit = false;
       lockReason = 'device_mismatch';
@@ -210,6 +216,23 @@ export function AttendanceFormClient({
 
       {!isMaster && !canEdit && (
         <>
+          {lockReason === 'other_user' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-amber-900 text-xs shadow-sm">
+              <ShieldAlert className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-900 text-sm">Absensi Diisi Oleh Petugas Lain</p>
+                <p className="text-amber-800 mt-0.5">
+                  Absensi shift ini sudah diisi oleh rekan petugas Anda. Demi integritas data, akun Anda saat ini berada dalam mode <em>baca (read-only)</em>.
+                </p>
+                {attendance.device_info && (
+                  <p className="text-[11px] text-amber-700 mt-1">
+                    Perangkat yang digunakan: <strong>{attendance.device_info}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {lockReason === 'locked' && (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-red-800 text-xs shadow-sm">
               <Lock className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />

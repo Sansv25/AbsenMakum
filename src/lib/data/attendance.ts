@@ -20,24 +20,22 @@ export async function getAttendanceWithAttachments(
 
   const { isMaster } = await getCurrentUserProfile();
 
-  // Fetch or create attendance record
-  let query = supabase
+  // Fetch attendances for this date and shift (shared across the organization)
+  const { data: attendancesList, error: attError } = await supabase
     .from('attendances')
     .select('*')
     .eq('work_date', work_date)
-    .eq('shift_type', shift_type);
-
-  if (!isMaster) {
-    query = query.eq('user_id', user.id);
-  }
-
-  const { data: existingAttendance, error: attError } = await query.maybeSingle();
+    .eq('shift_type', shift_type)
+    .order('created_at', { ascending: true });
 
   if (attError) {
     return { attendance: null, error: attError.message };
   }
 
-  let attendance = existingAttendance;
+  // Cari yang sudah memiliki data (perangkat terikat, catatan, terkunci, dsb.)
+  let attendance = attendancesList && attendancesList.length > 0
+    ? attendancesList.find((a) => a.device_id || a.note || a.is_locked) || attendancesList[0]
+    : null;
 
   if (!attendance) {
     // Create new attendance
