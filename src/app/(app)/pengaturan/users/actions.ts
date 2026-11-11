@@ -6,6 +6,8 @@ import {
   adminSetUserRole,
   adminUpdateUserPassword,
   adminDeleteUser,
+  adminApproveUser,
+  adminUpdateUserProfile,
 } from '@/lib/data/users';
 import type { UserRole } from '@/lib/supabase/types';
 
@@ -50,6 +52,28 @@ export async function resetPasswordAction(userId: string, newPassword: string) {
 
 export async function deleteUserAction(userId: string) {
   const result = await adminDeleteUser(userId);
+  if (result.error) return { error: result.error };
+
+  revalidatePath('/pengaturan/users');
+  return { success: true };
+}
+
+export async function approveUserAction(userId: string) {
+  const result = await adminApproveUser(userId);
+  if (result.error) return { error: result.error };
+
+  revalidatePath('/pengaturan/users');
+  return { success: true };
+}
+
+export async function updateUserProfileAdminAction(
+  userId: string,
+  fullName: string,
+  phone: string,
+  role: UserRole,
+  setApproved: boolean
+) {
+  const result = await adminUpdateUserProfile(userId, fullName, phone, role, setApproved);
   if (result.error) return { error: result.error };
 
   revalidatePath('/pengaturan/users');

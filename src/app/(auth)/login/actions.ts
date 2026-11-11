@@ -36,12 +36,17 @@ export async function login(formData: FormData) {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('phone')
+      .select('phone, is_approved, role')
       .eq('id', user.id)
       .maybeSingle();
 
     if (!profile?.phone || profile.phone.trim() === '') {
       redirect('/complete-profile');
+    }
+
+    const isMaster = profile?.role === 'master' || user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+    if (!isMaster && profile?.is_approved === false) {
+      redirect('/pending-approval');
     }
   }
 

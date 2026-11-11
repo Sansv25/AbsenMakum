@@ -19,13 +19,20 @@ export async function GET(request: Request) {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('phone')
+          .select('phone, is_approved, role')
           .eq('id', user.id)
           .maybeSingle();
 
         // Jika nomor telepon belum ada, wajib arahkan ke halaman lengkapi profil
         if (!profile?.phone || profile.phone.trim() === '') {
           return NextResponse.redirect(`${origin}/complete-profile`);
+        }
+
+        const isMaster =
+          profile.role === 'master' ||
+          user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+        if (!isMaster && profile.is_approved === false) {
+          return NextResponse.redirect(`${origin}/pending-approval`);
         }
       }
 

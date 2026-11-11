@@ -8,6 +8,7 @@ export interface AdminUserItem {
   role: UserRole;
   full_name?: string | null;
   phone?: string | null;
+  is_approved: boolean;
   created_at: string;
   last_sign_in_at: string | null;
 }
@@ -103,6 +104,52 @@ export async function adminDeleteUser(
 
   const { error } = await supabase.rpc('admin_delete_user', {
     target_user_id: targetUserId,
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+}
+
+export async function adminApproveUser(
+  targetUserId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { isMaster } = await getCurrentUserProfile();
+  if (!isMaster) {
+    return { success: false, error: 'Hanya Akun Master yang diizinkan menyetujui akun.' };
+  }
+
+  const { error } = await supabase.rpc('admin_approve_user', {
+    target_user_id: targetUserId,
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+}
+
+export async function adminUpdateUserProfile(
+  targetUserId: string,
+  newFullName: string,
+  newPhone: string,
+  newRole: UserRole,
+  setApproved: boolean
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { isMaster } = await getCurrentUserProfile();
+  if (!isMaster) {
+    return { success: false, error: 'Hanya Akun Master yang diizinkan mengubah data akun.' };
+  }
+
+  const { error } = await supabase.rpc('admin_update_user_profile', {
+    target_user_id: targetUserId,
+    new_full_name: newFullName.trim(),
+    new_phone: newPhone.trim(),
+    new_role: newRole,
+    set_approved: setApproved,
   });
 
   if (error) {

@@ -1,6 +1,6 @@
 'use server';
 
-import { updateCurrentUserProfile } from '@/lib/data/profile';
+import { updateCurrentUserProfile, getCurrentUserProfile } from '@/lib/data/profile';
 import { redirect } from 'next/navigation';
 
 export async function saveProfileDetails(formData: FormData) {
@@ -19,6 +19,11 @@ export async function saveProfileDetails(formData: FormData) {
   const result = await updateCurrentUserProfile(fullName, cleanedPhone);
   if (!result.success) {
     return { error: result.error || 'Gagal menyimpan profil.' };
+  }
+
+  const profile = await getCurrentUserProfile();
+  if (!profile.isMaster && !profile.isApproved) {
+    redirect('/pending-approval');
   }
 
   redirect('/');

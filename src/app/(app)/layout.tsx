@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { logout } from '@/app/(auth)/login/actions';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 import { BottomNav, Sidebar } from '@/components/ui/nav';
@@ -9,7 +10,13 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { email, isMaster } = await getCurrentUserProfile();
+  const profile = await getCurrentUserProfile();
+
+  if (!profile.isMaster && !profile.isApproved) {
+    redirect('/pending-approval');
+  }
+
+  const { email, isMaster } = profile;
 
   return (
     <div className="min-h-screen flex">

@@ -15,6 +15,7 @@ export async function getCurrentUserProfile(): Promise<{
   isMaster: boolean;
   fullName: string | null;
   phone: string | null;
+  isApproved: boolean;
 }> {
   const supabase = await createClient();
   const {
@@ -29,6 +30,7 @@ export async function getCurrentUserProfile(): Promise<{
       isMaster: false,
       fullName: null,
       phone: null,
+      isApproved: false,
     };
   }
 
@@ -43,10 +45,10 @@ export async function getCurrentUserProfile(): Promise<{
 
   if (profile) {
     // Jika email adalah master_email tapi rolenya bukan master di db, perbarui
-    if (isMasterEmail && profile.role !== 'master') {
+    if (isMasterEmail && (profile.role !== 'master' || profile.is_approved !== true)) {
       await supabase
         .from('profiles')
-        .update({ role: 'master' })
+        .update({ role: 'master', is_approved: true })
         .eq('id', user.id);
       return {
         userId: user.id,
@@ -55,10 +57,13 @@ export async function getCurrentUserProfile(): Promise<{
         isMaster: true,
         fullName: profile.full_name ?? null,
         phone: profile.phone ?? null,
+        isApproved: true,
       };
     }
 
-    const isMaster = profile.role === 'master';
+    const isMaster = profile.role === 'master' || isMasterEmail;
+    const isApproved = isMaster ? true : (profile.is_approved ?? false);
+
     return {
       userId: user.id,
       email: user.email ?? null,
@@ -66,6 +71,7 @@ export async function getCurrentUserProfile(): Promise<{
       isMaster,
       fullName: profile.full_name ?? null,
       phone: profile.phone ?? null,
+      isApproved,
     };
   }
 
@@ -73,6 +79,7 @@ export async function getCurrentUserProfile(): Promise<{
   const defaultRole: UserRole = isMasterEmail ? 'master' : 'user';
   const metaFullName = (user.user_metadata?.full_name || user.user_metadata?.name || '') as string;
   const metaPhone = (user.user_metadata?.phone || user.user_metadata?.phone_number || '') as string;
+  const isApproved = isMasterEmail;
 
   await supabase.from('profiles').upsert({
     id: user.id,
@@ -80,15 +87,17 @@ export async function getCurrentUserProfile(): Promise<{
     role: defaultRole,
     full_name: metaFullName || null,
     phone: metaPhone || null,
+    is_approved: isApproved,
   });
 
   return {
     userId: user.id,
     email: user.email ?? null,
     role: defaultRole,
-    isMaster: defaultRole === 'master',
+    isMaster: isMasterEmail,
     fullName: metaFullName || null,
     phone: metaPhone || null,
+    isApproved,
   };
 }
 
