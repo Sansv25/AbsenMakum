@@ -52,8 +52,17 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white border-r border-gray-200 p-4 gap-1 fixed top-0 left-0 bottom-0">
-      <div className="mb-6 px-2">
-        <h1 className="text-lg font-bold text-gray-900">Absensi Piket</h1>
+      <div className="mb-6 px-2 flex items-center gap-2.5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/images/logo.png"
+          alt="Logo"
+          className="h-8 w-8 object-contain rounded-lg flex-shrink-0"
+          onError={(e) => {
+            (e.target as HTMLElement).style.display = 'none';
+          }}
+        />
+        <h1 className="text-lg font-bold text-gray-900 leading-tight">Absensi Piket</h1>
       </div>
       {navItems.map(({ href, label, icon: Icon }) => {
         const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href);

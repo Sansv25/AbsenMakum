@@ -1,0 +1,11 @@
+Tempatkan file logo aplikasi Anda di folder ini:
+
+Nama file yang direkomendasikan:
+- logo.png (Direkomendasikan format PNG transparan)
+- atau logo.svg
+- atau logo.webp
+
+Ukuran yang disarankan:
+- Rasio persegi (1:1) misal 512x512 px untuk logo ikon
+- Atau rasio horizontal (3:1 atau 4:1) jika menyertakan nama perusahaan/brand
+- Background transparan (PNG/SVG) agar menyatu dengan tampilan web.

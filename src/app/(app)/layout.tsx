@@ -20,6 +20,15 @@ export default async function AppLayout({
         {/* Header (mobile) */}
         <header className="md:hidden sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/logo.png"
+              alt="Logo"
+              className="h-6 w-6 object-contain rounded-md flex-shrink-0"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
             <span className="font-bold text-gray-900">Absensi Piket</span>
             {isMaster ? (
               <span className="text-[10px] bg-amber-100 border border-amber-300 text-amber-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">

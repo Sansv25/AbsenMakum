@@ -25,12 +25,23 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8">
-        <h1 className="text-2xl font-bold text-center mb-2 text-gray-900">
-          Absensi Piket
-        </h1>
-        <p className="text-center text-gray-500 text-sm mb-8">
-          Masuk untuk melanjutkan
-        </p>
+        <div className="flex flex-col items-center mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/logo.png"
+            alt="Logo"
+            className="h-14 w-14 object-contain rounded-2xl mb-2"
+            onError={(e) => {
+              (e.target as HTMLElement).style.display = 'none';
+            }}
+          />
+          <h1 className="text-2xl font-bold text-center text-gray-900">
+            Absensi Piket
+          </h1>
+          <p className="text-center text-gray-500 text-xs mt-1">
+            Masuk untuk melanjutkan
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5" suppressHydrationWarning>
           <div>
