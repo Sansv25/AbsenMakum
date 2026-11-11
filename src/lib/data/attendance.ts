@@ -90,7 +90,8 @@ export async function getAttendanceWithAttachments(
 export async function updateNote(
   attendanceId: string,
   note: string,
-  deviceId?: string
+  deviceId?: string,
+  deviceInfo?: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -98,29 +99,46 @@ export async function updateNote(
 
   const { isMaster } = await getCurrentUserProfile();
 
-  if (!isMaster) {
-    const { data: att } = await supabase
-      .from('attendances')
-      .select('device_id, is_locked')
-      .eq('id', attendanceId)
-      .maybeSingle();
+  const { data: att } = await supabase
+    .from('attendances')
+    .select('device_id, is_locked, user_id')
+    .eq('id', attendanceId)
+    .maybeSingle();
 
-    if (att) {
-      if (att.is_locked) {
-        return { success: false, error: 'Absensi telah dikunci.' };
-      }
-      if (att.device_id && deviceId && att.device_id !== deviceId) {
-        return { success: false, error: 'Hanya perangkat yang memulai absen yang dapat mengedit.' };
-      }
+  if (!isMaster && att) {
+    if (att.is_locked) {
+      return { success: false, error: 'Absensi telah dikunci.' };
     }
+    if (att.device_id && deviceId && att.device_id !== deviceId) {
+      return { success: false, error: 'Hanya perangkat yang memulai absen yang dapat mengedit.' };
+    }
+  }
+
+  const updateData: {
+    note: string;
+    updated_at: string;
+    device_id?: string;
+    device_info?: string;
+    user_id?: string;
+  } = {
+    note,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Jika belum punya device_id dan ada deviceId, ikatkan perangkat dan author saat pertama kali input
+  if (att && !att.device_id && deviceId) {
+    updateData.device_id = deviceId;
+    if (deviceInfo) updateData.device_info = deviceInfo;
+    updateData.user_id = user.id;
   }
 
   let updateQuery = supabase
     .from('attendances')
-    .update({ note, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq('id', attendanceId);
 
-  if (!isMaster) {
+  // Jika sudah terikat ke petugas lain, pastikan hanya author atau master yang boleh update
+  if (!isMaster && att?.device_id && att.user_id !== user.id) {
     updateQuery = updateQuery.eq('user_id', user.id);
   }
 
@@ -239,6 +257,7 @@ export async function claimDeviceForAttendance(
     const { error } = await supabase
       .from('attendances')
       .update({
+        user_id: user.id,
         device_id: deviceId,
         device_info: deviceInfo,
         updated_at: new Date().toISOString(),

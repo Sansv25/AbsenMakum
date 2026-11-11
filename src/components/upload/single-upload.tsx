@@ -6,6 +6,7 @@ import { CameraModal } from './camera-modal';
 import { compressImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
+import { claimDeviceAction } from '@/app/(app)/absen/[date]/[shift]/actions';
 import type { AttachmentWithUrl } from '@/lib/data/attendance';
 import type { AttachmentKind, ShiftType } from '@/lib/supabase/types';
 
@@ -19,6 +20,8 @@ interface SingleUploadProps {
   initialAttachment?: AttachmentWithUrl | null;
   onSaved: () => void;
   canEdit?: boolean;
+  deviceId?: string;
+  deviceInfo?: string;
 }
 
 export function SingleUpload({
@@ -31,6 +34,8 @@ export function SingleUpload({
   initialAttachment,
   onSaved,
   canEdit = true,
+  deviceId,
+  deviceInfo,
 }: SingleUploadProps) {
   const [attachment, setAttachment] = useState<AttachmentWithUrl | null>(
     initialAttachment ?? null
@@ -90,6 +95,15 @@ export function SingleUpload({
         .single();
 
       if (dbError) throw new Error(dbError.message);
+
+      // 4.5 Kunci/ikat perangkat dan author saat pertama kali unggah foto
+      if (deviceId && deviceInfo) {
+        try {
+          await claimDeviceAction(attendanceId, deviceId, deviceInfo);
+        } catch {
+          // non-blocking
+        }
+      }
 
       // 5. Buat signed URL untuk pratinjau langsung
       const { data: signed } = await supabase.storage

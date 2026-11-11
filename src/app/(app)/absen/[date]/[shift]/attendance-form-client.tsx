@@ -20,7 +20,6 @@ import { getOrCreateDeviceId, getDeviceLabel } from '@/lib/device';
 import { isWithin48Hours } from '@/lib/dates';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import {
-  claimDeviceAction,
   unlockAttendanceAction,
   resetDeviceAction,
 } from '@/app/(app)/absen/[date]/[shift]/actions';
@@ -60,14 +59,7 @@ export function AttendanceFormClient({
     setClientDeviceId(devId);
     setClientDeviceLabel(devLabel);
     setIsMounted(true);
-
-    // Jika absensi belum punya device_id dan belum terkunci, dan masih dalam batas toleransi 48 jam:
-    if (!attendance.device_id && !attendance.is_locked && isWithin48Hours(workDate) && (attendance.user_id === userId || isMaster)) {
-      claimDeviceAction(attendance.id, devId, devLabel).then(() => {
-        router.refresh();
-      });
-    }
-  }, [attendance.device_id, attendance.is_locked, attendance.id, attendance.user_id, userId, isMaster, workDate, today, router]);
+  }, []);
 
   // Evaluasi hak akses edit
   const isWithin48 = isWithin48Hours(workDate);
@@ -288,6 +280,8 @@ export function AttendanceFormClient({
         initialAttachment={mulaiAttachment}
         onSaved={handleRefresh}
         canEdit={canEdit}
+        deviceId={clientDeviceId}
+        deviceInfo={clientDeviceLabel}
       />
 
       {/* 3. Bukti Piket 2: Selesai Kerja */}
@@ -302,6 +296,8 @@ export function AttendanceFormClient({
         initialAttachment={selesaiAttachment}
         onSaved={handleRefresh}
         canEdit={canEdit}
+        deviceId={clientDeviceId}
+        deviceInfo={clientDeviceLabel}
       />
 
       {/* 4. Catatan Piket */}
@@ -311,6 +307,7 @@ export function AttendanceFormClient({
         initialNote={attendance.note}
         canEdit={canEdit}
         deviceId={clientDeviceId}
+        deviceInfo={clientDeviceLabel}
       />
 
       {/* 6. Aksi Bawah & Tombol Kunci */}

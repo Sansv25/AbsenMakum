@@ -9,6 +9,7 @@ interface NoteAutosaveProps {
   initialNote: string | null;
   canEdit?: boolean;
   deviceId?: string;
+  deviceInfo?: string;
 }
 
 export function NoteAutosave({
@@ -16,6 +17,7 @@ export function NoteAutosave({
   initialNote,
   canEdit = true,
   deviceId,
+  deviceInfo,
 }: NoteAutosaveProps) {
   const [note, setNote] = useState(initialNote ?? '');
   const [saving, setSaving] = useState(false);
@@ -41,7 +43,7 @@ export function NoteAutosave({
 
     timerRef.current = setTimeout(async () => {
       setSaving(true);
-      await saveNoteAction(attendanceId, val, deviceId);
+      await saveNoteAction(attendanceId, val, deviceId, deviceInfo);
       setSaving(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -52,7 +54,7 @@ export function NoteAutosave({
     if (!canEdit) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     setSaving(true);
-    await saveNoteAction(attendanceId, note, deviceId);
+    await saveNoteAction(attendanceId, note, deviceId, deviceInfo);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);

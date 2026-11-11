@@ -12,9 +12,10 @@ import { revalidatePath } from 'next/cache';
 export async function saveNoteAction(
   attendanceId: string,
   note: string,
-  deviceId?: string
+  deviceId?: string,
+  deviceInfo?: string
 ) {
-  return await updateNote(attendanceId, note, deviceId);
+  return await updateNote(attendanceId, note, deviceId, deviceInfo);
 }
 
 export async function claimDeviceAction(
