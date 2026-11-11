@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserProfile } from '@/lib/data/profile';
-import type { Attendance, Attachment, ShiftType, AttachmentKind } from '@/lib/supabase/types';
+import type { Attendance, Attachment, ShiftType, JobType, AttachmentKind } from '@/lib/supabase/types';
 
 export interface AttachmentWithUrl extends Attachment {
   signedUrl: string | null;
@@ -12,30 +12,27 @@ export interface AttendanceDetail extends Attendance {
 
 export async function getAttendanceWithAttachments(
   work_date: string,
-  shift_type: ShiftType
+  shift_type: ShiftType,
+  job_type: JobType = 'marketer'
 ): Promise<{ attendance: AttendanceDetail | null; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { attendance: null, error: 'Tidak terautentikasi' };
 
-  const { isMaster } = await getCurrentUserProfile();
-
-  // Fetch attendances for this date and shift (shared across the organization)
-  const { data: attendancesList, error: attError } = await supabase
+  // Fetch attendance record for this date, shift, and job_type
+  const { data: existingAttendance, error: attError } = await supabase
     .from('attendances')
     .select('*')
     .eq('work_date', work_date)
     .eq('shift_type', shift_type)
-    .order('created_at', { ascending: true });
+    .eq('job_type', job_type)
+    .maybeSingle();
 
   if (attError) {
     return { attendance: null, error: attError.message };
   }
 
-  // Cari yang sudah memiliki data (perangkat terikat, catatan, terkunci, dsb.)
-  let attendance = attendancesList && attendancesList.length > 0
-    ? attendancesList.find((a) => a.device_id || a.note || a.is_locked) || attendancesList[0]
-    : null;
+  let attendance = existingAttendance;
 
   if (!attendance) {
     // Create new attendance
@@ -45,6 +42,7 @@ export async function getAttendanceWithAttachments(
         user_id: user.id,
         work_date,
         shift_type,
+        job_type,
       })
       .select()
       .single();

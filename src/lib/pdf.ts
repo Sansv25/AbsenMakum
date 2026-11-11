@@ -1,11 +1,12 @@
 import { jsPDF } from 'jspdf';
 import { formatIndonesia } from './dates';
-import { shiftNumber } from './shifts';
+import { shiftNumber, jobLabel, type JobType } from './shifts';
 import type { ShiftType } from './supabase/types';
 
 export interface PdfAttendanceItem {
   work_date: string;
   shift_type: ShiftType;
+  job_type?: JobType;
   note: string | null;
   mulaiUrl: string | null;
   selesaiUrl: string | null;
@@ -78,7 +79,8 @@ export async function generateAttendancePdf(
     const item = attendances[i];
     const shiftNum = shiftNumber(item.shift_type);
     const shiftName = item.shift_type === 'pagi' ? 'Pagi' : 'Malam';
-    const titleText = `${formatIndonesia(item.work_date)} — Shift ${shiftName} (Shift ${shiftNum})`;
+    const jobName = item.job_type ? ` [${jobLabel(item.job_type)}]` : '';
+    const titleText = `${formatIndonesia(item.work_date)} — Shift ${shiftName} (Shift ${shiftNum})${jobName}`;
 
     // New page for each attendance
     if (!isFirstPage) {

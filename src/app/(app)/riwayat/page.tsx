@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { todayWITA, getDatesInMonth, toYearMonth } from '@/lib/dates';
-import { getRequiredShifts } from '@/lib/shifts';
+import { getRequiredShifts, JOB_TYPES } from '@/lib/shifts';
 import { RiwayatView, type RiwayatItem } from './riwayat-view';
 import type { Holiday, Attendance, Attachment, ShiftStatus } from '@/lib/supabase/types';
 
@@ -78,10 +78,10 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
     }
   }
 
-  // Map attendances by "date-shift"
-  const attendanceByDateShift = new Map<string, Attendance>();
+  // Map attendances by "date-shift-job"
+  const attendanceByDateShiftJob = new Map<string, Attendance>();
   for (const a of attendances) {
-    attendanceByDateShift.set(`${a.work_date}-${a.shift_type}`, a);
+    attendanceByDateShiftJob.set(`${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`, a);
   }
 
   // Build items for each day in month (descending order, newest first)
@@ -94,33 +94,36 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
     const holidayName = holidayMap.get(date);
 
     for (const shift of requiredShifts) {
-      const att = attendanceByDateShift.get(`${date}-${shift}`);
-      const attList = att ? (attachByAttendance.get(att.id) ?? []) : [];
+      for (const job of JOB_TYPES) {
+        const att = attendanceByDateShiftJob.get(`${date}-${shift}-${job}`);
+        const attList = att ? (attachByAttendance.get(att.id) ?? []) : [];
 
-      const mulai = attList.find((a) => a.kind === 'mulai');
-      const selesai = attList.find((a) => a.kind === 'selesai');
-      const tickets = attList.filter((a) => a.kind === 'ticket');
+        const mulai = attList.find((a) => a.kind === 'mulai');
+        const selesai = attList.find((a) => a.kind === 'selesai');
+        const tickets = attList.filter((a) => a.kind === 'ticket');
 
-      const hasMulai = !!mulai;
-      const hasSelesai = !!selesai;
+        const hasMulai = !!mulai;
+        const hasSelesai = !!selesai;
 
-      let status: ShiftStatus = 'kosong';
-      if (hasMulai && hasSelesai) status = 'lengkap';
-      else if (hasMulai || hasSelesai || tickets.length > 0 || (att?.note && att.note.trim().length > 0)) status = 'sebagian';
+        let status: ShiftStatus = 'kosong';
+        if (hasMulai && hasSelesai) status = 'lengkap';
+        else if (hasMulai || hasSelesai || tickets.length > 0 || (att?.note && att.note.trim().length > 0)) status = 'sebagian';
 
-      items.push({
-        id: att?.id,
-        work_date: date,
-        shift_type: shift,
-        status,
-        note: att?.note ?? null,
-        is_locked: !!att?.is_locked,
-        mulaiThumbnail: mulai ? (signedUrlMap.get(mulai.storage_path) ?? null) : null,
-        selesaiThumbnail: selesai ? (signedUrlMap.get(selesai.storage_path) ?? null) : null,
-        ticketCount: tickets.length,
-        isHoliday,
-        holidayName,
-      });
+        items.push({
+          id: att?.id,
+          work_date: date,
+          shift_type: shift,
+          job_type: job,
+          status,
+          note: att?.note ?? null,
+          is_locked: !!att?.is_locked,
+          mulaiThumbnail: mulai ? (signedUrlMap.get(mulai.storage_path) ?? null) : null,
+          selesaiThumbnail: selesai ? (signedUrlMap.get(selesai.storage_path) ?? null) : null,
+          ticketCount: tickets.length,
+          isHoliday,
+          holidayName,
+        });
+      }
     }
   }
 

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { todayWITA, formatIndonesia, getDatesInMonth, toYearMonth } from '@/lib/dates';
-import { getRequiredShifts, shiftLabel } from '@/lib/shifts';
+import { getRequiredShifts, shiftLabel, JOB_TYPES, jobLabel } from '@/lib/shifts';
 import Link from 'next/link';
 import type { Holiday, Attendance } from '@/lib/supabase/types';
 import { CalendarCheck, AlertCircle, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -43,7 +43,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // Ambil semua absensi bulan terpilih
   const { data: attendancesData } = await supabase
     .from('attendances')
-    .select('id, work_date, shift_type, note, created_at, updated_at, user_id')
+    .select('id, work_date, shift_type, job_type, note, created_at, updated_at, user_id')
     .gte('work_date', `${currentMonth}-01`)
     .lte('work_date', `${currentMonth}-31`);
 
@@ -67,14 +67,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     kindsByAttendance.get(att.attendance_id)!.add(att.kind);
   }
 
-  // Map: "date-shift" -> status
+  // Map: "date-shift-job" -> status
   const attendanceMap = new Map<string, { status: string; id: string }>();
   for (const a of attendances) {
     const kinds = kindsByAttendance.get(a.id) ?? new Set();
     const hasMulai = kinds.has('mulai');
     const hasSelesai = kinds.has('selesai');
     const status = hasMulai && hasSelesai ? 'lengkap' : hasMulai || hasSelesai ? 'sebagian' : 'kosong';
-    attendanceMap.set(`${a.work_date}-${a.shift_type}`, { status, id: a.id });
+    attendanceMap.set(`${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`, { status, id: a.id });
   }
 
   // Hari ini data
@@ -108,30 +108,50 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </span>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           {requiredShiftsToday.map((shift) => {
-            const key = `${today}-${shift}`;
-            const att = attendanceMap.get(key);
-            const status = att?.status ?? 'kosong';
-
             return (
               <div
                 key={shift}
-                className="flex items-center justify-between p-3.5 rounded-xl border border-gray-100 bg-gray-50"
+                className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 space-y-3"
               >
-                <div className="flex items-center gap-3">
-                  <StatusIcon status={status} />
-                  <div>
-                    <p className="font-semibold text-gray-900 text-sm">{shiftLabel(shift)}</p>
-                    <p className={`text-xs capitalize font-medium ${statusColor(status)}`}>{status}</p>
-                  </div>
+                <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
+                  <p className="font-bold text-gray-900 text-sm">{shiftLabel(shift)}</p>
+                  <span className="text-[11px] text-gray-500 font-medium">3 Pekerjaan</span>
                 </div>
-                <Link
-                  href={`/absen/${today}/${shift}`}
-                  className="text-xs font-semibold px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm transition-colors min-h-[40px] flex items-center"
-                >
-                  {status === 'kosong' ? 'Isi Absen' : 'Lihat / Edit'}
-                </Link>
+
+                <div className="grid grid-cols-1 gap-2.5">
+                  {JOB_TYPES.map((job) => {
+                    const key = `${today}-${shift}-${job}`;
+                    const att = attendanceMap.get(key);
+                    const status = att?.status ?? 'kosong';
+
+                    return (
+                      <div
+                        key={job}
+                        className="flex items-center justify-between p-3 rounded-xl bg-white border border-gray-100 shadow-sm"
+                      >
+                        <div className="flex items-center gap-3">
+                          <StatusIcon status={status} />
+                          <div>
+                            <p className="font-semibold text-gray-800 text-xs sm:text-sm">
+                              {jobLabel(job)}
+                            </p>
+                            <p className={`text-[11px] capitalize font-medium ${statusColor(status)}`}>
+                              {status}
+                            </p>
+                          </div>
+                        </div>
+                        <Link
+                          href={`/absen/${today}/${shift}?job=${job}`}
+                          className="text-xs font-semibold px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm transition-colors min-h-[36px] flex items-center"
+                        >
+                          {status === 'kosong' ? 'Isi Absen' : 'Lihat / Edit'}
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
@@ -245,9 +265,12 @@ function CalendarGrid({
         const isPast = dateStr < today;
 
         const requiredShifts = isOff ? ['pagi', 'malam'] : ['malam'];
-        const statuses = requiredShifts.map(
-          (s) => attendanceMap.get(`${dateStr}-${s}`)?.status ?? 'kosong'
-        );
+        const statuses: string[] = [];
+        for (const s of requiredShifts) {
+          for (const j of JOB_TYPES) {
+            statuses.push(attendanceMap.get(`${dateStr}-${s}-${j}`)?.status ?? 'kosong');
+          }
+        }
 
         let dotColor = 'bg-gray-200';
         if (isPast || isToday) {

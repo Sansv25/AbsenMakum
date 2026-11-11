@@ -1,6 +1,18 @@
-import type { ShiftType } from './supabase/types';
+import type { ShiftType, JobType } from './supabase/types';
 
-export type { ShiftType };
+export type { ShiftType, JobType };
+
+export const JOB_TYPES: JobType[] = ['marketer', 'qontak', 'tiket'];
+
+export const JOB_LABELS: Record<JobType, string> = {
+  marketer: 'Marketer',
+  qontak: 'Qontak',
+  tiket: 'Tiket',
+};
+
+export function jobLabel(job: JobType): string {
+  return JOB_LABELS[job] ?? job;
+}
 
 /**
  * Satu-satunya fungsi yang menentukan shift wajib per tanggal.

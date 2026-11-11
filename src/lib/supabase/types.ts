@@ -2,6 +2,7 @@
 
 export type UserRole = 'master' | 'user';
 export type ShiftType = 'pagi' | 'malam';
+export type JobType = 'marketer' | 'qontak' | 'tiket';
 export type AttachmentKind = 'mulai' | 'selesai' | 'ticket';
 export type ShiftStatus = 'kosong' | 'sebagian' | 'lengkap';
 export type DayStatus = 'kosong' | 'sebagian' | 'lengkap' | 'belum';
@@ -34,6 +35,7 @@ export interface Attendance {
   user_id: string;
   work_date: string; // YYYY-MM-DD
   shift_type: ShiftType;
+  job_type: JobType;
   note: string | null;
   device_id?: string | null;
   device_info?: string | null;

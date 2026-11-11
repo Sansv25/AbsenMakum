@@ -113,6 +113,7 @@ export async function fetchExportData(
     result.push({
       work_date: att.work_date,
       shift_type: att.shift_type as ShiftType,
+      job_type: att.job_type,
       note: att.note,
       mulaiUrl,
       selesaiUrl,

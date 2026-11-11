@@ -22,10 +22,11 @@ create table public.attendances (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   work_date date not null,
   shift_type text not null check (shift_type in ('pagi','malam')),
+  job_type text not null default 'marketer' check (job_type in ('marketer','qontak','tiket')),
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (user_id, work_date, shift_type)
+  unique (work_date, shift_type, job_type)
 );
 
 create table public.attachments (

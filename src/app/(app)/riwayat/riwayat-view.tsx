@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { formatIndonesia } from '@/lib/dates';
-import { shiftLabel } from '@/lib/shifts';
+import { shiftLabel, jobLabel, JOB_TYPES, type JobType } from '@/lib/shifts';
 import type { ShiftType, ShiftStatus } from '@/lib/supabase/types';
 import { CalendarCheck, AlertCircle, Circle, Filter, ChevronLeft, ChevronRight, FileText, Lock } from 'lucide-react';
 
@@ -11,6 +11,7 @@ export interface RiwayatItem {
   id?: string;
   work_date: string;
   shift_type: ShiftType;
+  job_type?: JobType;
   status: ShiftStatus;
   note: string | null;
   is_locked?: boolean;
@@ -30,10 +31,12 @@ interface RiwayatViewProps {
 
 export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: RiwayatViewProps) {
   const [shiftFilter, setShiftFilter] = useState<'all' | ShiftType>('all');
+  const [jobFilter, setJobFilter] = useState<'all' | JobType>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ShiftStatus>('all');
 
   const filtered = items.filter((item) => {
     if (shiftFilter !== 'all' && item.shift_type !== shiftFilter) return false;
+    if (jobFilter !== 'all' && item.job_type !== jobFilter) return false;
     if (statusFilter !== 'all' && item.status !== statusFilter) return false;
     return true;
   });
@@ -68,13 +71,13 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
         <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
           <Filter className="h-3.5 w-3.5" /> Filter Riwayat
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <div>
             <label className="block text-[11px] font-medium text-gray-600 mb-1">Shift</label>
             <select
               value={shiftFilter}
               onChange={(e) => setShiftFilter(e.target.value as 'all' | ShiftType)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+              className="w-full px-2 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
             >
               <option value="all">Semua Shift</option>
               <option value="pagi">Shift 1 (Pagi)</option>
@@ -82,11 +85,24 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
             </select>
           </div>
           <div>
+            <label className="block text-[11px] font-medium text-gray-600 mb-1">Pekerjaan</label>
+            <select
+              value={jobFilter}
+              onChange={(e) => setJobFilter(e.target.value as 'all' | JobType)}
+              className="w-full px-2 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+            >
+              <option value="all">Semua Posisi</option>
+              {JOB_TYPES.map((j) => (
+                <option key={j} value={j}>{jobLabel(j)}</option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label className="block text-[11px] font-medium text-gray-600 mb-1">Status</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'all' | ShiftStatus)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+              className="w-full px-2 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
             >
               <option value="all">Semua Status</option>
               <option value="lengkap">Lengkap</option>
@@ -108,15 +124,15 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
         ) : (
           filtered.map((item) => (
             <Link
-              key={`${item.work_date}-${item.shift_type}`}
-              href={`/absen/${item.work_date}/${item.shift_type}`}
+              key={`${item.work_date}-${item.shift_type}-${item.job_type || 'marketer'}`}
+              href={`/absen/${item.work_date}/${item.shift_type}?job=${item.job_type || 'marketer'}`}
               className="block bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:border-blue-400 transition-all hover:shadow"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-gray-900 text-sm">
-                      {shiftLabel(item.shift_type)}
+                      {shiftLabel(item.shift_type)} &mdash; {jobLabel(item.job_type || 'marketer')}
                     </span>
                     <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${
                       item.status === 'lengkap'

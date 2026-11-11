@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getHolidays } from '@/lib/data/holidays';
 import { getAttendanceWithAttachments } from '@/lib/data/attendance';
 import { getCurrentUserProfile } from '@/lib/data/profile';
-import { getRequiredShifts, shiftLabel } from '@/lib/shifts';
+import { getRequiredShifts, shiftLabel, JOB_TYPES, jobLabel, type JobType } from '@/lib/shifts';
 import { formatIndonesia, todayWITA } from '@/lib/dates';
 import { AttendanceFormClient } from './attendance-form-client';
 import type { ShiftType } from '@/lib/supabase/types';
@@ -15,10 +15,14 @@ interface PageProps {
     date: string;
     shift: string;
   }>;
+  searchParams: Promise<{
+    job?: string;
+  }>;
 }
 
-export default async function AbsenPage({ params }: PageProps) {
+export default async function AbsenPage({ params, searchParams }: PageProps) {
   const { date, shift } = await params;
+  const { job } = await searchParams;
 
   // Validate shift param
   if (shift !== 'pagi' && shift !== 'malam') {
@@ -31,6 +35,8 @@ export default async function AbsenPage({ params }: PageProps) {
   }
 
   const shiftType = shift as ShiftType;
+  const validJobs: JobType[] = JOB_TYPES;
+  const jobType: JobType = validJobs.includes(job as JobType) ? (job as JobType) : 'marketer';
 
   const supabase = await createClient();
   const { isMaster } = await getCurrentUserProfile();
@@ -50,8 +56,8 @@ export default async function AbsenPage({ params }: PageProps) {
   const requiredShifts = getRequiredShifts(date, holidaySet);
   const isRequired = requiredShifts.includes(shiftType);
 
-  // Fetch attendance record
-  const { attendance, error } = await getAttendanceWithAttachments(date, shiftType);
+  // Fetch attendance record for this date, shift, and job
+  const { attendance, error } = await getAttendanceWithAttachments(date, shiftType, jobType);
 
   if (error || !attendance) {
     return (
@@ -114,9 +120,29 @@ export default async function AbsenPage({ params }: PageProps) {
         )}
       </div>
 
+      {/* Job Type Switcher Tabs */}
+      <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-2xl">
+        {JOB_TYPES.map((jt) => {
+          const isActive = jt === jobType;
+          return (
+            <Link
+              key={jt}
+              href={`/absen/${date}/${shift}?job=${jt}`}
+              className={`flex-1 text-center py-2 px-3 rounded-xl text-xs font-semibold transition-all min-h-[38px] flex items-center justify-center gap-1.5 ${
+                isActive
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+              }`}
+            >
+              <span>{jobLabel(jt)}</span>
+            </Link>
+          );
+        })}
+      </div>
+
       <div>
         <h1 className="text-xl font-bold text-gray-900">
-          {shiftLabel(shiftType)}
+          {shiftLabel(shiftType)} &mdash; {jobLabel(jobType)}
         </h1>
         <p className="text-xs text-gray-500 mt-1">
           {formatIndonesia(date)}
