@@ -13,6 +13,7 @@ import {
   X,
   ExternalLink,
   Layers,
+  CheckCircle2,
 } from 'lucide-react';
 
 export interface RiwayatJobDetail {
@@ -21,6 +22,8 @@ export interface RiwayatJobDetail {
   status: ShiftStatus;
   note: string | null;
   is_locked?: boolean;
+  hasMulai?: boolean;
+  hasSelesai?: boolean;
   mulaiThumbnail: string | null;
   selesaiThumbnail: string | null;
   ticketCount?: number;
@@ -381,17 +384,24 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                       <div className="border border-gray-100 rounded-xl p-2.5 bg-gray-50 text-center">
                         <div className="flex items-center justify-between mb-1.5 px-0.5">
                           <span className="text-[11px] font-semibold text-gray-700">1. Bukti Mulai</span>
-                          {job?.mulaiThumbnail ? (
+                          {job?.hasMulai ? (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold">Ada</span>
                           ) : (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-semibold">Kosong</span>
                           )}
                         </div>
-                        {job?.mulaiThumbnail ? (
-                          <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 shadow-sm">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={job.mulaiThumbnail} alt="Bukti Mulai" className="w-full h-full object-cover" />
-                          </div>
+                        {job?.hasMulai ? (
+                          job?.mulaiThumbnail ? (
+                            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 shadow-sm">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={job.mulaiThumbnail} alt="Bukti Mulai" className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-full aspect-video rounded-lg bg-green-50/70 border border-green-200 flex flex-col items-center justify-center text-xs text-green-700 font-medium p-2">
+                              <CheckCircle2 className="h-5 w-5 text-green-600 mb-1" />
+                              <span>Foto Ada</span>
+                            </div>
+                          )
                         ) : (
                           <div className="w-full aspect-video rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
                             Kosong
@@ -403,17 +413,24 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                       <div className="border border-gray-100 rounded-xl p-2.5 bg-gray-50 text-center">
                         <div className="flex items-center justify-between mb-1.5 px-0.5">
                           <span className="text-[11px] font-semibold text-gray-700">2. Bukti Selesai</span>
-                          {job?.selesaiThumbnail ? (
+                          {job?.hasSelesai ? (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold">Ada</span>
                           ) : (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-semibold">Kosong</span>
                           )}
                         </div>
-                        {job?.selesaiThumbnail ? (
-                          <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 shadow-sm">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={job.selesaiThumbnail} alt="Bukti Selesai" className="w-full h-full object-cover" />
-                          </div>
+                        {job?.hasSelesai ? (
+                          job?.selesaiThumbnail ? (
+                            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 shadow-sm">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={job.selesaiThumbnail} alt="Bukti Selesai" className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-full aspect-video rounded-lg bg-green-50/70 border border-green-200 flex flex-col items-center justify-center text-xs text-green-700 font-medium p-2">
+                              <CheckCircle2 className="h-5 w-5 text-green-600 mb-1" />
+                              <span>Foto Ada</span>
+                            </div>
+                          )
                         ) : (
                           <div className="w-full aspect-video rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
                             Kosong

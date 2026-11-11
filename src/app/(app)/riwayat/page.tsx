@@ -65,17 +65,22 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
 
   // Pre-generate signed URLs for thumbnails
   const signedUrlMap = new Map<string, string>();
-  const pathsToSign = attachments.map((a) => a.storage_path);
+  const pathsToSign = Array.from(new Set(attachments.map((a) => a.storage_path)));
   if (pathsToSign.length > 0) {
-    const { data: signedUrls } = await supabase.storage
-      .from('evidence')
-      .createSignedUrls(pathsToSign, 3600);
-
-    for (const item of signedUrls ?? []) {
-      if (item.signedUrl && item.path) {
-        signedUrlMap.set(item.path, item.signedUrl);
-      }
-    }
+    await Promise.all(
+      pathsToSign.map(async (path) => {
+        try {
+          const { data } = await supabase.storage
+            .from('evidence')
+            .createSignedUrl(path, 3600);
+          if (data?.signedUrl) {
+            signedUrlMap.set(path, data.signedUrl);
+          }
+        } catch {
+          // ignore error to keep page functional
+        }
+      })
+    );
   }
 
   // Map attendances by "date-shift-job"
@@ -127,6 +132,8 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
           status,
           note: att?.note ?? null,
           is_locked: !!att?.is_locked,
+          hasMulai,
+          hasSelesai,
           mulaiThumbnail: mulai ? (signedUrlMap.get(mulai.storage_path) ?? null) : null,
           selesaiThumbnail: selesai ? (signedUrlMap.get(selesai.storage_path) ?? null) : null,
           ticketCount: tickets.length,
