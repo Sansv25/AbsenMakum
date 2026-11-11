@@ -26,15 +26,20 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8">
         <div className="flex flex-col items-center mb-6">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/images/logo.png"
-            alt="Logo"
-            className="h-14 w-14 object-contain rounded-2xl mb-2"
-            onError={(e) => {
-              (e.target as HTMLElement).style.display = 'none';
-            }}
-          />
+          <div className="bg-slate-900 px-4 py-2.5 rounded-2xl shadow-sm mb-3.5 flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/logo.png"
+              alt="PLN Icon Plus"
+              className="h-10 w-auto object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (!target.src.includes('logowhitepln.png')) {
+                  target.src = '/images/logowhitepln.png';
+                }
+              }}
+            />
+          </div>
           <h1 className="text-2xl font-bold text-center text-gray-900">
             Absensi Piket
           </h1>

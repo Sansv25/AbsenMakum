@@ -52,17 +52,25 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white border-r border-gray-200 p-4 gap-1 fixed top-0 left-0 bottom-0">
-      <div className="mb-6 px-2 flex items-center gap-2.5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/images/logo.png"
-          alt="Logo"
-          className="h-8 w-8 object-contain rounded-lg flex-shrink-0"
-          onError={(e) => {
-            (e.target as HTMLElement).style.display = 'none';
-          }}
-        />
-        <h1 className="text-lg font-bold text-gray-900 leading-tight">Absensi Piket</h1>
+      <div className="mb-6 px-2 flex flex-col items-start gap-2.5">
+        <div className="bg-slate-900 px-3 py-2 rounded-xl shadow-sm inline-flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/logo.png"
+            alt="PLN Icon Plus"
+            className="h-7 w-auto object-contain"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (!target.src.includes('logowhitepln.png')) {
+                target.src = '/images/logowhitepln.png';
+              }
+            }}
+          />
+        </div>
+        <div>
+          <h1 className="text-base font-bold text-gray-900 leading-tight">Absensi Piket</h1>
+          <p className="text-[11px] text-gray-400 font-medium">Macan Kumbang</p>
+        </div>
       </div>
       {navItems.map(({ href, label, icon: Icon }) => {
         const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href);
