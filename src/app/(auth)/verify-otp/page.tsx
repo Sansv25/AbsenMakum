@@ -80,10 +80,11 @@ function VerifyOtpContent() {
       }
 
       if (verifyError) {
-        if (verifyError.message.toLowerCase().includes('expired')) {
-          setError('Kode OTP telah kadaluarsa. Silakan klik "Kirim Ulang OTP".');
-        } else if (verifyError.message.toLowerCase().includes('invalid')) {
-          setError('Kode OTP salah atau tidak cocok. Periksa kembali kotak masuk email Anda.');
+        const lowerErr = verifyError.message.toLowerCase();
+        if (lowerErr.includes('expired') || lowerErr.includes('invalid')) {
+          setError(
+            'Kode OTP salah atau telah kadaluarsa. Pastikan memasukkan 6 digit kode dari email TERAKHIR yang masuk (setiap klik "Kirim Ulang" akan membatalkan kode sebelumnya).'
+          );
         } else {
           setError(verifyError.message || 'Verifikasi OTP gagal.');
         }
@@ -133,7 +134,7 @@ function VerifyOtpContent() {
           setError(resendError.message || 'Gagal mengirim ulang OTP.');
         }
       } else {
-        setInfoMessage('Kode OTP baru telah berhasil dikirim ke email Anda.');
+        setInfoMessage('Kode OTP baru telah berhasil dikirim ke email Anda. Kode sebelumnya otomatis hangus/tidak berlaku lagi.');
         setCooldown(60); // Reset timer 60 detik
       }
     } catch (err: unknown) {
@@ -246,13 +247,22 @@ function VerifyOtpContent() {
           )}
         </button>
 
-        <Link
-          href="/register"
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-900 mt-2"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Kembali / Ganti Email</span>
-        </Link>
+        <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+          <Link
+            href="/register"
+            className="flex items-center gap-1 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Ganti Email</span>
+          </Link>
+          <span>•</span>
+          <Link
+            href="/login"
+            className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
+          >
+            Sudah Verifikasi? Masuk di sini
+          </Link>
+        </div>
       </div>
     </div>
   );
