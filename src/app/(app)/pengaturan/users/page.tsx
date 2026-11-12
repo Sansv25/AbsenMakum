@@ -9,7 +9,7 @@ export default async function UsersManagementPage() {
   const { isMaster, userId } = await getCurrentUserProfile();
 
   if (!isMaster) {
-    redirect('/pengaturan');
+    redirect('/');
   }
 
   const { users, error } = await adminGetUsers();

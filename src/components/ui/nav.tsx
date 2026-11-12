@@ -10,16 +10,28 @@ import {
   FileDown,
 } from 'lucide-react';
 
-const navItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  masterOnly?: boolean;
+}
+
+const allNavItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/riwayat', label: 'Riwayat', icon: History },
-  { href: '/libur', label: 'Libur', icon: CalendarOff },
-  { href: '/pengaturan', label: 'Pengaturan', icon: Settings },
+  { href: '/libur', label: 'Libur', icon: CalendarOff, masterOnly: true },
+  { href: '/pengaturan', label: 'Pengaturan', icon: Settings, masterOnly: true },
   { href: '/export', label: 'Export', icon: FileDown },
 ];
 
-export function BottomNav() {
+interface NavProps {
+  isMaster?: boolean;
+}
+
+export function BottomNav({ isMaster = false }: NavProps) {
   const pathname = usePathname();
+  const navItems = isMaster ? allNavItems : allNavItems.filter((item) => !item.masterOnly);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 md:hidden">
@@ -47,8 +59,9 @@ export function BottomNav() {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ isMaster = false }: NavProps) {
   const pathname = usePathname();
+  const navItems = isMaster ? allNavItems : allNavItems.filter((item) => !item.masterOnly);
 
   return (
     <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white border-r border-gray-200 p-4 gap-1 fixed top-0 left-0 bottom-0">

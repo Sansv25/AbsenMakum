@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { getOrInitShiftSettings } from '@/lib/data/shifts';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 import { SettingsForm } from './settings-form';
@@ -5,8 +6,13 @@ import Link from 'next/link';
 import { SlidersHorizontal, Users } from 'lucide-react';
 
 export default async function PengaturanPage() {
-  const settings = await getOrInitShiftSettings();
   const { isMaster } = await getCurrentUserProfile();
+
+  if (!isMaster) {
+    redirect('/');
+  }
+
+  const settings = await getOrInitShiftSettings();
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">

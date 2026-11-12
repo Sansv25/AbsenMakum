@@ -21,7 +21,7 @@ export default async function AppLayout({
   return (
     <div className="min-h-screen flex">
       <NavigationProgress />
-      <Sidebar />
+      <Sidebar isMaster={isMaster} />
 
       <div className="flex-1 md:ml-56 flex flex-col min-h-screen">
         {/* Header (mobile) */}
@@ -92,7 +92,7 @@ export default async function AppLayout({
         <main className="flex-1 pb-20 md:pb-0">{children}</main>
       </div>
 
-      <BottomNav />
+      <BottomNav isMaster={isMaster} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserProfile } from '@/lib/data/profile';
 import type { Holiday } from '@/lib/supabase/types';
 
 export async function getHolidays(year?: number): Promise<Holiday[]> {
@@ -9,7 +10,6 @@ export async function getHolidays(year?: number): Promise<Holiday[]> {
   let query = supabase
     .from('holidays')
     .select('*')
-    .eq('user_id', user.id)
     .order('holiday_date', { ascending: true });
 
   if (year) {
@@ -29,11 +29,11 @@ export async function getHolidays(year?: number): Promise<Holiday[]> {
 
 export async function addHoliday(holiday_date: string, name: string): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: 'Tidak terautentikasi' };
+  const { isMaster, userId } = await getCurrentUserProfile();
+  if (!isMaster || !userId) return { success: false, error: 'Hanya Akun Master yang diizinkan menambah hari libur.' };
 
   const { error } = await supabase.from('holidays').insert({
-    user_id: user.id,
+    user_id: userId,
     holiday_date,
     name: name.trim(),
   });
@@ -50,14 +50,13 @@ export async function addHoliday(holiday_date: string, name: string): Promise<{ 
 
 export async function deleteHoliday(id: string): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: 'Tidak terautentikasi' };
+  const { isMaster } = await getCurrentUserProfile();
+  if (!isMaster) return { success: false, error: 'Hanya Akun Master yang diizinkan menghapus hari libur.' };
 
   const { error } = await supabase
     .from('holidays')
     .delete()
-    .eq('id', id)
-    .eq('user_id', user.id);
+    .eq('id', id);
 
   if (error) {
     return { success: false, error: error.message };

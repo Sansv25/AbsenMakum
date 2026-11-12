@@ -1,8 +1,15 @@
+import { redirect } from 'next/navigation';
+import { getCurrentUserProfile } from '@/lib/data/profile';
 import { getHolidays } from '@/lib/data/holidays';
 import { HolidayManager } from './holiday-manager';
 import { todayWITA } from '@/lib/dates';
 
 export default async function LiburPage() {
+  const { isMaster } = await getCurrentUserProfile();
+  if (!isMaster) {
+    redirect('/');
+  }
+
   const holidays = await getHolidays();
   const currentYear = Number(todayWITA().split('-')[0]);
 

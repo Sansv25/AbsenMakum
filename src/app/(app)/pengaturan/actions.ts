@@ -6,6 +6,11 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 
 export async function saveShiftSettingsAction(formData: FormData) {
+  const { isMaster } = await getCurrentUserProfile();
+  if (!isMaster) {
+    return { error: 'Hanya Akun Master yang diizinkan mengubah jam shift.' };
+  }
+
   const pagiStart = formData.get('pagi_start') as string;
   const pagiEnd = formData.get('pagi_end') as string;
   const malamStart = formData.get('malam_start') as string;

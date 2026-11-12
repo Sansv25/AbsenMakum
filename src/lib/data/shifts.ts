@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserProfile } from '@/lib/data/profile';
 import type { ShiftSetting, ShiftType } from '@/lib/supabase/types';
 
 const DEFAULT_SETTINGS: { shift_type: ShiftType; start_time: string; end_time: string }[] = [
@@ -53,13 +54,13 @@ export async function updateShiftSetting(
   end_time: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: 'Tidak terautentikasi' };
+  const { isMaster, userId } = await getCurrentUserProfile();
+  if (!isMaster || !userId) return { success: false, error: 'Hanya Akun Master yang diizinkan mengubah jam shift.' };
 
   const { error } = await supabase
     .from('shift_settings')
     .upsert({
-      user_id: user.id,
+      user_id: userId,
       shift_type,
       start_time: start_time.length === 5 ? `${start_time}:00` : start_time,
       end_time: end_time.length === 5 ? `${end_time}:00` : end_time,
