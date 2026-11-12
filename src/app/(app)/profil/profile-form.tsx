@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { updateProfileAction } from './actions';
+import { updateProfileAction, changePasswordAction } from './actions';
 import { useTheme, type Theme } from '@/components/theme-provider';
-import { showAlert } from '@/lib/swal';
+import { showAlert, showToast } from '@/lib/swal';
 import { logout } from '@/app/(auth)/login/actions';
 import {
   User,
@@ -19,6 +19,11 @@ import {
   UserCheck,
   LogOut,
   Sparkles,
+  Lock,
+  KeyRound,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface ProfileFormProps {
@@ -43,6 +48,52 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
   const [loading, setLoading] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // State untuk Password Akun
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState<string | null>(null);
+
+  async function handlePasswordSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPwdError(null);
+
+    if (newPassword.length < 6) {
+      setPwdError('Password baru minimal 6 karakter.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPwdError('Konfirmasi password tidak cocok dengan password baru.');
+      return;
+    }
+
+    try {
+      setPwdLoading(true);
+      const formData = new FormData();
+      formData.append('newPassword', newPassword.trim());
+      formData.append('confirmPassword', confirmNewPassword.trim());
+
+      const res = await changePasswordAction(formData);
+      if (res?.error) {
+        setPwdError(res.error);
+        showAlert('Gagal', res.error, 'error');
+      } else {
+        showToast('Password akun berhasil diperbarui!', 'success');
+        setNewPassword('');
+        setConfirmNewPassword('');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
+      setPwdError(msg);
+      showAlert('Gagal', msg, 'error');
+    } finally {
+      setPwdLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -306,7 +357,124 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
         </div>
       </form>
 
-      {/* 3. KARTU KELUAR (LOGOUT) */}
+      {/* 3. KARTU KEAMANAN & PASSWORD AKUN */}
+      <form
+        onSubmit={handlePasswordSubmit}
+        className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 transition-colors"
+      >
+        <div className="flex items-center gap-2.5 pb-3 border-b border-gray-100 dark:border-slate-800">
+          <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900">
+            <Lock className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100">
+              Keamanan &amp; Password Akun
+            </h3>
+            <p className="text-[11px] text-gray-500 dark:text-slate-400">
+              Buat atau perbarui password untuk login manual di perangkat lain.
+            </p>
+          </div>
+        </div>
+
+        {pwdError && (
+          <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl text-xs text-red-700 dark:text-red-400">
+            {pwdError}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label
+              htmlFor="newPassword"
+              className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
+            >
+              Password Baru <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
+              <input
+                id="newPassword"
+                type={showNewPassword ? 'text' : 'password'}
+                required
+                minLength={6}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Minimal 6 karakter"
+                className="w-full pl-10 pr-11 py-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-xs text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 p-1 rounded-lg transition-colors"
+                title={showNewPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                aria-label={showNewPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirmNewPassword"
+              className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
+            >
+              Konfirmasi Password Baru <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
+              <input
+                id="confirmNewPassword"
+                type={showConfirmNewPassword ? 'text' : 'password'}
+                required
+                minLength={6}
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="Ulangi password baru"
+                className="w-full pl-10 pr-11 py-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-xs text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmNewPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 p-1 rounded-lg transition-colors"
+                title={showConfirmNewPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                aria-label={showConfirmNewPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+              >
+                {showConfirmNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60 rounded-xl flex items-start gap-2 text-xs text-blue-900 dark:text-blue-200">
+            <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              Dengan membuat atau mengubah password di sini, Anda dapat login di perangkat lain dengan memasukkan <strong>{initialData.email}</strong> dan password ini tanpa harus login akun Google.
+            </p>
+          </div>
+
+          <div className="pt-1">
+            <button
+              type="submit"
+              disabled={pwdLoading}
+              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors min-h-[44px] flex items-center justify-center gap-2 shadow-sm"
+            >
+              {pwdLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Menyimpan Password...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" />
+                  <span>Simpan Password Akun</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {/* 4. KARTU KELUAR (LOGOUT) */}
       <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex items-center justify-between">
         <div>
           <h3 className="text-xs font-semibold text-gray-900 dark:text-slate-100">Keluar dari Akun</h3>

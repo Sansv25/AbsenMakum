@@ -13,6 +13,10 @@ export default async function AppLayout({
 }) {
   const profile = await getCurrentUserProfile();
 
+  if (!profile.phone || profile.phone.trim() === '') {
+    redirect('/complete-profile');
+  }
+
   if (!profile.isMaster && !profile.isApproved) {
     redirect('/pending-approval');
   }

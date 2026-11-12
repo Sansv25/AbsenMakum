@@ -38,14 +38,14 @@ export async function GET(request: Request) {
           profile?.role === 'master' ||
           user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
 
-        // 1. Jika bukan master dan akun belum disetujui, langsung arahkan ke pending approval
-        if (!isMaster && (profile?.is_approved === false || !profile)) {
-          return NextResponse.redirect(`${redirectBase}/pending-approval`);
-        }
-
-        // 2. Jika sudah disetujui namun nomor telepon belum diisi, arahkan untuk lengkapi profil
+        // 1. Prioritas Pertama: Jika nomor telepon belum diisi, WAJIB lengkapi profil & buat password dulu
         if (!profile?.phone || profile.phone.trim() === '') {
           return NextResponse.redirect(`${redirectBase}/complete-profile`);
+        }
+
+        // 2. Jika profil sudah lengkap, baru cek apakah perlu persetujuan admin (kecuali master)
+        if (!isMaster && (profile?.is_approved === false || !profile)) {
+          return NextResponse.redirect(`${redirectBase}/pending-approval`);
         }
       }
 

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { login } from './actions';
 import { createClient } from '@/lib/supabase/client';
 import { GoogleIcon } from '@/components/ui/google-icon';
-import { Loader2, Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 function LoginContent() {
   const router = useRouter();
@@ -17,6 +17,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [needsOtpEmail, setNeedsOtpEmail] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (errorParam) {
@@ -179,13 +180,22 @@ function LoginContent() {
             <input
               id="password"
               name="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               required
               autoComplete="current-password"
               suppressHydrationWarning
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full pl-10 pr-11 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               placeholder="••••••••"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 p-1 rounded-lg transition-colors"
+              title={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+              aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
         </div>
 

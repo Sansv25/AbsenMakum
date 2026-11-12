@@ -12,6 +12,11 @@ export default async function PendingApprovalPage() {
     redirect('/login');
   }
 
+  // Jika nomor telepon belum diisi, wajib lengkapi profil & buat password dulu
+  if (!profile.phone || profile.phone.trim() === '') {
+    redirect('/complete-profile');
+  }
+
   // Jika sudah disetujui atau akun master, langsung masuk dashboard
   if (profile.isMaster || profile.isApproved) {
     redirect('/');

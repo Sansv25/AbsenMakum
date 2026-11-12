@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUserProfile } from '@/lib/data/profile';
+import { createClient } from '@/lib/supabase/server';
 import { logout } from '@/app/(auth)/login/actions';
 import { CompleteProfileForm } from './complete-profile-form';
 
@@ -11,10 +12,24 @@ export default async function CompleteProfilePage() {
     redirect('/login');
   }
 
-  // Jika nomor telepon sudah ada, tidak perlu mengisi lagi
+  // Jika nomor telepon sudah ada dan akun sudah disetujui, arahkan ke dashboard
   if (profile.phone && profile.phone.trim() !== '') {
+    if (!profile.isMaster && !profile.isApproved) {
+      redirect('/pending-approval');
+    }
     redirect('/');
   }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const prefilledName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    profile.fullName ||
+    '';
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-slate-950 py-10 transition-colors">
@@ -35,14 +50,14 @@ export default async function CompleteProfilePage() {
           <p className="text-center text-sky-700 dark:text-sky-400 text-xs font-semibold mt-0.5">
             ICONNET &bull; Macan Kumbang
           </p>
-          <p className="text-center text-gray-500 dark:text-slate-400 text-xs mt-1.5 max-w-xs">
-            Akun Google Anda berhasil terhubung. Harap lengkapi nomor telepon aktif Anda untuk keperluan koordinasi piket.
+          <p className="text-center text-gray-500 dark:text-slate-400 text-xs mt-1.5 max-w-xs leading-relaxed">
+            Akun Google Anda berhasil terhubung. Silakan lengkapi nomor telepon dan buat password akun Anda untuk akses di semua perangkat.
           </p>
         </div>
 
         <CompleteProfileForm
-          email={profile.email || ''}
-          initialFullName={profile.fullName || ''}
+          email={profile.email || user?.email || ''}
+          initialFullName={prefilledName}
           initialPhone={profile.phone || ''}
         />
 
