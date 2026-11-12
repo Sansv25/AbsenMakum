@@ -9,7 +9,7 @@ import { formatIndonesia, todayWITA } from '@/lib/dates';
 import { AttendanceFormClient } from './attendance-form-client';
 import { AttendanceOfficerCard } from '@/components/attendance/attendance-officer-card';
 import type { ShiftType } from '@/lib/supabase/types';
-import { ArrowLeft, AlertCircle, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ShieldAlert, Sun, Moon } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -194,33 +194,84 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
         )}
       </div>
 
-      {/* Job Type Switcher Tabs with Status Dots */}
-      <div className="flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-slate-800/80 rounded-2xl">
-        {JOB_TYPES.map((jt) => {
-          const isActive = jt === jobType;
-          const status = jobStatusMap.get(jt) ?? 'kosong';
+      {/* Navigasi Pilihan Shift Piket (Pagi / Malam) - Khusus Hari Libur & Akhir Pekan */}
+      {(requiredShifts.length > 1 || Boolean(holiday)) && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-0.5">
+            <span className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span>Pilihan Shift Piket</span>
+              {holiday && (
+                <span className="text-[10px] font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/80 px-2 py-0.5 rounded-full">
+                  Libur: {holiday.name}
+                </span>
+              )}
+            </span>
+          </div>
 
-          return (
+          <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-slate-800/80 rounded-2xl border border-gray-200/60 dark:border-slate-700/60">
             <Link
-              key={jt}
-              href={`/absen/${date}/${shift}?job=${jt}`}
-              className={`flex-1 text-center py-2 px-2.5 rounded-xl text-xs font-semibold transition-all min-h-[38px] flex items-center justify-center gap-1.5 ${
-                isActive
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                  : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'
+              href={`/absen/${date}/pagi?job=${jobType}`}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all min-h-[42px] ${
+                shiftType === 'pagi'
+                  ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs border border-amber-200/80 dark:border-amber-800/60'
+                  : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50'
               }`}
             >
-              <span>{jobLabel(jt)}</span>
-              {status === 'lengkap' ? (
-                <span className="h-2 w-2 rounded-full bg-green-500 shadow-xs" title="Lengkap" />
-              ) : status === 'sebagian' ? (
-                <span className="h-2 w-2 rounded-full bg-yellow-400 shadow-xs" title="Sebagian" />
-              ) : (
-                <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-slate-600" title="Kosong" />
-              )}
+              <Sun className={`h-4 w-4 ${shiftType === 'pagi' ? 'text-amber-500 fill-amber-500/20' : 'text-gray-400 dark:text-slate-500'}`} />
+              <span>Piket Pagi</span>
+              <span className="text-[10px] font-medium opacity-75">(Shift 1)</span>
             </Link>
-          );
-        })}
+
+            <Link
+              href={`/absen/${date}/malam?job=${jobType}`}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all min-h-[42px] ${
+                shiftType === 'malam'
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-indigo-200/80 dark:border-indigo-800/60'
+                  : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50'
+              }`}
+            >
+              <Moon className={`h-4 w-4 ${shiftType === 'malam' ? 'text-indigo-500 fill-indigo-500/20' : 'text-gray-400 dark:text-slate-500'}`} />
+              <span>Piket Malam</span>
+              <span className="text-[10px] font-medium opacity-75">(Shift 2)</span>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Job Type Switcher Tabs with Status Dots */}
+      <div className="space-y-1.5">
+        {(requiredShifts.length > 1 || Boolean(holiday)) && (
+          <span className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider px-0.5">
+            Pekerjaan / Job
+          </span>
+        )}
+        <div className="flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-slate-800/80 rounded-2xl">
+          {JOB_TYPES.map((jt) => {
+            const isActive = jt === jobType;
+            const status = jobStatusMap.get(jt) ?? 'kosong';
+
+            return (
+              <Link
+                key={jt}
+                href={`/absen/${date}/${shift}?job=${jt}`}
+                className={`flex-1 text-center py-2 px-2.5 rounded-xl text-xs font-semibold transition-all min-h-[38px] flex items-center justify-center gap-1.5 ${
+                  isActive
+                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'
+                }`}
+              >
+                <span>{jobLabel(jt)}</span>
+                {status === 'lengkap' ? (
+                  <span className="h-2 w-2 rounded-full bg-green-500 shadow-xs" title="Lengkap" />
+                ) : status === 'sebagian' ? (
+                  <span className="h-2 w-2 rounded-full bg-yellow-400 shadow-xs" title="Sebagian" />
+                ) : (
+                  <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-slate-600" title="Kosong" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       <div>
