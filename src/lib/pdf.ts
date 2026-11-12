@@ -10,6 +10,7 @@ export interface PdfAttendanceItem {
   note: string | null;
   mulaiUrl: string | null;
   selesaiUrl: string | null;
+  aktivitasUrls?: string[];
   ticketUrls: string[];
 }
 
@@ -176,6 +177,44 @@ export async function generateAttendancePdf(
         y += imgH + 8;
       } catch (err) {
         console.error('Gagal menyertakan foto selesai:', err);
+      }
+    }
+
+    // 2.5. Bukti Aktivitas Piket
+    if (item.aktivitasUrls && item.aktivitasUrls.length > 0) {
+      for (let aIdx = 0; aIdx < item.aktivitasUrls.length; aIdx++) {
+        const aktUrl = item.aktivitasUrls[aIdx];
+        try {
+          updateProgress(`Memproses foto Aktivitas #${aIdx + 1} (${item.work_date})...`);
+          const img = await loadImage(aktUrl);
+          const dataUrl = imageToDataUrl(img);
+
+          const maxImgHeight = 90;
+          const aspect = img.naturalWidth / img.naturalHeight;
+          let imgW = contentWidth;
+          let imgH = imgW / aspect;
+
+          if (imgH > maxImgHeight) {
+            imgH = maxImgHeight;
+            imgW = imgH * aspect;
+          }
+
+          if (y + imgH + 10 > pageHeight - margin) {
+            doc.addPage();
+            y = margin;
+          }
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          doc.setTextColor(30, 30, 30);
+          doc.text(`Aktivitas Piket #${aIdx + 1}`, margin, y + 4);
+          y += 7;
+
+          doc.addImage(dataUrl, 'JPEG', margin, y, imgW, imgH);
+          y += imgH + 8;
+        } catch (err) {
+          console.error(`Gagal menyertakan foto aktivitas #${aIdx + 1}:`, err);
+        }
       }
     }
 

@@ -129,21 +129,26 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
 
         const mulai = attList.find((a) => a.kind === 'mulai');
         const selesai = attList.find((a) => a.kind === 'selesai');
+        const aktivitas = attList.filter((a) => a.kind === 'aktivitas');
         const tickets = attList.filter((a) => a.kind === 'ticket');
 
         const hasMulai = !!mulai;
         const hasSelesai = !!selesai;
+        const aktivitasCount = aktivitas.length;
 
         let status: ShiftStatus = 'kosong';
-        if (hasMulai && hasSelesai) {
+        if (hasMulai && hasSelesai && aktivitasCount >= 2) {
           status = 'lengkap';
           lengkapCount++;
-        } else if (hasMulai || hasSelesai || tickets.length > 0 || (att?.note && att.note.trim().length > 0)) {
+        } else if (hasMulai || hasSelesai || aktivitasCount > 0 || tickets.length > 0 || (att?.note && att.note.trim().length > 0)) {
           status = 'sebagian';
           partiallyFilled = true;
         }
 
         const userName = att?.user_id ? (profileMap.get(att.user_id) ?? null) : null;
+        const aktivitasThumbnails = aktivitas
+          .map((a) => signedUrlMap.get(a.storage_path) ?? null)
+          .filter((url): url is string => !!url);
 
         jobs[job] = {
           id: att?.id,
@@ -155,6 +160,8 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
           hasSelesai,
           mulaiThumbnail: mulai ? (signedUrlMap.get(mulai.storage_path) ?? null) : null,
           selesaiThumbnail: selesai ? (signedUrlMap.get(selesai.storage_path) ?? null) : null,
+          aktivitasThumbnails,
+          aktivitasCount,
           ticketCount: tickets.length,
           userName,
         };

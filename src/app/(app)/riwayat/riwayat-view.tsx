@@ -28,6 +28,8 @@ export interface RiwayatJobDetail {
   hasSelesai?: boolean;
   mulaiThumbnail: string | null;
   selesaiThumbnail: string | null;
+  aktivitasThumbnails?: string[];
+  aktivitasCount?: number;
   ticketCount?: number;
   userName?: string | null;
 }
@@ -531,6 +533,46 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* Bukti 3: Aktivitas Piket (Minimal 2) */}
+                    <div className="border border-gray-100 rounded-xl p-2.5 bg-gray-50">
+                      <div className="flex items-center justify-between mb-2 px-0.5">
+                        <span className="text-[11px] font-semibold text-gray-700">
+                          3. Bukti Aktivitas Piket
+                        </span>
+                        {(job?.aktivitasCount ?? 0) >= 2 ? (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> {job?.aktivitasCount} Foto (Lengkap)
+                          </span>
+                        ) : (job?.aktivitasCount ?? 0) === 1 ? (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
+                            1 / 2 Foto (Kurang 1)
+                          </span>
+                        ) : (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-semibold">
+                            Kosong (Min 2)
+                          </span>
+                        )}
+                      </div>
+
+                      {job?.aktivitasThumbnails && job.aktivitasThumbnails.length > 0 ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {job.aktivitasThumbnails.map((url, aIdx) => (
+                            <div key={aIdx} className="relative aspect-video rounded-lg overflow-hidden bg-black/10 shadow-xs">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={url} alt={`Aktivitas ${aIdx + 1}`} className="w-full h-full object-cover" />
+                              <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] text-white font-medium">
+                                #{aIdx + 1}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="w-full py-3 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
+                          Belum ada foto aktivitas
+                        </div>
+                      )}
                     </div>
 
                     {/* Catatan jika ada */}

@@ -92,20 +92,24 @@ export async function fetchExportData(
     const list = attachByAttendance.get(att.id) ?? [];
     const mulai = list.find((a) => a.kind === 'mulai');
     const selesai = list.find((a) => a.kind === 'selesai');
+    const aktivitas = list.filter((a) => a.kind === 'aktivitas');
     const tickets = list.filter((a) => a.kind === 'ticket');
 
     const mulaiUrl = mulai ? (signedUrlMap.get(mulai.storage_path) ?? null) : null;
     const selesaiUrl = selesai ? (signedUrlMap.get(selesai.storage_path) ?? null) : null;
+    const aktivitasUrls = aktivitas
+      .map((a) => signedUrlMap.get(a.storage_path) ?? null)
+      .filter((url): url is string => !!url);
     const ticketUrls = tickets
       .map((t) => signedUrlMap.get(t.storage_path) ?? null)
       .filter((url): url is string => !!url);
 
     const hasMulai = !!mulaiUrl;
     const hasSelesai = !!selesaiUrl;
-    const hasAnyPhoto = hasMulai || hasSelesai || ticketUrls.length > 0;
+    const hasAnyPhoto = hasMulai || hasSelesai || aktivitasUrls.length > 0 || ticketUrls.length > 0;
 
     if (filterMode === 'complete_only') {
-      if (!hasMulai || !hasSelesai) continue;
+      if (!hasMulai || !hasSelesai || aktivitasUrls.length < 2) continue;
     } else {
       if (!hasAnyPhoto) continue;
     }
@@ -117,6 +121,7 @@ export async function fetchExportData(
       note: att.note,
       mulaiUrl,
       selesaiUrl,
+      aktivitasUrls,
       ticketUrls,
     });
   }

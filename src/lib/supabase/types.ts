@@ -3,7 +3,7 @@
 export type UserRole = 'master' | 'user';
 export type ShiftType = 'pagi' | 'malam';
 export type JobType = 'marketer' | 'qontak' | 'tiket';
-export type AttachmentKind = 'mulai' | 'selesai' | 'ticket';
+export type AttachmentKind = 'mulai' | 'selesai' | 'ticket' | 'aktivitas';
 export type ShiftStatus = 'kosong' | 'sebagian' | 'lengkap';
 export type DayStatus = 'kosong' | 'sebagian' | 'lengkap' | 'belum';
 

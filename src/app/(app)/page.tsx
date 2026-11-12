@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { todayWITA, formatIndonesia, getDatesInMonth, toYearMonth } from '@/lib/dates';
 import { getRequiredShifts, shiftLabel, JOB_TYPES, jobLabel } from '@/lib/shifts';
 import Link from 'next/link';
-import type { Holiday, Attendance } from '@/lib/supabase/types';
+import type { Holiday, Attendance, Attachment } from '@/lib/supabase/types';
 import { CalendarCheck, AlertCircle, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -60,22 +60,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         .in('attendance_id', attendanceIds)
     : { data: [] };
 
-  // Map: attendanceId -> set of kinds
-  const kindsByAttendance = new Map<string, Set<string>>();
-  for (const att of attachmentsData ?? []) {
-    if (!kindsByAttendance.has(att.attendance_id)) {
-      kindsByAttendance.set(att.attendance_id, new Set());
+  // Map: attendanceId -> list of attachments
+  const attachByAttendance = new Map<string, Attachment[]>();
+  for (const att of (attachmentsData ?? []) as Attachment[]) {
+    if (!attachByAttendance.has(att.attendance_id)) {
+      attachByAttendance.set(att.attendance_id, []);
     }
-    kindsByAttendance.get(att.attendance_id)!.add(att.kind);
+    attachByAttendance.get(att.attendance_id)!.push(att);
   }
 
   // Map: "date-shift-job" -> status
   const attendanceMap = new Map<string, { status: string; id: string }>();
   for (const a of attendances) {
-    const kinds = kindsByAttendance.get(a.id) ?? new Set();
-    const hasMulai = kinds.has('mulai');
-    const hasSelesai = kinds.has('selesai');
-    const status = hasMulai && hasSelesai ? 'lengkap' : hasMulai || hasSelesai ? 'sebagian' : 'kosong';
+    const list = attachByAttendance.get(a.id) ?? [];
+    const hasMulai = list.some((att) => att.kind === 'mulai');
+    const hasSelesai = list.some((att) => att.kind === 'selesai');
+    const aktivitasCount = list.filter((att) => att.kind === 'aktivitas').length;
+
+    let status = 'kosong';
+    if (hasMulai && hasSelesai && aktivitasCount >= 2) {
+      status = 'lengkap';
+    } else if (hasMulai || hasSelesai || aktivitasCount > 0 || (a.note && a.note.trim().length > 0)) {
+      status = 'sebagian';
+    }
     attendanceMap.set(`${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`, { status, id: a.id });
   }
 

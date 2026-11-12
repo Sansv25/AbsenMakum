@@ -1,0 +1,398 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import {
+  Camera,
+  Upload,
+  Trash2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Plus,
+  Eye,
+  X,
+} from 'lucide-react';
+import { CameraModal } from './camera-modal';
+import { compressImage } from '@/lib/image';
+import { createClient } from '@/lib/supabase/client';
+import { showAlert, showConfirm, showToast } from '@/lib/swal';
+import { claimDeviceAction } from '@/app/(app)/absen/[date]/[shift]/actions';
+import type { AttachmentWithUrl } from '@/lib/data/attendance';
+import type { ShiftType } from '@/lib/supabase/types';
+
+interface ActivityUploadProps {
+  attendanceId: string;
+  userId: string;
+  workDate: string;
+  shiftType: ShiftType;
+  initialAttachments: AttachmentWithUrl[];
+  onSaved: () => void;
+  canEdit?: boolean;
+  deviceId?: string;
+  deviceInfo?: string;
+}
+
+export function ActivityUpload({
+  attendanceId,
+  userId,
+  workDate,
+  shiftType,
+  initialAttachments,
+  onSaved,
+  canEdit = true,
+  deviceId,
+  deviceInfo,
+}: ActivityUploadProps) {
+  const [items, setItems] = useState<AttachmentWithUrl[]>(
+    initialAttachments.filter((a) => a.kind === 'aktivitas')
+  );
+
+  useEffect(() => {
+    setItems(initialAttachments.filter((a) => a.kind === 'aktivitas'));
+  }, [initialAttachments]);
+
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const count = items.length;
+  const isFulfilled = count >= 2;
+
+  async function handleFileProcess(files: FileList | File[]) {
+    if (!files || files.length === 0) return;
+    try {
+      setUploading(true);
+      const supabase = createClient();
+      let currentOrder = items.length;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.startsWith('image/')) continue;
+
+        setStatusMsg(`Mengompres foto ke-${i + 1}...`);
+        const compressed = await compressImage(file);
+
+        setStatusMsg(`Mengunggah foto ke-${i + 1}...`);
+        const uuid = crypto.randomUUID();
+        const storagePath = `${userId}/${workDate}/${shiftType}/aktivitas-${uuid}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('evidence')
+          .upload(storagePath, compressed, {
+            contentType: 'image/jpeg',
+            upsert: true,
+          });
+
+        if (uploadError) throw new Error(uploadError.message);
+
+        const { error: dbError } = await supabase
+          .from('attachments')
+          .insert({
+            attendance_id: attendanceId,
+            user_id: userId,
+            kind: 'aktivitas',
+            storage_path: storagePath,
+            sort_order: currentOrder++,
+          })
+          .select()
+          .single();
+
+        if (dbError) throw new Error(dbError.message);
+
+        // Kunci device jika belum diikat
+        if (deviceId && deviceInfo) {
+          try {
+            await claimDeviceAction(attendanceId, deviceId, deviceInfo);
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      showToast('Foto aktivitas berhasil diunggah!', 'success');
+      onSaved();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal mengunggah foto.';
+      showAlert('Gagal Unggah', msg, 'error');
+    } finally {
+      setUploading(false);
+      setStatusMsg(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  async function handleDelete(item: AttachmentWithUrl) {
+    if (!canEdit) return;
+
+    const confirmed = await showConfirm(
+      'Hapus Foto Aktivitas Ini?',
+      'Foto yang dihapus tidak dapat dipulihkan.',
+      'Ya, Hapus'
+    );
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(item.id);
+      const supabase = createClient();
+
+      await supabase.storage.from('evidence').remove([item.storage_path]);
+      const { error } = await supabase
+        .from('attachments')
+        .delete()
+        .eq('id', item.id);
+
+      if (error) throw new Error(error.message);
+
+      showToast('Foto aktivitas berhasil dihapus.', 'info');
+      onSaved();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal menghapus foto.';
+      showAlert('Gagal', msg, 'error');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+      {/* Header bar */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-bold text-gray-900 dark:text-slate-100 text-sm sm:text-base">
+              3. Bukti Aktivitas Piket
+            </h3>
+            {isFulfilled ? (
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 font-semibold border border-green-200 dark:border-green-800 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> {count} Foto (Lengkap)
+              </span>
+            ) : count === 1 ? (
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 font-semibold border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" /> 1 / 2 Foto (Kurang 1 Foto)
+              </span>
+            ) : (
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 font-semibold border border-red-200 dark:border-red-800 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" /> Wajib Minimal 2 Foto
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+            Unggah foto dokumentasi kegiatan piket yang sedang berjalan (minimal 2 foto berbeda).
+          </p>
+        </div>
+
+        {/* Action Buttons if canEdit */}
+        {canEdit && (
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setCameraOpen(true)}
+              disabled={uploading}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm min-h-[38px]"
+              title="Ambil foto menggunakan kamera"
+            >
+              <Camera className="h-4 w-4" />
+              <span className="hidden sm:inline">Kamera</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="px-3 py-1.5 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 min-h-[38px]"
+              title="Pilih file foto dari galeri"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Galeri</span>
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) handleFileProcess(e.target.files);
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Loading indicator */}
+      {uploading && (
+        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl text-xs text-blue-700 dark:text-blue-400 flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+          <span>{statusMsg || 'Sedang memproses foto aktivitas...'}</span>
+        </div>
+      )}
+
+      {/* Grid Foto Aktivitas */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {/* Render uploaded photos */}
+        {items.map((item, idx) => (
+          <div
+            key={item.id}
+            className="group relative aspect-video sm:aspect-square bg-gray-100 dark:bg-slate-800 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-xs"
+          >
+            {item.signedUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={item.signedUrl}
+                alt={`Aktivitas ${idx + 1}`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                Memuat foto...
+              </div>
+            )}
+
+            {/* Badge urutan foto */}
+            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-white text-[10px] font-semibold">
+              Aktivitas #{idx + 1}
+            </span>
+
+            {/* Hover overlay with action buttons */}
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              {item.signedUrl && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewUrl(item.signedUrl)}
+                  className="p-1.5 rounded-lg bg-white/90 text-gray-800 hover:bg-white transition-colors"
+                  title="Lihat ukuran penuh"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+              )}
+
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleDelete(item)}
+                  disabled={deletingId === item.id}
+                  className="p-1.5 rounded-lg bg-red-600/90 text-white hover:bg-red-700 transition-colors"
+                  title="Hapus foto ini"
+                >
+                  {deletingId === item.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {/* Placeholders for unfilled required slots (Slot 1 & Slot 2) */}
+        {count === 0 && (
+          <>
+            <div
+              onClick={() => canEdit && setCameraOpen(true)}
+              className={`aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-colors ${
+                canEdit ? 'cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/40' : 'opacity-60'
+              }`}
+            >
+              <Camera className="h-6 w-6 text-red-500" />
+              <span className="text-xs font-bold text-red-700 dark:text-red-400">
+                Foto Aktivitas #1
+              </span>
+              <span className="text-[10px] text-red-500">Wajib Diisi</span>
+            </div>
+
+            <div
+              onClick={() => canEdit && setCameraOpen(true)}
+              className={`aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-colors ${
+                canEdit ? 'cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/40' : 'opacity-60'
+              }`}
+            >
+              <Camera className="h-6 w-6 text-red-500" />
+              <span className="text-xs font-bold text-red-700 dark:text-red-400">
+                Foto Aktivitas #2
+              </span>
+              <span className="text-[10px] text-red-500">Wajib Diisi</span>
+            </div>
+          </>
+        )}
+
+        {count === 1 && (
+          <div
+            onClick={() => canEdit && setCameraOpen(true)}
+            className={`aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-colors ${
+              canEdit ? 'cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/40' : 'opacity-60'
+            }`}
+          >
+            <Camera className="h-6 w-6 text-amber-600" />
+            <span className="text-xs font-bold text-amber-800 dark:text-amber-400">
+              Foto Aktivitas #2
+            </span>
+            <span className="text-[10px] text-amber-600">Wajib (Kurang 1 Foto)</span>
+          </div>
+        )}
+
+        {/* Slot tambah foto tambahan jika sudah memenuhi minimal 2 */}
+        {count >= 2 && canEdit && (
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-gray-50/50 dark:bg-slate-800/40 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 p-4 flex flex-col items-center justify-center text-center gap-1 cursor-pointer transition-colors"
+          >
+            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 mb-0.5">
+              <Plus className="h-5 w-5" />
+            </div>
+            <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">
+              Tambah Foto
+            </span>
+            <span className="text-[10px] text-gray-400 dark:text-slate-500">
+              (Opsional)
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Modal Kamera */}
+      <CameraModal
+        isOpen={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(file) => {
+          setCameraOpen(false);
+          handleFileProcess([file]);
+        }}
+      />
+
+      {/* Modal Preview Gambar Penuh */}
+      {previewUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setPreviewUrl(null)}
+        >
+          <div
+            className="relative max-w-3xl max-h-[90vh] bg-black rounded-2xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewUrl(null)}
+              className="absolute top-3 right-3 p-2 bg-black/60 hover:bg-black/90 text-white rounded-full z-10 transition-colors"
+              aria-label="Tutup preview"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt="Preview Ukuran Penuh"
+              className="max-w-full max-h-[85vh] object-contain"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SingleUpload } from '@/components/upload/single-upload';
+import { ActivityUpload } from '@/components/upload/activity-upload';
 import { NoteAutosave } from '@/components/attendance/note-autosave';
 import {
   CheckCircle2,
@@ -67,7 +68,7 @@ export function AttendanceFormClient({
   const isLocked = !!attendance.is_locked;
   const boundDeviceId = attendance.device_id;
   const isAuthor = attendance.user_id === userId;
-  const hasExistingData = !!boundDeviceId || !!mulaiAttachment || !!selesaiAttachment || !!attendance.note;
+  const hasExistingData = !!boundDeviceId || !!mulaiAttachment || !!selesaiAttachment || attendance.attachments.length > 0 || !!attendance.note;
   // Jika belum di-mount (SSR), anggap sama agar tidak flicker
   const isSameDevice = !isMounted || !boundDeviceId || (clientDeviceId && boundDeviceId === clientDeviceId);
 
@@ -300,7 +301,21 @@ export function AttendanceFormClient({
         deviceInfo={clientDeviceLabel}
       />
 
-      {/* 4. Catatan Piket */}
+      {/* 4. Bukti Aktivitas Piket (Minimal 2 Gambar) */}
+      <ActivityUpload
+        key={`${attendance.id}-aktivitas`}
+        attendanceId={attendance.id}
+        userId={userId}
+        workDate={workDate}
+        shiftType={shiftType}
+        initialAttachments={attendance.attachments}
+        onSaved={handleRefresh}
+        canEdit={canEdit}
+        deviceId={clientDeviceId}
+        deviceInfo={clientDeviceLabel}
+      />
+
+      {/* 5. Catatan Piket */}
       <NoteAutosave
         key={`${attendance.id}-note`}
         attendanceId={attendance.id}
