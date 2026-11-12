@@ -16,6 +16,7 @@ import {
   Loader2,
   RotateCcw,
   ShieldAlert,
+  FileDown,
 } from 'lucide-react';
 import { getOrCreateDeviceId, getDeviceLabel } from '@/lib/device';
 import { isWithin48Hours } from '@/lib/dates';
@@ -23,7 +24,9 @@ import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import {
   unlockAttendanceAction,
   resetDeviceAction,
+  getSingleFormExportData,
 } from '@/app/(app)/absen/[date]/[shift]/actions';
+import { generateSingleFormPdf } from '@/lib/pdf';
 import type { AttendanceDetail } from '@/lib/data/attendance';
 import type { ShiftType } from '@/lib/supabase/types';
 
@@ -50,6 +53,8 @@ export function AttendanceFormClient({
   const [clientDeviceLabel, setClientDeviceLabel] = useState<string>('');
   const [isMounted, setIsMounted] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
 
   const mulaiAttachment = attendance.attachments.find((a) => a.kind === 'mulai') ?? null;
   const selesaiAttachment = attendance.attachments.find((a) => a.kind === 'selesai') ?? null;
@@ -149,6 +154,30 @@ export function AttendanceFormClient({
     }
   }
 
+  async function handleExportForm() {
+    try {
+      setIsExporting(true);
+      setExportMsg('Mengambil data form...');
+      const res = await getSingleFormExportData(attendance.id);
+      if (res.error || !res.data) {
+        showAlert('Tidak Dapat Export', res.error || 'Data absensi pada form ini belum ada.', 'info');
+        return;
+      }
+
+      setExportMsg('Memproses foto...');
+      await generateSingleFormPdf(res.data, (_cur, _tot, msg) => {
+        setExportMsg(msg);
+      });
+
+      showToast('PDF Form Absensi berhasil diunduh!', 'success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal membuat dokumen PDF.';
+      showAlert('Gagal Export', msg, 'error');
+    } finally {
+      setIsExporting(false);
+      setExportMsg(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -325,7 +354,43 @@ export function AttendanceFormClient({
         deviceInfo={clientDeviceLabel}
       />
 
-      {/* 6. Aksi Bawah & Tombol Selesai */}
+      {/* 6. Export Laporan Form Ini (PDF) */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-gray-100 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 transition-colors">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <FileDown className="h-5 w-5" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-gray-900 dark:text-slate-100">
+              Export PDF Form Ini
+            </h4>
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+              Download dokumen laporan PDF khusus bukti piket &amp; aktivitas pada shift dan pekerjaan ini.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleExportForm}
+          disabled={isExporting}
+          className="w-full sm:w-auto px-4 py-2.5 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-2 min-h-[44px]"
+        >
+          {isExporting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
+              <span>{exportMsg || 'Membuat PDF...'}</span>
+            </>
+          ) : (
+            <>
+              <FileDown className="h-4 w-4" />
+              <span>Download PDF Form Ini</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* 7. Aksi Bawah & Tombol Selesai */}
       <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-slate-300">
           <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />

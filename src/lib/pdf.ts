@@ -7,6 +7,7 @@ export interface PdfAttendanceItem {
   work_date: string;
   shift_type: ShiftType;
   job_type?: JobType;
+  author_name?: string;
   note: string | null;
   mulaiUrl: string | null;
   selesaiUrl: string | null;
@@ -96,7 +97,15 @@ export async function generateAttendancePdf(
     doc.setFontSize(14);
     doc.setTextColor(20, 20, 20);
     doc.text(titleText, margin, y + 5);
-    y += 12;
+    y += 10;
+
+    if (item.author_name) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Petugas Pengisi: ${item.author_name}`, margin, y + 3);
+      y += 6;
+    }
 
     // Optional Note
     if (item.note) {
@@ -262,5 +271,240 @@ export async function generateAttendancePdf(
 
   // Save the PDF file
   const filename = `absensi-piket_${startDate}_sd_${endDate}.pdf`;
+  doc.save(filename);
+}
+
+export async function generateSingleFormPdf(
+  item: PdfAttendanceItem,
+  onProgress?: ProgressCallback
+): Promise<void> {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const margin = 15;
+  const contentWidth = pageWidth - margin * 2; // 180 mm
+
+  let totalOps = 0;
+  if (item.mulaiUrl) totalOps++;
+  if (item.selesaiUrl) totalOps++;
+  if (item.aktivitasUrls) totalOps += item.aktivitasUrls.length;
+  if (item.ticketUrls) totalOps += item.ticketUrls.length;
+  totalOps = Math.max(totalOps, 1);
+  let currentOp = 0;
+
+  function updateProgress(msg: string) {
+    currentOp++;
+    if (onProgress) {
+      onProgress(Math.min(currentOp, totalOps), totalOps, msg);
+    }
+  }
+
+  let y = margin;
+
+  // Header Title
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(14, 116, 144);
+  doc.text('ICONNET • Macan Kumbang', margin, y + 2);
+  y += 6;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(20, 20, 20);
+  const shiftNum = shiftNumber(item.shift_type);
+  const shiftName = item.shift_type === 'pagi' ? 'Pagi' : 'Malam';
+  const jobName = item.job_type ? ` — ${jobLabel(item.job_type)}` : '';
+  doc.text(`Absensi Shift ${shiftName} (Shift ${shiftNum})${jobName}`, margin, y + 4);
+  y += 9;
+
+  // Meta info: Date & Petugas
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9.5);
+  doc.setTextColor(70, 70, 70);
+  doc.text(`Tanggal: ${formatIndonesia(item.work_date)}`, margin, y + 3);
+  if (item.author_name) {
+    doc.text(`Petugas: ${item.author_name}`, margin + 95, y + 3);
+  }
+  y += 6;
+
+  // Divider line
+  doc.setDrawColor(220, 225, 230);
+  doc.setLineWidth(0.4);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 6;
+
+  // Optional Note
+  if (item.note && item.note.trim().length > 0) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    const splitNote = doc.splitTextToSize(`Catatan: ${item.note}`, contentWidth);
+    doc.text(splitNote, margin, y);
+    y += splitNote.length * 4.5 + 4;
+  }
+
+  // 1. Mulai Kerja
+  if (item.mulaiUrl) {
+    try {
+      updateProgress('Memproses foto Mulai Kerja...');
+      const img = await loadImage(item.mulaiUrl);
+      const dataUrl = imageToDataUrl(img);
+
+      const maxImgHeight = 95;
+      const aspect = img.naturalWidth / img.naturalHeight;
+      let imgW = contentWidth;
+      let imgH = imgW / aspect;
+      if (imgH > maxImgHeight) {
+        imgH = maxImgHeight;
+        imgW = imgH * aspect;
+      }
+
+      if (y + imgH + 10 > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 30, 30);
+      doc.text('1. Bukti Piket — Mulai Kerja', margin, y + 3);
+      y += 6;
+
+      doc.addImage(dataUrl, 'JPEG', margin, y, imgW, imgH);
+      y += imgH + 8;
+    } catch (err) {
+      console.error('Gagal menyertakan foto mulai:', err);
+    }
+  }
+
+  // 2. Selesai Kerja
+  if (item.selesaiUrl) {
+    try {
+      updateProgress('Memproses foto Selesai Kerja...');
+      const img = await loadImage(item.selesaiUrl);
+      const dataUrl = imageToDataUrl(img);
+
+      const maxImgHeight = 95;
+      const aspect = img.naturalWidth / img.naturalHeight;
+      let imgW = contentWidth;
+      let imgH = imgW / aspect;
+      if (imgH > maxImgHeight) {
+        imgH = maxImgHeight;
+        imgW = imgH * aspect;
+      }
+
+      if (y + imgH + 10 > pageHeight - margin) {
+        doc.addPage();
+        y = margin;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 30, 30);
+      doc.text('2. Bukti Piket — Selesai Kerja', margin, y + 3);
+      y += 6;
+
+      doc.addImage(dataUrl, 'JPEG', margin, y, imgW, imgH);
+      y += imgH + 8;
+    } catch (err) {
+      console.error('Gagal menyertakan foto selesai:', err);
+    }
+  }
+
+  // 3. Aktivitas Piket
+  if (item.aktivitasUrls && item.aktivitasUrls.length > 0) {
+    for (let aIdx = 0; aIdx < item.aktivitasUrls.length; aIdx++) {
+      const aktUrl = item.aktivitasUrls[aIdx];
+      try {
+        updateProgress(`Memproses foto Aktivitas #${aIdx + 1}...`);
+        const img = await loadImage(aktUrl);
+        const dataUrl = imageToDataUrl(img);
+
+        const maxImgHeight = 90;
+        const aspect = img.naturalWidth / img.naturalHeight;
+        let imgW = contentWidth;
+        let imgH = imgW / aspect;
+        if (imgH > maxImgHeight) {
+          imgH = maxImgHeight;
+          imgW = imgH * aspect;
+        }
+
+        if (y + imgH + 10 > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(30, 30, 30);
+        doc.text(`3. Bukti Aktivitas Piket #${aIdx + 1}`, margin, y + 3);
+        y += 6;
+
+        doc.addImage(dataUrl, 'JPEG', margin, y, imgW, imgH);
+        y += imgH + 8;
+      } catch (err) {
+        console.error(`Gagal menyertakan foto aktivitas #${aIdx + 1}:`, err);
+      }
+    }
+  }
+
+  // 4. Ticket Piket
+  if (item.ticketUrls && item.ticketUrls.length > 0) {
+    for (let t = 0; t < item.ticketUrls.length; t++) {
+      const ticketUrl = item.ticketUrls[t];
+      try {
+        updateProgress(`Memproses tiket #${t + 1}...`);
+        const img = await loadImage(ticketUrl);
+        const dataUrl = imageToDataUrl(img);
+
+        const maxImgHeight = 120;
+        const aspect = img.naturalWidth / img.naturalHeight;
+        let imgW = contentWidth;
+        let imgH = imgW / aspect;
+        if (imgH > maxImgHeight) {
+          imgH = maxImgHeight;
+          imgW = imgH * aspect;
+        }
+
+        if (y + imgH + 10 > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(30, 30, 30);
+        doc.text(`4. Picket Ticket #${t + 1}`, margin, y + 3);
+        y += 6;
+
+        doc.addImage(dataUrl, 'JPEG', margin, y, imgW, imgH);
+        y += imgH + 8;
+      } catch (err) {
+        console.error(`Gagal menyertakan tiket #${t + 1}:`, err);
+      }
+    }
+  }
+
+  // Footer page numbers
+  const totalPages = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(
+      `Halaman ${p} dari ${totalPages} • Sistem Absensi Piket ICONNET Macan Kumbang`,
+      margin,
+      pageHeight - 8
+    );
+  }
+
+  const jobSuffix = item.job_type ? `_${item.job_type}` : '';
+  const filename = `absen-piket_${item.work_date}_shift-${item.shift_type}${jobSuffix}.pdf`;
   doc.save(filename);
 }
