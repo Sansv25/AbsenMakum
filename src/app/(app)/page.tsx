@@ -178,7 +178,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     return (
                       <div
                         key={job}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-sm gap-2.5 sm:gap-3"
+                        className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-xs gap-3"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <StatusIcon status={status} />
@@ -187,17 +187,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                               <p className="font-semibold text-gray-800 dark:text-slate-200 text-xs sm:text-sm">
                                 {jobLabel(job)}
                               </p>
-                              {att?.authorName ? (
+                              {status !== 'kosong' && att?.authorName && (
                                 <span
-                                  className="text-[11px] font-medium text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2 py-0.5 rounded-full inline-flex items-center gap-1 truncate max-w-[170px]"
+                                  className="text-[10px] sm:text-[11px] font-medium text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2 py-0.5 rounded-full inline-flex items-center gap-1 truncate max-w-[120px] sm:max-w-[170px]"
                                   title={`Petugas: ${att.authorName}`}
                                 >
                                   <User className="h-2.5 w-2.5 flex-shrink-0" />
                                   <span className="truncate">{att.authorName}</span>
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-gray-400 dark:text-slate-500 font-normal italic">
-                                  (Belum ada petugas)
                                 </span>
                               )}
                             </div>
@@ -208,7 +204,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                         </div>
                         <Link
                           href={`/absen/${today}/${shift}?job=${job}`}
-                          className="text-xs font-semibold px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm transition-colors min-h-[36px] flex items-center justify-center self-end sm:self-auto"
+                          className="shrink-0 text-xs font-semibold px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors min-h-[36px] flex items-center justify-center whitespace-nowrap"
                         >
                           {status === 'kosong' ? 'Isi Absen' : 'Lihat / Edit'}
                         </Link>
@@ -267,18 +263,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 return (
                   <div
                     key={att.id}
-                    className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 hover:bg-gray-50/50 dark:hover:bg-slate-800/30 px-2 rounded-xl transition-colors"
+                    className="py-2.5 sm:py-3 flex items-center justify-between gap-3 hover:bg-gray-50/50 dark:hover:bg-slate-800/30 px-2 rounded-xl transition-colors"
                   >
-                    <div className="flex items-start sm:items-center gap-3 min-w-0">
-                      <div className="pt-0.5 sm:pt-0">
-                        <StatusIcon status={status} />
-                      </div>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <StatusIcon status={status} />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-slate-100">
                             {formatIndonesia(att.work_date)}
                           </span>
-                          <span className="text-[10px] font-medium bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 px-2 py-0.5 rounded-full border border-gray-200 dark:border-slate-700">
+                          <span className="text-[10px] font-medium bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 px-2 py-0.5 rounded-full border border-gray-200 dark:border-slate-700 whitespace-nowrap">
                             {shiftLabel(att.shift_type)}
                           </span>
                         </div>
@@ -296,7 +290,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
                     <Link
                       href={`/absen/${att.work_date}/${att.shift_type}?job=${job}`}
-                      className="self-end sm:self-auto text-xs font-semibold px-3 py-1.5 bg-gray-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-gray-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-200 dark:border-slate-700 rounded-xl transition-colors min-h-[32px] flex items-center gap-1"
+                      className="shrink-0 text-xs font-semibold px-3 py-1.5 bg-gray-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-gray-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-200 dark:border-slate-700 rounded-xl transition-colors min-h-[32px] flex items-center gap-1 whitespace-nowrap"
                     >
                       <span>Buka Form</span>
                       <ChevronRight className="h-3 w-3" />
