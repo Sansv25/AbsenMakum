@@ -21,7 +21,6 @@ export function CameraModal({
 }: CameraModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const mapTileRef = useRef<HTMLImageElement | null>(null);
   const logoRef = useRef<HTMLImageElement | null>(null);
 
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(initialFacingMode);
@@ -39,7 +38,6 @@ export function CameraModal({
   ]);
   const [compassHeading, setCompassHeading] = useState<number>(160);
   const [compassDir, setCompassDir] = useState<string>('S');
-  const [mapTileUrl, setMapTileUrl] = useState<string | null>(null);
   const [currentTimeStr, setCurrentTimeStr] = useState<string>('');
 
   const cleanUserName = useMemo(() => {
@@ -66,7 +64,7 @@ export function CameraModal({
     };
   }, []);
 
-  // Request GPS & Reverse Geocode & Map Tile
+  // Request GPS & Reverse Geocode
   useEffect(() => {
     if (!isOpen) return;
 
@@ -77,17 +75,6 @@ export function CameraModal({
           const lng = pos.coords.longitude;
           const formattedCoords = `${lat.toFixed(8)} ${lng.toFixed(7)}`;
           setCoordsStr(formattedCoords);
-
-          // Preload map tile
-          const tileUrl = `/api/map-tile?lat=${lat}&lng=${lng}`;
-          setMapTileUrl(tileUrl);
-
-          const tileImg = new Image();
-          tileImg.crossOrigin = 'anonymous';
-          tileImg.src = tileUrl;
-          tileImg.onload = () => {
-            mapTileRef.current = tileImg;
-          };
 
           // Fetch reverse geocode address
           try {
@@ -257,13 +244,7 @@ export function CameraModal({
     const compassY = margin + compassR;
     drawCompassDial(ctx, compassX, compassY, compassR, compassHeading);
 
-    // 4. KIRI BAWAH: Map Widget dengan Red Pin Marker
-    const mapSize = Math.round(180 * scale);
-    const mapX = margin;
-    const mapY = canvas.height - mapSize - margin;
-    drawMapWidget(ctx, mapX, mapY, mapSize, mapTileRef.current, scale);
-
-    // 5. KANAN BAWAH: Text Overlay (Timestamp, Koordinat, Heading, Alamat, #Nama)
+    // 4. KANAN BAWAH: Text Overlay (Timestamp, Koordinat, Heading, Alamat, #Nama)
     const lines: string[] = [];
     lines.push(formatCameraTimestamp());
     if (coordsStr) {
@@ -444,31 +425,8 @@ export function CameraModal({
                 </div>
               </div>
 
-              {/* 3. KIRI BAWAH: Map Widget */}
-              <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-white/90 shadow-md relative bg-slate-900">
-                  {mapTileUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={mapTileUrl} alt="Peta" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-400 bg-slate-800">
-                      Peta GPS
-                    </div>
-                  )}
-                  {/* Center pin marker */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full flex flex-col items-center">
-                    <div className="h-3.5 w-3.5 rounded-full bg-red-600 border border-white flex items-center justify-center shadow-xs">
-                      <div className="h-1 w-1 rounded-full bg-white" />
-                    </div>
-                  </div>
-                  <span className="absolute bottom-0.5 left-1.5 text-[8px] font-bold text-white drop-shadow">
-                    Google
-                  </span>
-                </div>
-              </div>
-
-              {/* 4. KANAN BAWAH: Live Text Info */}
-              <div className="absolute bottom-3 right-3 z-10 pointer-events-none text-right text-white font-semibold text-[10px] sm:text-xs leading-snug drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] max-w-[62%] sm:max-w-[55%]">
+              {/* 3. KANAN BAWAH: Live Text Info */}
+              <div className="absolute bottom-3 right-3 z-10 pointer-events-none text-right text-white font-semibold text-[10px] sm:text-xs leading-snug drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] max-w-[85%] sm:max-w-[70%]">
                 <p>{currentTimeStr}</p>
                 {coordsStr && <p className="font-mono text-[9px] sm:text-[11px]">{coordsStr}</p>}
                 <p>{compassHeading}° {compassDir}</p>
@@ -593,91 +551,6 @@ function drawCompassDial(
 
   ctx.restore();
   ctx.restore();
-}
-
-// Canvas Drawer: Map Widget with Red Pin
-function drawMapWidget(
-  ctx: CanvasRenderingContext2D,
-  mapX: number,
-  mapY: number,
-  mapSize: number,
-  mapImg: HTMLImageElement | null,
-  scale: number
-) {
-  const radius = Math.round(10 * scale);
-  ctx.save();
-
-  // Rounded rectangle clip
-  ctx.beginPath();
-  ctx.roundRect(mapX, mapY, mapSize, mapSize, radius);
-  ctx.clip();
-
-  if (mapImg && mapImg.complete && mapImg.naturalWidth > 0) {
-    ctx.drawImage(mapImg, mapX, mapY, mapSize, mapSize);
-  } else {
-    // Stylized map placeholder
-    ctx.fillStyle = '#1e293b';
-    ctx.fillRect(mapX, mapY, mapSize, mapSize);
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1.5;
-    for (let i = 1; i <= 3; i++) {
-      const pos = (mapSize / 4) * i;
-      ctx.beginPath();
-      ctx.moveTo(mapX + pos, mapY);
-      ctx.lineTo(mapX + pos, mapY + mapSize);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(mapX, mapY + pos);
-      ctx.lineTo(mapX + mapSize, mapY + pos);
-      ctx.stroke();
-    }
-  }
-
-  // Red location pin in center
-  const pinX = mapX + mapSize / 2;
-  const pinY = mapY + mapSize / 2;
-  const pinR = Math.round(9 * scale);
-
-  // Pin shadow
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-  ctx.beginPath();
-  ctx.ellipse(pinX, pinY + 2 * scale, pinR * 0.8, pinR * 0.4, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Pin circle
-  ctx.fillStyle = '#ef4444';
-  ctx.beginPath();
-  ctx.arc(pinX, pinY - pinR, pinR, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Pin needle
-  ctx.beginPath();
-  ctx.moveTo(pinX - pinR * 0.72, pinY - pinR * 0.72);
-  ctx.lineTo(pinX, pinY);
-  ctx.lineTo(pinX + pinR * 0.72, pinY - pinR * 0.72);
-  ctx.fill();
-
-  // Pin inner white dot
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(pinX, pinY - pinR, pinR * 0.38, 0, Math.PI * 2);
-  ctx.fill();
-
-  // "Google" attribution text at bottom-left
-  ctx.font = `bold ${Math.round(11 * scale)}px -apple-system, sans-serif`;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-  ctx.shadowBlur = 3;
-  ctx.fillText('Google', mapX + 8 * scale, mapY + mapSize - 8 * scale);
-
-  ctx.restore();
-
-  // White border
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-  ctx.lineWidth = Math.max(1.5, Math.round(2 * scale));
-  ctx.beginPath();
-  ctx.roundRect(mapX, mapY, mapSize, mapSize, radius);
-  ctx.stroke();
 }
 
 // Canvas Drawer: Fallback ICONNET Symbol
