@@ -15,6 +15,7 @@ interface SingleUploadProps {
   kind: AttachmentKind; // 'mulai' | 'selesai'
   attendanceId: string;
   userId: string;
+  userName?: string;
   workDate: string;
   shiftType: ShiftType;
   initialAttachment?: AttachmentWithUrl | null;
@@ -29,6 +30,7 @@ export function SingleUpload({
   kind,
   attendanceId,
   userId,
+  userName,
   workDate,
   shiftType,
   initialAttachment,
@@ -283,6 +285,7 @@ export function SingleUpload({
         isOpen={cameraOpen}
         onClose={() => setCameraOpen(false)}
         onCapture={(file) => handleFileProcess(file)}
+        userName={userName}
       />
     </div>
   );

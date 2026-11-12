@@ -87,6 +87,26 @@ export function nowDateTimeWITA(): string {
   return `${dateStr} ${timeStr}`;
 }
 
+/** Format lengkap timestamp kamera: "Kamis, 12 November 2026 14:04:00" */
+export function formatCameraTimestamp(): string {
+  const now = new Date();
+  const datePart = new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: TIMEZONE,
+  }).format(now);
+  const timePart = new Intl.DateTimeFormat('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: TIMEZONE,
+  }).format(now).replace(/\./g, ':');
+  return `${datePart} ${timePart}`;
+}
+
 /**
  * Mengecek apakah tanggal absensi masih berada dalam batas toleransi pengisian (maksimal 48 jam).
  * Dihitung dari awal hari piket (00:00:00 WITA).

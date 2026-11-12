@@ -23,6 +23,7 @@ import type { ShiftType } from '@/lib/supabase/types';
 interface ActivityUploadProps {
   attendanceId: string;
   userId: string;
+  userName?: string;
   workDate: string;
   shiftType: ShiftType;
   initialAttachments: AttachmentWithUrl[];
@@ -35,6 +36,7 @@ interface ActivityUploadProps {
 export function ActivityUpload({
   attendanceId,
   userId,
+  userName,
   workDate,
   shiftType,
   initialAttachments,
@@ -575,6 +577,7 @@ export function ActivityUpload({
           setCameraOpen(false);
           handleFileProcess([file]);
         }}
+        userName={userName}
       />
 
       {/* Modal Preview Gambar Penuh */}

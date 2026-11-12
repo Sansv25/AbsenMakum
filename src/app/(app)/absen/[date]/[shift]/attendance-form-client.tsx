@@ -33,6 +33,7 @@ import type { ShiftType } from '@/lib/supabase/types';
 interface AttendanceFormClientProps {
   attendance: AttendanceDetail;
   userId: string;
+  userName?: string;
   workDate: string;
   shiftType: ShiftType;
   isMaster: boolean;
@@ -42,6 +43,7 @@ interface AttendanceFormClientProps {
 export function AttendanceFormClient({
   attendance,
   userId,
+  userName,
   workDate,
   shiftType,
   isMaster,
@@ -305,6 +307,7 @@ export function AttendanceFormClient({
         kind="mulai"
         attendanceId={attendance.id}
         userId={userId}
+        userName={userName}
         workDate={workDate}
         shiftType={shiftType}
         initialAttachment={mulaiAttachment}
@@ -321,6 +324,7 @@ export function AttendanceFormClient({
         kind="selesai"
         attendanceId={attendance.id}
         userId={userId}
+        userName={userName}
         workDate={workDate}
         shiftType={shiftType}
         initialAttachment={selesaiAttachment}
@@ -335,6 +339,7 @@ export function AttendanceFormClient({
         key={`${attendance.id}-aktivitas`}
         attendanceId={attendance.id}
         userId={userId}
+        userName={userName}
         workDate={workDate}
         shiftType={shiftType}
         initialAttachments={attendance.attachments}

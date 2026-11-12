@@ -41,7 +41,7 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
   const jobType: JobType = validJobs.includes(job as JobType) ? (job as JobType) : 'marketer';
 
   const supabase = await createClient();
-  const { isMaster } = await getCurrentUserProfile();
+  const { isMaster, fullName, email } = await getCurrentUserProfile();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return null;
@@ -221,6 +221,7 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
         key={`${attendance.id}-${jobType}`}
         attendance={attendance}
         userId={user.id}
+        userName={fullName || email || 'Petugas'}
         workDate={date}
         shiftType={shiftType}
         isMaster={isMaster}
