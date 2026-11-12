@@ -10,6 +10,8 @@ import { AttendanceFormClient } from './attendance-form-client';
 import type { ShiftType } from '@/lib/supabase/types';
 import { ArrowLeft, AlertCircle, ShieldAlert } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   params: Promise<{
     date: string;

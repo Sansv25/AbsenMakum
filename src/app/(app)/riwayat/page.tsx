@@ -4,6 +4,8 @@ import { getRequiredShifts, JOB_TYPES, type JobType } from '@/lib/shifts';
 import { RiwayatView, type RiwayatShiftGroup, type RiwayatJobDetail } from './riwayat-view';
 import type { Holiday, Attendance, Attachment, ShiftStatus } from '@/lib/supabase/types';
 
+export const dynamic = 'force-dynamic';
+
 interface RiwayatPageProps {
   searchParams: Promise<{ month?: string }>;
 }
@@ -39,7 +41,7 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
     .from('attendances')
     .select('*')
     .gte('work_date', `${currentMonth}-01`)
-    .lte('work_date', `${currentMonth}-31`);
+    .lt('work_date', `${nextMonthStr}-01`);
 
   const attendances = (attendancesData ?? []) as Attendance[];
   const attendanceIds = attendances.map((a) => a.id);

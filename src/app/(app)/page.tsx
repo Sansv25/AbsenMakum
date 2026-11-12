@@ -6,6 +6,8 @@ import Link from 'next/link';
 import type { Holiday, Attendance } from '@/lib/supabase/types';
 import { CalendarCheck, AlertCircle, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 interface DashboardPageProps {
   searchParams: Promise<{ month?: string }>;
 }
@@ -45,7 +47,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .from('attendances')
     .select('id, work_date, shift_type, job_type, note, created_at, updated_at, user_id')
     .gte('work_date', `${currentMonth}-01`)
-    .lte('work_date', `${currentMonth}-31`);
+    .lt('work_date', `${nextMonthStr}-01`);
 
   const attendances = (attendancesData ?? []) as Attendance[];
 
