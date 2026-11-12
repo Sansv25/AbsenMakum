@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Camera, X, RefreshCw, Check, SwitchCamera } from 'lucide-react';
+import { Camera, X, RefreshCw, Check, SwitchCamera, FlipHorizontal } from 'lucide-react';
 import { formatCameraTimestamp } from '@/lib/dates';
 
 interface CameraModalProps {
@@ -25,6 +25,7 @@ export function CameraModal({
 
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(initialFacingMode);
   const [isSwitching, setIsSwitching] = useState<boolean>(false);
+  const [isMirrored, setIsMirrored] = useState<boolean>(false);
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -129,6 +130,7 @@ export function CameraModal({
       setCapturedPreview(null);
       setCapturedBlob(null);
       setCameraError(null);
+      setIsMirrored(false);
       return;
     }
 
@@ -216,8 +218,16 @@ export function CameraModal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // 1. Draw video frame
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // 1. Draw video frame (support mirror effect)
+    if (isMirrored) {
+      ctx.save();
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    } else {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
 
     const baseDim = Math.min(canvas.width, canvas.height);
     const scale = baseDim / 720;
@@ -336,17 +346,21 @@ export function CameraModal({
             {!capturedPreview && (
               <button
                 type="button"
-                onClick={handleSwitchCamera}
-                disabled={isSwitching}
-                className="px-2.5 py-1.5 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors border border-gray-200 dark:border-slate-700 min-h-[36px]"
-                title="Ganti Kamera Depan / Belakang"
+                onClick={() => setIsMirrored((prev) => !prev)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all border min-h-[36px] ${
+                  isMirrored
+                    ? 'bg-blue-50 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 font-semibold shadow-xs'
+                    : 'bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 border-gray-200 dark:border-slate-700'
+                }`}
+                title={isMirrored ? 'Mirror Aktif (Foto dicerminkan)' : 'Aktifkan Efek Mirror (Cermin)'}
+                aria-label="Cerminkan Foto"
               >
-                <SwitchCamera
-                  className={`h-3.5 w-3.5 text-blue-600 dark:text-blue-400 ${
-                    isSwitching ? 'animate-spin' : ''
+                <FlipHorizontal
+                  className={`h-3.5 w-3.5 ${
+                    isMirrored ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-slate-300'
                   }`}
                 />
-                <span className="hidden sm:inline">Ganti Kamera</span>
+                <span className="hidden sm:inline">Mirror</span>
               </button>
             )}
             <button
@@ -385,20 +399,9 @@ export function CameraModal({
                 autoPlay
                 playsInline
                 muted
-                className="max-h-[68vh] w-full object-contain"
+                style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
+                className="max-h-[68vh] w-full object-contain transition-transform duration-200"
               />
-
-              {/* Tombol Cepat Ganti Kamera di Viewport */}
-              <button
-                type="button"
-                onClick={handleSwitchCamera}
-                disabled={isSwitching}
-                className="absolute top-3 left-16 z-20 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/30 text-white text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5 shadow-lg active:scale-95 transition-all"
-                aria-label="Ganti Kamera Depan / Belakang"
-              >
-                <SwitchCamera className={`h-3 w-3 sm:h-3.5 sm:w-3.5 text-sky-400 ${isSwitching ? 'animate-spin' : ''}`} />
-                <span>{facingMode === 'user' ? 'Kamera Belakang' : 'Kamera Depan'}</span>
-              </button>
 
               {/* LIVE OVERLAY HUD */}
               {/* 1. KANAN ATAS: Logo ICONNET */}
