@@ -84,7 +84,18 @@ function VerifyOtpContent() {
           verifyError = null;
           data = fallbackRes.data;
         } else {
-          verifyError = fallbackRes.error;
+          // Fallback ketiga: coba tipe magiclink jika keduanya gagal
+          const magicRes = await supabase.auth.verifyOtp({
+            email: email.trim().toLowerCase(),
+            token: cleanToken,
+            type: 'magiclink',
+          });
+          if (!magicRes.error) {
+            verifyError = null;
+            data = magicRes.data;
+          } else {
+            verifyError = fallbackRes.error;
+          }
         }
       }
 
