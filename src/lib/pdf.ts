@@ -127,30 +127,15 @@ function drawFullHeader(doc: jsPDF, item: PdfAttendanceItem): number {
   // 3. TABEL INFORMASI / METADATA PIKET
   const tblY = titleY + 7.5;
   const tblW = CONTENT_WIDTH;
-  const hasNote = Boolean(item.note && item.note.trim().length > 0);
-
-  let noteLines: string[] = [];
-  let noteRowH = 0;
-  if (hasNote) {
-    noteLines = doc.splitTextToSize(item.note!.trim(), tblW - 34);
-    noteRowH = Math.max(7.5, noteLines.length * 3.8 + 3.5);
-  }
-
-  const baseTblH = 17; // 2 rows of 8.5mm
-  const totalTblH = baseTblH + noteRowH;
+  const tblH = 17; // 2 baris metadata formal
 
   // Table outline
   doc.setDrawColor(203, 213, 225); // slate-300
   doc.setLineWidth(0.25);
-  doc.rect(MARGIN, tblY, tblW, totalTblH);
+  doc.rect(MARGIN, tblY, tblW, tblH);
 
   // Row 1 divider
   doc.line(MARGIN, tblY + 8.5, MARGIN + tblW, tblY + 8.5);
-
-  // Row 2 divider (if note exists)
-  if (hasNote) {
-    doc.line(MARGIN, tblY + 17, MARGIN + tblW, tblY + 17);
-  }
 
   // Column widths (4 columns: label1, val1, label2, val2)
   const c1W = 28;
@@ -158,14 +143,9 @@ function drawFullHeader(doc: jsPDF, item: PdfAttendanceItem): number {
   const c3W = 28;
 
   // Vertical dividers for rows 1 & 2
-  doc.line(MARGIN + c1W, tblY, MARGIN + c1W, tblY + 17);
-  doc.line(MARGIN + c1W + c2W, tblY, MARGIN + c1W + c2W, tblY + 17);
-  doc.line(MARGIN + c1W + c2W + c3W, tblY, MARGIN + c1W + c2W + c3W, tblY + 17);
-
-  if (hasNote) {
-    // Vertical divider for note label
-    doc.line(MARGIN + c1W, tblY + 17, MARGIN + c1W, tblY + totalTblH);
-  }
+  doc.line(MARGIN + c1W, tblY, MARGIN + c1W, tblY + tblH);
+  doc.line(MARGIN + c1W + c2W, tblY, MARGIN + c1W + c2W, tblY + tblH);
+  doc.line(MARGIN + c1W + c2W + c3W, tblY, MARGIN + c1W + c2W + c3W, tblY + tblH);
 
   // Background for label cells
   doc.setFillColor(248, 250, 252); // slate-50
@@ -173,9 +153,6 @@ function drawFullHeader(doc: jsPDF, item: PdfAttendanceItem): number {
   doc.rect(MARGIN, tblY + 8.5, c1W, 8.5, 'F');
   doc.rect(MARGIN + c1W + c2W, tblY, c3W, 8.5, 'F');
   doc.rect(MARGIN + c1W + c2W, tblY + 8.5, c3W, 8.5, 'F');
-  if (hasNote) {
-    doc.rect(MARGIN, tblY + 17, c1W, noteRowH, 'F');
-  }
 
   // Labels
   doc.setFont('helvetica', 'bold');
@@ -185,9 +162,6 @@ function drawFullHeader(doc: jsPDF, item: PdfAttendanceItem): number {
   doc.text('PEKERJAAN', MARGIN + 2.5, tblY + 14);
   doc.text('SHIFT', MARGIN + c1W + c2W + 2.5, tblY + 5.5);
   doc.text('PETUGAS', MARGIN + c1W + c2W + 2.5, tblY + 14);
-  if (hasNote) {
-    doc.text('CATATAN', MARGIN + 2.5, tblY + 22);
-  }
 
   // Values
   doc.setFont('helvetica', 'bold');
@@ -197,14 +171,8 @@ function drawFullHeader(doc: jsPDF, item: PdfAttendanceItem): number {
   doc.text(item.job_type ? jobLabel(item.job_type) : 'Operasional', MARGIN + c1W + 3, tblY + 14);
   doc.text(`Shift ${shiftNum} (${shiftName})`, MARGIN + c1W + c2W + c3W + 3, tblY + 5.5);
   doc.text(item.author_name?.trim() || 'Petugas Piket', MARGIN + c1W + c2W + c3W + 3, tblY + 14);
-  if (hasNote) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(51, 65, 85);
-    doc.text(noteLines, MARGIN + c1W + 3, tblY + 21.5);
-  }
 
-  return tblY + totalTblH + 6.5;
+  return tblY + tblH + 6.5;
 }
 
 // Gambar Header Mini pada Halaman Lanjutan (Running Header Formal)

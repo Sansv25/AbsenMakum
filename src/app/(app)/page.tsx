@@ -169,7 +169,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <span className="text-[11px] text-gray-500 dark:text-slate-400 font-medium">3 Pekerjaan</span>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2.5">
+                <div className="grid grid-cols-1 gap-3">
                   {JOB_TYPES.map((job) => {
                     const key = `${today}-${shift}-${job}`;
                     const att = attendanceMap.get(key);
@@ -178,36 +178,49 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     return (
                       <div
                         key={job}
-                        className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-xs gap-3"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 sm:p-4 rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-xs gap-3 sm:gap-4"
                       >
+                        {/* Baris Atas Mobile / Kiri Desktop: Ikon + Nama Pekerjaan + Nama Petugas */}
                         <div className="flex items-center gap-3 min-w-0">
                           <StatusIcon status={status} />
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-semibold text-gray-800 dark:text-slate-200 text-xs sm:text-sm">
+                              <p className="font-semibold text-gray-900 dark:text-slate-100 text-sm sm:text-base">
                                 {jobLabel(job)}
                               </p>
                               {status !== 'kosong' && att?.authorName && (
                                 <span
-                                  className="text-[10px] sm:text-[11px] font-medium text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2 py-0.5 rounded-full inline-flex items-center gap-1 truncate max-w-[120px] sm:max-w-[170px]"
+                                  className="text-xs font-medium text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 max-w-[200px]"
                                   title={`Petugas: ${att.authorName}`}
                                 >
-                                  <User className="h-2.5 w-2.5 flex-shrink-0" />
+                                  <User className="h-3 w-3 flex-shrink-0" />
                                   <span className="truncate">{att.authorName}</span>
                                 </span>
                               )}
                             </div>
-                            <p className={`text-[11px] capitalize font-medium ${statusColor(status)}`}>
+                            {/* Di desktop: status tampil di bawah nama pekerjaan */}
+                            <p className={`hidden sm:block text-xs capitalize font-medium ${statusColor(status)} mt-0.5`}>
                               {status}
                             </p>
                           </div>
                         </div>
-                        <Link
-                          href={`/absen/${today}/${shift}?job=${job}`}
-                          className="shrink-0 text-xs font-semibold px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors min-h-[36px] flex items-center justify-center whitespace-nowrap"
-                        >
-                          {status === 'kosong' ? 'Isi Absen' : 'Lihat / Edit'}
-                        </Link>
+
+                        {/* Baris Bawah Mobile (Atas-Bawah): Status di kiri dan Tombol Edit di kanan */}
+                        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2.5 sm:pt-0 border-t border-gray-100 dark:border-slate-800/80 sm:border-0">
+                          <div className="sm:hidden flex items-center gap-1.5">
+                            <span className="text-xs text-gray-400 dark:text-slate-500">Status:</span>
+                            <span className={`text-xs capitalize font-semibold ${statusColor(status)}`}>
+                              {status}
+                            </span>
+                          </div>
+
+                          <Link
+                            href={`/absen/${today}/${shift}?job=${job}`}
+                            className="shrink-0 text-xs font-semibold px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors min-h-[38px] flex items-center justify-center whitespace-nowrap"
+                          >
+                            {status === 'kosong' ? 'Isi Absen' : 'Lihat / Edit'}
+                          </Link>
+                        </div>
                       </div>
                     );
                   })}
