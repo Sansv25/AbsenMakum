@@ -47,7 +47,7 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
   const attendanceIds = attendances.map((a) => a.id);
 
   // Ambil profil user untuk menampilkan nama petugas pada riwayat & pencarian
-  const userIds = Array.from(new Set(attendances.map((a) => a.user_id).filter(Boolean)));
+  const userIds = Array.from(new Set([...attendances.map((a) => a.user_id), user.id].filter(Boolean) as string[]));
   const { data: profilesData } = userIds.length > 0
     ? await supabase
         .from('profiles')
@@ -206,6 +206,7 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
         currentMonth={currentMonth}
         prevMonth={prevMonthStr}
         nextMonth={nextMonthStr}
+        currentUserName={profileMap.get(user.id) ?? user.email ?? ''}
       />
     </div>
   );

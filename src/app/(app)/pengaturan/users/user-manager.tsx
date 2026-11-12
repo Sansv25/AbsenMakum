@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   createUserAction,
@@ -57,6 +57,17 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
   const pendingCount = initialUsers.filter((u) => !u.is_approved).length;
   const approvedCount = initialUsers.filter((u) => u.is_approved).length;
+
+  // Lock body scroll when any modal is open
+  useEffect(() => {
+    const hasModal = createModalOpen || !!resetModalUser || !!editModalUser;
+    if (!hasModal) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [createModalOpen, resetModalUser, editModalUser]);
 
   const filteredUsers = initialUsers.filter((u) => {
     if (filterTab === 'pending') return !u.is_approved;
@@ -501,7 +512,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
       {/* Modal Edit Pengguna */}
       {editModalUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base flex items-center gap-2">
@@ -622,7 +633,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
       {/* Modal Tambah User Manual */}
       {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base flex items-center gap-2">
@@ -707,7 +718,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
       {/* Modal Reset Password */}
       {resetModalUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base flex items-center gap-2">

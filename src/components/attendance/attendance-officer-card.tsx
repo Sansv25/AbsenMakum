@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   User,
@@ -52,6 +52,15 @@ export function AttendanceOfficerCard({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>(currentUserId || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isModalOpen]);
 
   async function handleSaveOfficer() {
     if (!selectedUserId) {
@@ -161,7 +170,7 @@ export function AttendanceOfficerCard({
       {/* Modal Dialog Ubah Petugas (Khusus Akun Master) */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => !isSubmitting && setIsModalOpen(false)}
         >
           <div

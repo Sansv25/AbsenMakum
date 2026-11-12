@@ -1,10 +1,18 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { todayWITA, formatIndonesia, getDatesInMonth, toYearMonth } from '@/lib/dates';
-import { getRequiredShifts, shiftLabel, JOB_TYPES, jobLabel } from '@/lib/shifts';
+import { getRequiredShifts, shiftLabel, JOB_TYPES, jobLabel, type JobType } from '@/lib/shifts';
 import Link from 'next/link';
 import type { Holiday, Attendance, Attachment } from '@/lib/supabase/types';
-import { CalendarCheck, AlertCircle, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  CalendarCheck,
+  AlertCircle,
+  Circle,
+  ChevronLeft,
+  ChevronRight,
+  User,
+  ClipboardList,
+} from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,8 +77,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     attachByAttendance.get(att.attendance_id)!.push(att);
   }
 
-  // Map: "date-shift-job" -> status
-  const attendanceMap = new Map<string, { status: string; id: string }>();
+  // Ambil profil user untuk menampilkan nama petugas pada kartu absensi
+  const userIds = Array.from(new Set(attendances.map((a) => a.user_id).filter(Boolean)));
+  const { data: profilesData } = userIds.length > 0
+    ? await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds)
+    : { data: [] };
+
+  const profileMap = new Map<string, string>();
+  for (const p of profilesData ?? []) {
+    const displayName = p.full_name?.trim() || p.email?.split('@')[0] || 'Petugas';
+    profileMap.set(p.id, displayName);
+  }
+
+  // Map: "date-shift-job" -> { status, id, userId, authorName }
+  const attendanceMap = new Map<
+    string,
+    { status: string; id: string; userId?: string | null; authorName?: string | null }
+  >();
   for (const a of attendances) {
     const list = attachByAttendance.get(a.id) ?? [];
     const hasMulai = list.some((att) => att.kind === 'mulai');
@@ -83,8 +109,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     } else if (hasMulai || hasSelesai || aktivitasCount > 0 || (a.note && a.note.trim().length > 0)) {
       status = 'sebagian';
     }
-    attendanceMap.set(`${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`, { status, id: a.id });
+
+    const authorName = a.user_id ? (profileMap.get(a.user_id) ?? null) : null;
+    attendanceMap.set(`${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`, {
+      status,
+      id: a.id,
+      userId: a.user_id,
+      authorName,
+    });
   }
+
+  // Filter piket akun yang sedang login di bulan ini
+  const myAttendances = attendances
+    .filter((a) => a.user_id === user.id)
+    .sort((a, b) => b.work_date.localeCompare(a.work_date) || (b.shift_type === 'malam' ? 1 : -1));
+
+  const myUniqueDatesCount = new Set(myAttendances.map((a) => a.work_date)).size;
 
   // Hari ini data
   const requiredShiftsToday = getRequiredShifts(today, holidaySet);
@@ -138,14 +178,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     return (
                       <div
                         key={job}
-                        className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-sm"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-sm gap-2.5 sm:gap-3"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           <StatusIcon status={status} />
-                          <div>
-                            <p className="font-semibold text-gray-800 dark:text-slate-200 text-xs sm:text-sm">
-                              {jobLabel(job)}
-                            </p>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold text-gray-800 dark:text-slate-200 text-xs sm:text-sm">
+                                {jobLabel(job)}
+                              </p>
+                              {att?.authorName ? (
+                                <span
+                                  className="text-[11px] font-medium text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2 py-0.5 rounded-full inline-flex items-center gap-1 truncate max-w-[170px]"
+                                  title={`Petugas: ${att.authorName}`}
+                                >
+                                  <User className="h-2.5 w-2.5 flex-shrink-0" />
+                                  <span className="truncate">{att.authorName}</span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-gray-400 dark:text-slate-500 font-normal italic">
+                                  (Belum ada petugas)
+                                </span>
+                              )}
+                            </div>
                             <p className={`text-[11px] capitalize font-medium ${statusColor(status)}`}>
                               {status}
                             </p>
@@ -153,7 +208,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                         </div>
                         <Link
                           href={`/absen/${today}/${shift}?job=${job}`}
-                          className="text-xs font-semibold px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm transition-colors min-h-[36px] flex items-center"
+                          className="text-xs font-semibold px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm transition-colors min-h-[36px] flex items-center justify-center self-end sm:self-auto"
                         >
                           {status === 'kosong' ? 'Isi Absen' : 'Lihat / Edit'}
                         </Link>
@@ -165,6 +220,93 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             );
           })}
         </div>
+      </section>
+
+      {/* Kartu Jadwal & Riwayat Piket Akun Saya */}
+      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-slate-800 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <h3 className="font-bold text-gray-900 dark:text-slate-100 text-sm sm:text-base">
+                Jadwal &amp; Riwayat Piket Saya
+              </h3>
+            </div>
+            <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-0.5">
+              Daftar tanggal dan shift piket yang Anda tangani pada bulan{' '}
+              {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+                new Date(`${currentMonth}-01`)
+              )}.
+            </p>
+          </div>
+
+          <div className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 px-3 py-1.5 rounded-xl self-start sm:self-auto">
+            <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+              Total: <strong>{myAttendances.length}</strong> Pekerjaan • <strong>{myUniqueDatesCount}</strong> Hari
+            </span>
+          </div>
+        </div>
+
+        {myAttendances.length === 0 ? (
+          <div className="text-center py-6 px-4 bg-gray-50/60 dark:bg-slate-800/40 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
+            <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
+              Belum ada catatan piket untuk akun Anda di bulan ini.
+            </p>
+            <p className="text-[11px] text-gray-400 dark:text-slate-500 mt-1">
+              Pilih shift hari ini di atas atau pilih tanggal pada kalender di bawah untuk mulai mengisi absen.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="divide-y divide-gray-100 dark:divide-slate-800">
+              {myAttendances.map((att) => {
+                const job = (att.job_type || 'marketer') as JobType;
+                const key = `${att.work_date}-${att.shift_type}-${job}`;
+                const status = attendanceMap.get(key)?.status ?? 'sebagian';
+
+                return (
+                  <div
+                    key={att.id}
+                    className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 hover:bg-gray-50/50 dark:hover:bg-slate-800/30 px-2 rounded-xl transition-colors"
+                  >
+                    <div className="flex items-start sm:items-center gap-3 min-w-0">
+                      <div className="pt-0.5 sm:pt-0">
+                        <StatusIcon status={status} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-slate-100">
+                            {formatIndonesia(att.work_date)}
+                          </span>
+                          <span className="text-[10px] font-medium bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 px-2 py-0.5 rounded-full border border-gray-200 dark:border-slate-700">
+                            {shiftLabel(att.shift_type)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs">
+                          <span className="text-blue-600 dark:text-blue-400 font-semibold text-[11px]">
+                            {jobLabel(job)}
+                          </span>
+                          <span className="text-gray-300 dark:text-slate-600">•</span>
+                          <span className={`text-[11px] capitalize font-medium ${statusColor(status)}`}>
+                            {status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Link
+                      href={`/absen/${att.work_date}/${att.shift_type}?job=${job}`}
+                      className="self-end sm:self-auto text-xs font-semibold px-3 py-1.5 bg-gray-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/50 text-gray-800 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-200 dark:border-slate-700 rounded-xl transition-colors min-h-[32px] flex items-center gap-1"
+                    >
+                      <span>Buka Form</span>
+                      <ChevronRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Kalender Bulanan */}

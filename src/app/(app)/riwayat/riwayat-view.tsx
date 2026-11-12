@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { formatIndonesia } from '@/lib/dates';
 import { shiftLabel, jobLabel, JOB_TYPES, type JobType } from '@/lib/shifts';
@@ -51,9 +51,16 @@ interface RiwayatViewProps {
   currentMonth: string;
   prevMonth: string;
   nextMonth: string;
+  currentUserName?: string;
 }
 
-export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: RiwayatViewProps) {
+export function RiwayatView({
+  items,
+  currentMonth,
+  prevMonth,
+  nextMonth,
+  currentUserName,
+}: RiwayatViewProps) {
   const [shiftFilter, setShiftFilter] = useState<'all' | ShiftType>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ShiftStatus>('all');
   const [searchName, setSearchName] = useState('');
@@ -63,6 +70,16 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string; title?: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Lock body scroll when drawer is open
+  useEffect(() => {
+    if (!drawerShift) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [drawerShift]);
 
   function openJobLightbox(job: RiwayatJobDetail, targetUrl: string) {
     const slides: { src: string; title: string }[] = [];
@@ -167,6 +184,55 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
             {totalItems} shift tercatat
           </span>
         </div>
+
+        {/* Quick Filter Chips */}
+        {currentUserName && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchName('');
+                setStatusFilter('all');
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                searchName === '' && statusFilter === 'all'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              Semua Shift
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchName(currentUserName);
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1 transition-colors ${
+                searchName === currentUserName
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              <User className="h-3 w-3" /> Piket Saya
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter(statusFilter === 'sebagian' ? 'all' : 'sebagian');
+                setCurrentPage(1);
+              }}
+              className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                statusFilter === 'sebagian'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+              }`}
+            >
+              Belum Lengkap
+            </button>
+          </div>
+        )}
 
         {/* Input Pencarian Berdasarkan Nama Petugas */}
         <div className="relative">
@@ -409,11 +475,11 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
       {/* 5. DRAWER SLIDE-OVER (3 Pekerjaan per Shift) */}
       {drawerShift && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex justify-end animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-200"
           onClick={() => setDrawerShift(null)}
         >
           <div
-            className="w-full max-w-lg bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-200 border-l border-gray-100 dark:border-slate-800"
+            className="w-full max-w-lg bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col z-[100] animate-in slide-in-from-right duration-200 border-l border-gray-100 dark:border-slate-800"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Header */}
