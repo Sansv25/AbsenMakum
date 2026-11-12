@@ -8,9 +8,9 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Plus,
   Eye,
   X,
+  Clipboard,
 } from 'lucide-react';
 import { CameraModal } from './camera-modal';
 import { compressImage } from '@/lib/image';
@@ -125,6 +125,98 @@ export function ActivityUpload({
     }
   }
 
+  // Listen for Ctrl+V (paste) on window
+  useEffect(() => {
+    if (!canEdit) return;
+
+    function handleWindowPaste(e: ClipboardEvent) {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === 'TEXTAREA' ||
+          (activeEl.tagName === 'INPUT' && (activeEl as HTMLInputElement).type === 'text'))
+      ) {
+        return;
+      }
+
+      const files: File[] = [];
+      if (e.clipboardData?.items) {
+        for (let i = 0; i < e.clipboardData.items.length; i++) {
+          const item = e.clipboardData.items[i];
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) files.push(file);
+          }
+        }
+      } else if (e.clipboardData?.files) {
+        for (let i = 0; i < e.clipboardData.files.length; i++) {
+          const file = e.clipboardData.files[i];
+          if (file.type.startsWith('image/')) {
+            files.push(file);
+          }
+        }
+      }
+
+      if (files.length > 0) {
+        e.preventDefault();
+        showToast('Screenshot terdeteksi dari clipboard!', 'info');
+        handleFileProcess(files);
+      }
+    }
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, [canEdit, items.length, attendanceId]);
+
+  async function handlePasteClipboard() {
+    if (!canEdit || uploading) return;
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        showAlert(
+          'Paste Screenshot',
+          'Silakan gunakan pintasan keyboard Ctrl + V untuk menempelkan screenshot secara langsung.',
+          'info'
+        );
+        return;
+      }
+
+      setStatusMsg('Membaca clipboard...');
+      const clipboardItems = await navigator.clipboard.read();
+      const imageFiles: File[] = [];
+
+      for (const item of clipboardItems) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type);
+            const ext = type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+            const file = new File([blob], `screenshot-${Date.now()}.${ext}`, { type });
+            imageFiles.push(file);
+          }
+        }
+      }
+
+      if (imageFiles.length === 0) {
+        showAlert(
+          'Tidak Ada Gambar di Clipboard',
+          'Clipboard belum berisi gambar. Silakan salin gambar atau ambil screenshot (Windows: Win + Shift + S atau PrtScn), lalu klik tombol ini lagi atau tekan Ctrl + V.',
+          'info'
+        );
+        setStatusMsg(null);
+        return;
+      }
+
+      await handleFileProcess(imageFiles);
+    } catch (err: unknown) {
+      console.warn('Clipboard read error:', err);
+      showAlert(
+        'Akses Clipboard',
+        'Tidak dapat membaca clipboard secara otomatis dari tombol browser. Anda dapat langsung menekan Ctrl + V pada keyboard.',
+        'info'
+      );
+      setStatusMsg(null);
+    }
+  }
+
   async function handleDelete(item: AttachmentWithUrl) {
     if (!canEdit) return;
 
@@ -135,21 +227,25 @@ export function ActivityUpload({
     );
     if (!confirmed) return;
 
+    // Optimistic UI update: hapus seketika dari tampilan agar sangat responsif
+    const previousItems = items;
+    setItems((prev) => prev.filter((x) => x.id !== item.id));
+
     try {
       setDeletingId(item.id);
       const supabase = createClient();
 
-      await supabase.storage.from('evidence').remove([item.storage_path]);
-      const { error } = await supabase
-        .from('attachments')
-        .delete()
-        .eq('id', item.id);
-
-      if (error) throw new Error(error.message);
+      // Hapus Storage dan DB secara paralel
+      await Promise.all([
+        supabase.storage.from('evidence').remove([item.storage_path]),
+        supabase.from('attachments').delete().eq('id', item.id),
+      ]);
 
       showToast('Foto aktivitas berhasil dihapus.', 'info');
       onSaved();
     } catch (err: unknown) {
+      // Rollback jika terjadi kesalahan jaringan
+      setItems(previousItems);
       const msg = err instanceof Error ? err.message : 'Gagal menghapus foto.';
       showAlert('Gagal', msg, 'error');
     } finally {
@@ -187,7 +283,18 @@ export function ActivityUpload({
 
         {/* Action Buttons if canEdit */}
         {canEdit && (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-wrap flex-shrink-0">
+            <button
+              type="button"
+              onClick={handlePasteClipboard}
+              disabled={uploading}
+              className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 min-h-[38px] shadow-2xs"
+              title="Paste screenshot langsung dari clipboard (atau tekan Ctrl + V)"
+            >
+              <Clipboard className="h-4 w-4" />
+              <span>Paste Screenshot</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setCameraOpen(true)}
@@ -254,38 +361,53 @@ export function ActivityUpload({
             )}
 
             {/* Badge urutan foto */}
-            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-white text-[10px] font-semibold">
+            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-white text-[10px] font-semibold z-10">
               Aktivitas #{idx + 1}
             </span>
 
-            {/* Hover overlay with action buttons */}
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            {/* Quick action buttons (selalu terlihat & responsif tanpa perlu hover) */}
+            <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
               {item.signedUrl && (
                 <button
                   type="button"
-                  onClick={() => setPreviewUrl(item.signedUrl)}
-                  className="p-1.5 rounded-lg bg-white/90 text-gray-800 hover:bg-white transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewUrl(item.signedUrl);
+                  }}
+                  className="p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-white transition-colors"
                   title="Lihat ukuran penuh"
+                  aria-label="Lihat ukuran penuh"
                 >
-                  <Eye className="h-4 w-4" />
+                  <Eye className="h-3.5 w-3.5" />
                 </button>
               )}
 
               {canEdit && (
                 <button
                   type="button"
-                  onClick={() => handleDelete(item)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(item);
+                  }}
                   disabled={deletingId === item.id}
-                  className="p-1.5 rounded-lg bg-red-600/90 text-white hover:bg-red-700 transition-colors"
+                  className="p-1.5 rounded-lg bg-red-600/90 hover:bg-red-700 active:scale-95 text-white transition-all shadow-xs"
                   title="Hapus foto ini"
+                  aria-label="Hapus foto ini"
                 >
                   {deletingId === item.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   )}
                 </button>
               )}
+            </div>
+
+            {/* Hover overlay with action buttons on desktop */}
+            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
+              <span className="text-[11px] text-white/90 bg-black/50 px-2 py-0.5 rounded-md">
+                Klik ikon untuk aksi
+              </span>
             </div>
           </div>
         ))}
@@ -293,64 +415,154 @@ export function ActivityUpload({
         {/* Placeholders for unfilled required slots (Slot 1 & Slot 2) */}
         {count === 0 && (
           <>
-            <div
-              onClick={() => canEdit && setCameraOpen(true)}
-              className={`aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-colors ${
-                canEdit ? 'cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/40' : 'opacity-60'
-              }`}
-            >
-              <Camera className="h-6 w-6 text-red-500" />
-              <span className="text-xs font-bold text-red-700 dark:text-red-400">
-                Foto Aktivitas #1
-              </span>
-              <span className="text-[10px] text-red-500">Wajib Diisi</span>
+            <div className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors">
+              <div>
+                <span className="text-xs font-bold text-red-700 dark:text-red-400 block">
+                  Foto Aktivitas #1
+                </span>
+                <span className="text-[10px] text-red-500">Wajib Diisi</span>
+              </div>
+
+              {canEdit && (
+                <div className="flex items-center gap-1 flex-wrap justify-center">
+                  <button
+                    type="button"
+                    onClick={handlePasteClipboard}
+                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                    title="Paste screenshot (Ctrl+V)"
+                  >
+                    <Clipboard className="h-3 w-3" /> Paste
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCameraOpen(true)}
+                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                  >
+                    <Camera className="h-3 w-3" /> Kamera
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                  >
+                    <Upload className="h-3 w-3" /> Galeri
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div
-              onClick={() => canEdit && setCameraOpen(true)}
-              className={`aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-colors ${
-                canEdit ? 'cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/40' : 'opacity-60'
-              }`}
-            >
-              <Camera className="h-6 w-6 text-red-500" />
-              <span className="text-xs font-bold text-red-700 dark:text-red-400">
-                Foto Aktivitas #2
-              </span>
-              <span className="text-[10px] text-red-500">Wajib Diisi</span>
+            <div className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors">
+              <div>
+                <span className="text-xs font-bold text-red-700 dark:text-red-400 block">
+                  Foto Aktivitas #2
+                </span>
+                <span className="text-[10px] text-red-500">Wajib Diisi</span>
+              </div>
+
+              {canEdit && (
+                <div className="flex items-center gap-1 flex-wrap justify-center">
+                  <button
+                    type="button"
+                    onClick={handlePasteClipboard}
+                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                    title="Paste screenshot (Ctrl+V)"
+                  >
+                    <Clipboard className="h-3 w-3" /> Paste
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCameraOpen(true)}
+                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                  >
+                    <Camera className="h-3 w-3" /> Kamera
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                  >
+                    <Upload className="h-3 w-3" /> Galeri
+                  </button>
+                </div>
+              )}
             </div>
           </>
         )}
 
         {count === 1 && (
-          <div
-            onClick={() => canEdit && setCameraOpen(true)}
-            className={`aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-colors ${
-              canEdit ? 'cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/40' : 'opacity-60'
-            }`}
-          >
-            <Camera className="h-6 w-6 text-amber-600" />
-            <span className="text-xs font-bold text-amber-800 dark:text-amber-400">
-              Foto Aktivitas #2
-            </span>
-            <span className="text-[10px] text-amber-600">Wajib (Kurang 1 Foto)</span>
+          <div className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors">
+            <div>
+              <span className="text-xs font-bold text-amber-800 dark:text-amber-400 block">
+                Foto Aktivitas #2
+              </span>
+              <span className="text-[10px] text-amber-600">Wajib (Kurang 1 Foto)</span>
+            </div>
+
+            {canEdit && (
+              <div className="flex items-center gap-1 flex-wrap justify-center">
+                <button
+                  type="button"
+                  onClick={handlePasteClipboard}
+                  className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                  title="Paste screenshot (Ctrl+V)"
+                >
+                  <Clipboard className="h-3 w-3" /> Paste
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCameraOpen(true)}
+                  className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                >
+                  <Camera className="h-3 w-3" /> Kamera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                >
+                  <Upload className="h-3 w-3" /> Galeri
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Slot tambah foto tambahan jika sudah memenuhi minimal 2 */}
         {count >= 2 && canEdit && (
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-gray-50/50 dark:bg-slate-800/40 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 p-4 flex flex-col items-center justify-center text-center gap-1 cursor-pointer transition-colors"
-          >
-            <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 mb-0.5">
-              <Plus className="h-5 w-5" />
+          <div className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-gray-50/50 dark:bg-slate-800/40 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors">
+            <div>
+              <span className="text-xs font-semibold text-gray-700 dark:text-slate-300 block">
+                Tambah Foto
+              </span>
+              <span className="text-[10px] text-gray-400 dark:text-slate-500">
+                (Opsional)
+              </span>
             </div>
-            <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">
-              Tambah Foto
-            </span>
-            <span className="text-[10px] text-gray-400 dark:text-slate-500">
-              (Opsional)
-            </span>
+
+            <div className="flex items-center gap-1 flex-wrap justify-center">
+              <button
+                type="button"
+                onClick={handlePasteClipboard}
+                className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-slate-700 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+                title="Paste screenshot (Ctrl+V)"
+              >
+                <Clipboard className="h-3 w-3" /> Paste
+              </button>
+              <button
+                type="button"
+                onClick={() => setCameraOpen(true)}
+                className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-slate-700 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+              >
+                <Camera className="h-3 w-3" /> Kamera
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-slate-700 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
+              >
+                <Upload className="h-3 w-3" /> Galeri
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -138,22 +138,24 @@ export function SingleUpload({
     );
     if (!confirmed) return;
 
+    // Optimistic UI update: langsung hilangkan foto dari tampilan agar responsif
+    const prevAttachment = attachment;
+    setAttachment(null);
+
     try {
       setDeleting(true);
       const supabase = createClient();
 
-      // Hapus dari Storage
-      await supabase.storage.from('evidence').remove([attachment.storage_path]);
+      // Hapus paralel dari Storage & DB
+      await Promise.all([
+        supabase.storage.from('evidence').remove([prevAttachment.storage_path]),
+        supabase.from('attachments').delete().eq('id', prevAttachment.id),
+      ]);
 
-      // Hapus dari DB
-      await supabase.from('attachments').delete().eq('id', attachment.id);
-
-      setAttachment(null);
-      setStatusMsg('Foto terhapus');
       showToast(`Foto ${title} berhasil dihapus`, 'info');
-      setTimeout(() => setStatusMsg(null), 3000);
       onSaved();
     } catch {
+      setAttachment(prevAttachment);
       showAlert('Gagal', 'Terjadi kesalahan saat menghapus foto.', 'error');
     } finally {
       setDeleting(false);
