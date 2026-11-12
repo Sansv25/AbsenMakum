@@ -1,0 +1,1192 @@
+'use client';
+
+import { useState, useMemo, useEffect, useTransition, useCallback } from 'react';
+import {
+  BarChart3,
+  Calendar,
+  CalendarDays,
+  CalendarRange,
+  Zap,
+  Search,
+  Table as TableIcon,
+  BarChart2,
+  TrendingUp,
+  Loader2,
+  X,
+} from 'lucide-react';
+import { fetchAttendancesForRangeAction } from './rekap-actions';
+import type { Attendance, Attachment, Holiday } from '@/lib/supabase/types';
+
+export interface ProfileRecapSummary {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string;
+  is_approved?: boolean;
+  exclude_from_recap?: boolean;
+}
+
+interface RekapPiketSectionProps {
+  initialProfiles: ProfileRecapSummary[];
+  initialAttendances: Attendance[];
+  initialAttachments: Attachment[];
+  holidays: Holiday[];
+  currentMonth: string; // e.g. "2026-11"
+  today: string;        // e.g. "2026-11-12"
+}
+
+type FilterMode = 'bulanan' | 'mingguan' | 'rentang' | 'preset';
+type ViewMode = 'tabel' | 'batang' | 'garis';
+
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+];
+
+export function RekapPiketSection({
+  initialProfiles,
+  initialAttendances,
+  initialAttachments,
+  holidays,
+  currentMonth,
+  today,
+}: RekapPiketSectionProps) {
+  // State Filter Mode
+  const [filterMode, setFilterMode] = useState<FilterMode>('bulanan');
+
+  // Nilai Filter
+  const [initYear, initMonthNum] = currentMonth.split('-').map(Number);
+  const [selectedYear, setSelectedYear] = useState<number>(initYear || 2026);
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>((initMonthNum || 11) - 1); // 0-indexed
+  const [selectedWeek, setSelectedWeek] = useState<number>(0); // 0 = Semua Minggu, 1..5 = Minggu 1..5
+
+  const [customStartDate, setCustomStartDate] = useState<string>(`${currentMonth}-01`);
+  const [customEndDate, setCustomEndDate] = useState<string>(today);
+
+  const [activePreset, setActivePreset] = useState<string>('bulan_ini');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // State Tampilan (Tabel, Batang, Garis)
+  const [viewMode, setViewMode] = useState<ViewMode>('tabel');
+  const [lineChartType, setLineChartType] = useState<'harian' | 'petugas'>('harian');
+
+  // Data State
+  const [attendances, setAttendances] = useState<Attendance[]>(initialAttendances);
+  const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments);
+  const [isPending, startTransition] = useTransition();
+
+  // Set Holiday Map & Set
+  const holidaySet = useMemo(() => new Set(holidays.map((h) => h.holiday_date)), [holidays]);
+
+  // Hitung rentang tanggal (startDate & endDate) berdasarkan filter yang aktif
+  const { startDate, endDate, periodLabel } = useMemo(() => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const monthNumStr = pad(selectedMonthIndex + 1);
+    const yearMonthStr = `${selectedYear}-${monthNumStr}`;
+    const daysInSelectedMonth = new Date(Date.UTC(selectedYear, selectedMonthIndex + 1, 0)).getUTCDate();
+
+    if (filterMode === 'bulanan') {
+      return {
+        startDate: `${yearMonthStr}-01`,
+        endDate: `${yearMonthStr}-${pad(daysInSelectedMonth)}`,
+        periodLabel: `${MONTH_NAMES[selectedMonthIndex]} ${selectedYear}`,
+      };
+    }
+
+    if (filterMode === 'mingguan') {
+      if (selectedWeek === 0) {
+        return {
+          startDate: `${yearMonthStr}-01`,
+          endDate: `${yearMonthStr}-${pad(daysInSelectedMonth)}`,
+          periodLabel: `Semua Minggu • ${MONTH_NAMES[selectedMonthIndex]} ${selectedYear}`,
+        };
+      }
+      if (selectedWeek === 6) {
+        // Minggu Ini (7 hari terakhir dari hari ini)
+        const curDate = new Date(`${today}T00:00:00Z`);
+        const dayOfWeek = curDate.getUTCDay(); // 0 = Min, 1 = Sen
+        const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const mon = new Date(curDate);
+        mon.setUTCDate(curDate.getUTCDate() + diffToMon);
+        const sun = new Date(mon);
+        sun.setUTCDate(mon.getUTCDate() + 6);
+
+        const sStr = mon.toISOString().slice(0, 10);
+        const eStr = sun.toISOString().slice(0, 10);
+        return {
+          startDate: sStr,
+          endDate: eStr,
+          periodLabel: `Minggu Ini (${mon.getUTCDate()} - ${sun.getUTCDate()} ${MONTH_NAMES[mon.getUTCMonth()]})`,
+        };
+      }
+
+      // Minggu 1..5
+      const startDay = (selectedWeek - 1) * 7 + 1;
+      const endDay = Math.min(selectedWeek * 7, daysInSelectedMonth);
+      return {
+        startDate: `${yearMonthStr}-${pad(startDay)}`,
+        endDate: `${yearMonthStr}-${pad(endDay)}`,
+        periodLabel: `Minggu ke-${selectedWeek} (${startDay} - ${endDay} ${MONTH_NAMES[selectedMonthIndex]} ${selectedYear})`,
+      };
+    }
+
+    if (filterMode === 'rentang') {
+      const s = customStartDate || `${currentMonth}-01`;
+      const e = customEndDate || today;
+      return {
+        startDate: s,
+        endDate: e,
+        periodLabel: `${s} s/d ${e}`,
+      };
+    }
+
+    // filterMode === 'preset'
+    if (activePreset === 'hari_ini') {
+      return {
+        startDate: today,
+        endDate: today,
+        periodLabel: `Hari Ini (${today})`,
+      };
+    }
+    if (activePreset === '7_hari') {
+      const d = new Date(`${today}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - 6);
+      const s = d.toISOString().slice(0, 10);
+      return {
+        startDate: s,
+        endDate: today,
+        periodLabel: `7 Hari Terakhir (${s} s/d ${today})`,
+      };
+    }
+    if (activePreset === '30_hari') {
+      const d = new Date(`${today}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - 29);
+      const s = d.toISOString().slice(0, 10);
+      return {
+        startDate: s,
+        endDate: today,
+        periodLabel: `30 Hari Terakhir (${s} s/d ${today})`,
+      };
+    }
+    if (activePreset === 'bulan_lalu') {
+      const prevM = new Date(Date.UTC(initYear, initMonthNum - 2, 1));
+      const pYear = prevM.getUTCFullYear();
+      const pMon = prevM.getUTCMonth();
+      const pDays = new Date(Date.UTC(pYear, pMon + 1, 0)).getUTCDate();
+      const s = `${pYear}-${pad(pMon + 1)}-01`;
+      const e = `${pYear}-${pad(pMon + 1)}-${pad(pDays)}`;
+      return {
+        startDate: s,
+        endDate: e,
+        periodLabel: `Bulan Lalu (${MONTH_NAMES[pMon]} ${pYear})`,
+      };
+    }
+
+    // Default bulan ini
+    return {
+      startDate: `${currentMonth}-01`,
+      endDate: today,
+      periodLabel: `Bulan Ini s/d Hari Ini`,
+    };
+  }, [
+    filterMode,
+    selectedMonthIndex,
+    selectedYear,
+    selectedWeek,
+    customStartDate,
+    customEndDate,
+    activePreset,
+    currentMonth,
+    today,
+    initYear,
+    initMonthNum,
+  ]);
+
+  // Muat data jika rentang tanggal melampaui bulan yang di-load dari server
+  useEffect(() => {
+    const isWithinCurrentMonth =
+      startDate.startsWith(currentMonth) && endDate.startsWith(currentMonth);
+
+    if (isWithinCurrentMonth) {
+      setAttendances(initialAttendances);
+      setAttachments(initialAttachments);
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await fetchAttendancesForRangeAction(startDate, endDate);
+      if (!res.error) {
+        setAttendances(res.attendances);
+        setAttachments(res.attachments);
+      }
+    });
+  }, [startDate, endDate, currentMonth, initialAttendances, initialAttachments]);
+
+  // Petugas yang masuk rekapitulasi (dikecualikan jika exclude_from_recap === true)
+  const activeProfiles = useMemo(() => {
+    return initialProfiles.filter((p) => !p.exclude_from_recap);
+  }, [initialProfiles]);
+
+  // Map attachments by attendance_id
+  const attachByAttendance = useMemo(() => {
+    const map = new Map<string, Attachment[]>();
+    for (const att of attachments) {
+      if (!map.has(att.attendance_id)) {
+        map.set(att.attendance_id, []);
+      }
+      map.get(att.attendance_id)!.push(att);
+    }
+    return map;
+  }, [attachments]);
+
+  // Periksa apakah sebuah shift attendance valid / selesai
+  const isAttendanceDone = useCallback(
+    (a: Attendance): boolean => {
+      const list = attachByAttendance.get(a.id) ?? [];
+      const hasMulai = list.some((att) => att.kind === 'mulai');
+      const hasSelesai = list.some((att) => att.kind === 'selesai');
+      const hasAktivitas = list.some((att) => att.kind === 'aktivitas');
+      const hasNote = !!(a.note && a.note.trim().length > 0);
+      return hasMulai || hasSelesai || hasAktivitas || hasNote;
+    },
+    [attachByAttendance]
+  );
+
+  // Rekapitulasi per petugas
+  const recapItems = useMemo(() => {
+    // Filter attendances yang masuk dalam rentang tanggal
+    const inRangeAttendances = attendances.filter(
+      (a) => a.work_date >= startDate && a.work_date <= endDate
+    );
+
+    const items = activeProfiles.map((p) => {
+      const weekdayShifts = new Set<string>();
+      const holidayShifts = new Set<string>();
+
+      for (const a of inRangeAttendances) {
+        if (a.user_id !== p.id) continue;
+        if (!isAttendanceDone(a)) continue;
+
+        const [y, m, d] = a.work_date.split('-').map(Number);
+        const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+        const isOff = dow === 0 || dow === 6 || holidaySet.has(a.work_date);
+
+        const shiftKey = `${a.work_date}#${a.shift_type}`;
+        if (isOff) {
+          holidayShifts.add(shiftKey);
+        } else {
+          weekdayShifts.add(shiftKey);
+        }
+      }
+
+      const name = p.full_name?.trim() || p.email?.split('@')[0] || 'Petugas';
+      return {
+        id: p.id,
+        name,
+        email: p.email,
+        role: p.role,
+        weekdayShiftsCount: weekdayShifts.size,
+        holidayShiftsCount: holidayShifts.size,
+        totalShiftsCount: weekdayShifts.size + holidayShifts.size,
+      };
+    });
+
+    // Urutkan dari total shift terbanyak
+    items.sort((a, b) => {
+      if (b.totalShiftsCount !== a.totalShiftsCount) {
+        return b.totalShiftsCount - a.totalShiftsCount;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    // Filter jika ada pencarian nama petugas
+    if (searchQuery.trim().length > 0) {
+      const q = searchQuery.toLowerCase().trim();
+      return items.filter(
+        (it) =>
+          it.name.toLowerCase().includes(q) ||
+          (it.email && it.email.toLowerCase().includes(q))
+      );
+    }
+
+    return items;
+  }, [activeProfiles, attendances, startDate, endDate, holidaySet, searchQuery, isAttendanceDone]);
+
+  // Total shift akumulasi
+  const totalAllWeekdayShifts = useMemo(
+    () => recapItems.reduce((acc, curr) => acc + curr.weekdayShiftsCount, 0),
+    [recapItems]
+  );
+  const totalAllHolidayShifts = useMemo(
+    () => recapItems.reduce((acc, curr) => acc + curr.holidayShiftsCount, 0),
+    [recapItems]
+  );
+  const totalAllShifts = totalAllWeekdayShifts + totalAllHolidayShifts;
+
+  // Data harian untuk diagram garis tren waktu
+  const dailyTimeline = useMemo(() => {
+    const inRangeAttendances = attendances.filter(
+      (a) => a.work_date >= startDate && a.work_date <= endDate
+    );
+
+    const datesMap = new Map<string, { weekday: Set<string>; holiday: Set<string> }>();
+
+    // Generate list tanggal
+    const cur = new Date(`${startDate}T00:00:00Z`);
+    const end = new Date(`${endDate}T00:00:00Z`);
+    while (cur <= end) {
+      const dStr = cur.toISOString().slice(0, 10);
+      datesMap.set(dStr, { weekday: new Set(), holiday: new Set() });
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+
+    for (const a of inRangeAttendances) {
+      if (!isAttendanceDone(a) || !a.user_id) continue;
+      // Hanya hitung petugas aktif yang tidak dikecualikan
+      if (!activeProfiles.some((p) => p.id === a.user_id)) continue;
+
+      const dData = datesMap.get(a.work_date);
+      if (!dData) continue;
+
+      const [y, m, d] = a.work_date.split('-').map(Number);
+      const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+      const isOff = dow === 0 || dow === 6 || holidaySet.has(a.work_date);
+
+      const shiftKey = `${a.work_date}#${a.shift_type}#${a.user_id}`;
+      if (isOff) {
+        dData.holiday.add(shiftKey);
+      } else {
+        dData.weekday.add(shiftKey);
+      }
+    }
+
+    return Array.from(datesMap.entries()).map(([dateStr, data]) => {
+      const wCount = data.weekday.size;
+      const hCount = data.holiday.size;
+      const [, m, d] = dateStr.split('-').map(Number);
+      return {
+        dateStr,
+        label: `${d}/${m}`,
+        weekday: wCount,
+        holiday: hCount,
+        total: wCount + hCount,
+      };
+    });
+  }, [attendances, startDate, endDate, activeProfiles, holidaySet, isAttendanceDone]);
+
+  return (
+    <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 space-y-5">
+      {/* 1. Header (Teks lama sudah dihilangkan) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-slate-800 pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base sm:text-lg">
+              Rekapitulasi Piket Petugas
+            </h3>
+          </div>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-medium">
+              <Calendar className="h-3 w-3" />
+              Periode: <strong>{periodLabel}</strong>
+            </span>
+            {isPending && (
+              <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500 animate-pulse">
+                <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                Memuat data...
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Ringkasan Total Akumulasi */}
+        <div className="inline-flex items-center gap-2 bg-gray-50 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 px-3 py-1.5 rounded-xl self-start sm:self-auto">
+          <span className="text-xs font-semibold text-gray-800 dark:text-slate-200">
+            Total: <strong className="text-emerald-600 dark:text-emerald-400">{totalAllShifts}</strong> Shift
+            <span className="text-gray-400 dark:text-slate-500 font-normal">
+              {' '}({totalAllWeekdayShifts} Biasa • {totalAllHolidayShifts} Libur)
+            </span>
+          </span>
+        </div>
+      </div>
+
+      {/* 2. Filter Bar Atas */}
+      <div className="space-y-3 bg-gray-50/70 dark:bg-slate-800/40 p-3.5 sm:p-4 rounded-xl border border-gray-100 dark:border-slate-800">
+        {/* Tab Mode Filter */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-gray-200 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => setFilterMode('bulanan')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                filterMode === 'bulanan'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100'
+              }`}
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              <span>Bulanan</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('mingguan')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                filterMode === 'mingguan'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100'
+              }`}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              <span>Mingguan</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('rentang')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                filterMode === 'rentang'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100'
+              }`}
+            >
+              <CalendarRange className="h-3.5 w-3.5" />
+              <span>Rentang</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode('preset')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                filterMode === 'preset'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100'
+              }`}
+            >
+              <Zap className="h-3.5 w-3.5 text-amber-500" />
+              <span>Preset</span>
+            </button>
+          </div>
+
+          {/* Kolom Pencarian Petugas */}
+          <div className="relative min-w-[200px] flex-1 sm:flex-initial">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400 dark:text-slate-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari nama petugas..."
+              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-2 p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Kontrol Sesuai Mode Filter yang Dipilih */}
+        {filterMode === 'bulanan' && (
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-slate-400">Bulan:</span>
+              <select
+                value={selectedMonthIndex}
+                onChange={(e) => setSelectedMonthIndex(Number(e.target.value))}
+                className="py-1.5 px-3 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {MONTH_NAMES.map((name, idx) => (
+                  <option key={name} value={idx}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-slate-400">Tahun:</span>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="py-1.5 px-3 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {[2024, 2025, 2026, 2027, 2028].map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {filterMode === 'mingguan' && (
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-slate-400">Bulan:</span>
+              <select
+                value={selectedMonthIndex}
+                onChange={(e) => setSelectedMonthIndex(Number(e.target.value))}
+                className="py-1.5 px-3 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                {MONTH_NAMES.map((name, idx) => (
+                  <option key={name} value={idx}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-slate-400">Pilih Minggu:</span>
+              <select
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                className="py-1.5 px-3 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value={0}>Semua Minggu (1 Bulan Penuh)</option>
+                <option value={1}>Minggu ke-1 (Tgl 1 - 7)</option>
+                <option value={2}>Minggu ke-2 (Tgl 8 - 14)</option>
+                <option value={3}>Minggu ke-3 (Tgl 15 - 21)</option>
+                <option value={4}>Minggu ke-4 (Tgl 22 - 28)</option>
+                <option value={5}>Minggu ke-5 (Tgl 29 - Akhir)</option>
+                <option value={6}>Minggu Ini (7 Hari Berjalan)</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {filterMode === 'rentang' && (
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-slate-400">Dari:</span>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="py-1.5 px-3 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-slate-400">Sampai:</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="py-1.5 px-3 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {filterMode === 'preset' && (
+          <div className="flex items-center gap-2 flex-wrap pt-1">
+            {[
+              { id: 'hari_ini', label: 'Hari Ini' },
+              { id: '7_hari', label: '7 Hari Terakhir' },
+              { id: '30_hari', label: '30 Hari Terakhir' },
+              { id: 'bulan_ini', label: 'Bulan Ini' },
+              { id: 'bulan_lalu', label: 'Bulan Lalu' },
+            ].map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setActivePreset(p.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                  activePreset === p.id
+                    ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-bold'
+                    : 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 3. Kartu Ringkasan Shift */}
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 text-center">
+          <span className="text-[11px] text-blue-800 dark:text-blue-300 block font-medium">Hari Biasa</span>
+          <span className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-400">
+            {totalAllWeekdayShifts}
+          </span>
+          <span className="text-[10px] text-blue-600/80 dark:text-blue-400/80 block font-medium">Shift</span>
+        </div>
+        <div className="p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 text-center">
+          <span className="text-[11px] text-amber-800 dark:text-amber-300 block font-medium">Hari Libur</span>
+          <span className="text-lg sm:text-xl font-bold text-amber-700 dark:text-amber-400">
+            {totalAllHolidayShifts}
+          </span>
+          <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 block font-medium">Shift</span>
+        </div>
+        <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 text-center">
+          <span className="text-[11px] text-emerald-800 dark:text-emerald-300 block font-medium">Total Seluruh</span>
+          <span className="text-lg sm:text-xl font-bold text-emerald-700 dark:text-emerald-400">
+            {totalAllShifts}
+          </span>
+          <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 block font-medium">Shift</span>
+        </div>
+      </div>
+
+      {/* 4. Switcher Tampilan (Tabel, Diagram Batang, Diagram Garis) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+        <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">
+          Format Visualisasi:
+        </span>
+        <div className="inline-flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl border border-gray-200 dark:border-slate-700">
+          <button
+            type="button"
+            onClick={() => setViewMode('tabel')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              viewMode === 'tabel'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+            }`}
+          >
+            <TableIcon className="h-3.5 w-3.5" />
+            <span>Tabel</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('batang')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              viewMode === 'batang'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+            }`}
+          >
+            <BarChart2 className="h-3.5 w-3.5" />
+            <span>Diagram Batang</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('garis')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              viewMode === 'garis'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+            }`}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            <span>Diagram Garis</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 5. Konten Tampilan Berdasarkan ViewMode */}
+      {recapItems.length === 0 ? (
+        <div className="text-center py-8 px-4 bg-gray-50/60 dark:bg-slate-800/40 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
+          <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
+            Tidak ada catatan piket untuk periode atau kata kunci pencarian yang dipilih.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* ===================== TAMPILAN 1: TABEL ===================== */}
+          {viewMode === 'tabel' && (
+            <>
+              {/* Tampilan Desktop & Tablet: Tabel */}
+              <div className="hidden sm:block overflow-hidden rounded-xl border border-gray-100 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50/80 dark:bg-slate-800/60 text-gray-600 dark:text-slate-300 border-b border-gray-100 dark:border-slate-800">
+                    <tr>
+                      <th className="py-2.5 px-3 font-semibold w-12 text-center">No</th>
+                      <th className="py-2.5 px-3 font-semibold">Nama Petugas</th>
+                      <th className="py-2.5 px-3 font-semibold text-center">Piket Hari Biasa</th>
+                      <th className="py-2.5 px-3 font-semibold text-center">Piket Hari Libur</th>
+                      <th className="py-2.5 px-3 font-semibold text-center">Total Piket</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                    {recapItems.map((item, idx) => (
+                      <tr
+                        key={item.id}
+                        className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                      >
+                        <td className="py-3 px-3 text-center text-gray-500 dark:text-slate-400 font-medium">
+                          {idx === 0 && item.totalShiftsCount > 0 ? (
+                            <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-bold">
+                              1
+                            </span>
+                          ) : idx === 1 && item.totalShiftsCount > 0 ? (
+                            <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 text-[10px] font-bold">
+                              2
+                            </span>
+                          ) : idx === 2 && item.totalShiftsCount > 0 ? (
+                            <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-900/10 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 text-[10px] font-bold">
+                              3
+                            </span>
+                          ) : (
+                            <span>{idx + 1}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="font-semibold text-gray-900 dark:text-slate-100 text-xs sm:text-sm">
+                            {item.name}
+                          </div>
+                          {item.email && (
+                            <div className="text-[11px] text-gray-400 dark:text-slate-500 truncate max-w-[220px]">
+                              {item.email}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="inline-block px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800">
+                            {item.weekdayShiftsCount} Shift
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800">
+                            {item.holidayShiftsCount} Shift
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 text-xs">
+                            {item.totalShiftsCount} Shift
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Tampilan Mobile: Kartu Ringkas */}
+              <div className="sm:hidden space-y-2.5">
+                {recapItems.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className="p-3 rounded-xl bg-gray-50/70 dark:bg-slate-800/40 border border-gray-100 dark:border-slate-800 space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-300 text-[10px] font-bold shrink-0">
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-xs text-gray-900 dark:text-slate-100 truncate">
+                            {item.name}
+                          </p>
+                          {item.email && (
+                            <p className="text-[10px] text-gray-400 dark:text-slate-500 truncate">
+                              {item.email}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                        {item.totalShiftsCount} Shift
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200/60 dark:border-slate-700/60 text-center">
+                      <div className="p-1.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60">
+                        <span className="text-[10px] text-gray-500 dark:text-slate-400 block font-medium">Hari Biasa</span>
+                        <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                          {item.weekdayShiftsCount} Shift
+                        </span>
+                      </div>
+                      <div className="p-1.5 rounded-lg bg-amber-50/60 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/60">
+                        <span className="text-[10px] text-gray-500 dark:text-slate-400 block font-medium">Hari Libur</span>
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                          {item.holidayShiftsCount} Shift
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ===================== TAMPILAN 2: DIAGRAM BATANG ===================== */}
+          {viewMode === 'batang' && (
+            <div className="space-y-4">
+              {/* Legend Batang */}
+              <div className="flex items-center justify-between text-xs bg-gray-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-slate-800 flex-wrap gap-3">
+                <span className="font-semibold text-gray-700 dark:text-slate-300">Legend Batang:</span>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-sm bg-blue-500" />
+                    <span className="text-gray-600 dark:text-slate-400">Hari Biasa</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-sm bg-amber-500" />
+                    <span className="text-gray-600 dark:text-slate-400">Hari Libur</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-sm bg-emerald-500" />
+                    <span className="text-gray-600 dark:text-slate-400">Total</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Horizontal Proportional Bar Chart per Petugas */}
+              <div className="space-y-3">
+                {recapItems.map((item, idx) => {
+                  const maxShiftInList = Math.max(...recapItems.map((r) => r.totalShiftsCount), 1);
+                  const totalPercent = Math.min((item.totalShiftsCount / maxShiftInList) * 100, 100);
+                  const weekdayPercent = item.totalShiftsCount > 0 ? (item.weekdayShiftsCount / item.totalShiftsCount) * 100 : 0;
+                  const holidayPercent = item.totalShiftsCount > 0 ? (item.holidayShiftsCount / item.totalShiftsCount) * 100 : 0;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-xl bg-gray-50/70 dark:bg-slate-800/40 border border-gray-100 dark:border-slate-800 space-y-2 hover:bg-gray-100/50 dark:hover:bg-slate-800/70 transition-colors"
+                    >
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-300 text-[10px] font-bold shrink-0">
+                            {idx + 1}
+                          </span>
+                          <span className="font-semibold text-gray-900 dark:text-slate-100 truncate">
+                            {item.name}
+                          </span>
+                        </div>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full text-[11px] shrink-0">
+                          {item.totalShiftsCount} Shift
+                        </span>
+                      </div>
+
+                      {/* Bar Visualizer */}
+                      <div className="relative h-6 w-full bg-gray-200/70 dark:bg-slate-700/60 rounded-lg overflow-hidden flex">
+                        {item.totalShiftsCount > 0 ? (
+                          <div
+                            style={{ width: `${Math.max(totalPercent, 12)}%` }}
+                            className="h-full flex rounded-lg overflow-hidden transition-all duration-500"
+                          >
+                            {item.weekdayShiftsCount > 0 && (
+                              <div
+                                style={{ width: `${weekdayPercent}%` }}
+                                className="h-full bg-blue-500 hover:bg-blue-600 transition-colors flex items-center justify-center text-white text-[10px] font-bold px-1"
+                                title={`Hari Biasa: ${item.weekdayShiftsCount} Shift`}
+                              >
+                                {item.weekdayShiftsCount > 0 && `${item.weekdayShiftsCount}`}
+                              </div>
+                            )}
+                            {item.holidayShiftsCount > 0 && (
+                              <div
+                                style={{ width: `${holidayPercent}%` }}
+                                className="h-full bg-amber-500 hover:bg-amber-600 transition-colors flex items-center justify-center text-white text-[10px] font-bold px-1"
+                                title={`Hari Libur: ${item.holidayShiftsCount} Shift`}
+                              >
+                                {item.holidayShiftsCount > 0 && `${item.holidayShiftsCount}`}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-[10px] text-gray-400 dark:text-slate-500">
+                            0 Shift
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-slate-400 pt-0.5">
+                        <span className="flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />
+                          Biasa: <strong>{item.weekdayShiftsCount}</strong>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />
+                          Libur: <strong>{item.holidayShiftsCount}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ===================== TAMPILAN 3: DIAGRAM GARIS ===================== */}
+          {viewMode === 'garis' && (
+            <div className="space-y-4">
+              {/* Pilihan Mode Diagram Garis */}
+              <div className="flex items-center justify-between text-xs bg-gray-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-slate-800 flex-wrap gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-gray-700 dark:text-slate-300">Tipe Kurva:</span>
+                  <div className="inline-flex rounded-lg bg-gray-200 dark:bg-slate-700 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setLineChartType('harian')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                        lineChartType === 'harian'
+                          ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                          : 'text-gray-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Tren Harian
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLineChartType('petugas')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                        lineChartType === 'petugas'
+                          ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                          : 'text-gray-600 dark:text-slate-400'
+                      }`}
+                    >
+                      Perbandingan Petugas
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-[11px]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-4 rounded-full bg-blue-500" />
+                    <span className="text-gray-600 dark:text-slate-400">Biasa</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-4 rounded-full bg-amber-500" />
+                    <span className="text-gray-600 dark:text-slate-400">Libur</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-4 rounded-full bg-emerald-500" />
+                    <span className="text-gray-600 dark:text-slate-400">Total</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SVG Line Chart Responsive */}
+              {lineChartType === 'harian' ? (
+                /* --- A. Tren Harian --- */
+                <div className="bg-gray-50/70 dark:bg-slate-800/40 p-4 rounded-xl border border-gray-100 dark:border-slate-800 overflow-x-auto">
+                  <div className="min-w-[500px]">
+                    {dailyTimeline.length === 0 ? (
+                      <p className="text-xs text-center py-6 text-gray-500">Tidak ada tanggal untuk kurva.</p>
+                    ) : (
+                      (() => {
+                        const maxVal = Math.max(...dailyTimeline.map((d) => d.total), 4);
+                        const chartH = 180;
+                        const padL = 30;
+                        const padR = 20;
+                        const padT = 20;
+                        const padB = 30;
+                        const plotW = 500 - padL - padR;
+                        const plotH = chartH - padT - padB;
+
+                        const stepX = dailyTimeline.length > 1 ? plotW / (dailyTimeline.length - 1) : plotW;
+
+                        const getX = (idx: number) => padL + idx * stepX;
+                        const getY = (val: number) => padT + plotH - (val / maxVal) * plotH;
+
+                        const pointsWeekday = dailyTimeline.map((d, i) => `${getX(i)},${getY(d.weekday)}`).join(' ');
+                        const pointsHoliday = dailyTimeline.map((d, i) => `${getX(i)},${getY(d.holiday)}`).join(' ');
+                        const pointsTotal = dailyTimeline.map((d, i) => `${getX(i)},${getY(d.total)}`).join(' ');
+
+                        return (
+                          <svg viewBox={`0 0 500 ${chartH}`} className="w-full h-48 select-none">
+                            {/* Gridlines */}
+                            {[0, Math.round(maxVal / 2), maxVal].map((tick) => {
+                              const y = getY(tick);
+                              return (
+                                <g key={tick}>
+                                  <line
+                                    x1={padL}
+                                    y1={y}
+                                    x2={500 - padR}
+                                    y2={y}
+                                    stroke="currentColor"
+                                    className="text-gray-200 dark:text-slate-700"
+                                    strokeDasharray="3 3"
+                                  />
+                                  <text
+                                    x={padL - 6}
+                                    y={y + 3}
+                                    textAnchor="end"
+                                    className="text-[9px] fill-gray-400 dark:fill-slate-500"
+                                  >
+                                    {tick}
+                                  </text>
+                                </g>
+                              );
+                            })}
+
+                            {/* Lines */}
+                            <polyline
+                              fill="none"
+                              stroke="#3b82f6"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={pointsWeekday}
+                            />
+                            <polyline
+                              fill="none"
+                              stroke="#f59e0b"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={pointsHoliday}
+                            />
+                            <polyline
+                              fill="none"
+                              stroke="#10b981"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={pointsTotal}
+                            />
+
+                            {/* Points & Labels */}
+                            {dailyTimeline.map((d, i) => {
+                              const x = getX(i);
+                              const yTotal = getY(d.total);
+                              return (
+                                <g key={d.dateStr} className="group cursor-pointer">
+                                  <circle
+                                    cx={x}
+                                    cy={yTotal}
+                                    r="3.5"
+                                    className="fill-emerald-500 stroke-white dark:stroke-slate-900 stroke-2 hover:r-5 transition-all"
+                                  />
+                                  {/* Label X-axis (setiap 2-3 hari jika banyak) */}
+                                  {(dailyTimeline.length <= 15 || i % Math.ceil(dailyTimeline.length / 10) === 0) && (
+                                    <text
+                                      x={x}
+                                      y={chartH - 8}
+                                      textAnchor="middle"
+                                      className="text-[9px] fill-gray-400 dark:fill-slate-500"
+                                    >
+                                      {d.label}
+                                    </text>
+                                  )}
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* --- B. Kurva Perbandingan Petugas --- */
+                <div className="bg-gray-50/70 dark:bg-slate-800/40 p-4 rounded-xl border border-gray-100 dark:border-slate-800 overflow-x-auto">
+                  <div className="min-w-[500px]">
+                    {recapItems.length === 0 ? (
+                      <p className="text-xs text-center py-6 text-gray-500">Tidak ada data petugas.</p>
+                    ) : (
+                      (() => {
+                        const maxVal = Math.max(...recapItems.map((r) => r.totalShiftsCount), 4);
+                        const chartH = 180;
+                        const padL = 30;
+                        const padR = 20;
+                        const padT = 20;
+                        const padB = 40;
+                        const plotW = 500 - padL - padR;
+                        const plotH = chartH - padT - padB;
+
+                        const stepX = recapItems.length > 1 ? plotW / (recapItems.length - 1) : plotW;
+
+                        const getX = (idx: number) => padL + idx * stepX;
+                        const getY = (val: number) => padT + plotH - (val / maxVal) * plotH;
+
+                        const pointsWeekday = recapItems.map((r, i) => `${getX(i)},${getY(r.weekdayShiftsCount)}`).join(' ');
+                        const pointsHoliday = recapItems.map((r, i) => `${getX(i)},${getY(r.holidayShiftsCount)}`).join(' ');
+                        const pointsTotal = recapItems.map((r, i) => `${getX(i)},${getY(r.totalShiftsCount)}`).join(' ');
+
+                        return (
+                          <svg viewBox={`0 0 500 ${chartH}`} className="w-full h-48 select-none">
+                            {/* Gridlines */}
+                            {[0, Math.round(maxVal / 2), maxVal].map((tick) => {
+                              const y = getY(tick);
+                              return (
+                                <g key={tick}>
+                                  <line
+                                    x1={padL}
+                                    y1={y}
+                                    x2={500 - padR}
+                                    y2={y}
+                                    stroke="currentColor"
+                                    className="text-gray-200 dark:text-slate-700"
+                                    strokeDasharray="3 3"
+                                  />
+                                  <text
+                                    x={padL - 6}
+                                    y={y + 3}
+                                    textAnchor="end"
+                                    className="text-[9px] fill-gray-400 dark:fill-slate-500"
+                                  >
+                                    {tick}
+                                  </text>
+                                </g>
+                              );
+                            })}
+
+                            {/* Lines */}
+                            <polyline
+                              fill="none"
+                              stroke="#3b82f6"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={pointsWeekday}
+                            />
+                            <polyline
+                              fill="none"
+                              stroke="#f59e0b"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={pointsHoliday}
+                            />
+                            <polyline
+                              fill="none"
+                              stroke="#10b981"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={pointsTotal}
+                            />
+
+                            {/* Points & Labels */}
+                            {recapItems.map((r, i) => {
+                              const x = getX(i);
+                              const yTotal = getY(r.totalShiftsCount);
+                              const shortName = r.name.split(' ')[0] || r.name;
+                              return (
+                                <g key={r.id}>
+                                  <circle
+                                    cx={x}
+                                    cy={yTotal}
+                                    r="3.5"
+                                    className="fill-emerald-500 stroke-white dark:stroke-slate-900 stroke-2"
+                                  />
+                                  <text
+                                    x={x}
+                                    y={chartH - 12}
+                                    textAnchor="middle"
+                                    className="text-[9px] fill-gray-500 dark:fill-slate-400 font-medium"
+                                  >
+                                    {shortName.length > 7 ? `${shortName.slice(0, 6)}..` : shortName}
+                                  </text>
+                                  <text
+                                    x={x}
+                                    y={yTotal - 8}
+                                    textAnchor="middle"
+                                    className="text-[9px] fill-emerald-600 dark:fill-emerald-400 font-bold"
+                                  >
+                                    {r.totalShiftsCount}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        );
+                      })()
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}

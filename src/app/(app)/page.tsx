@@ -12,8 +12,8 @@ import {
   ChevronRight,
   User,
   ClipboardList,
-  BarChart3,
 } from 'lucide-react';
+import { RekapPiketSection } from './rekap-piket-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -167,69 +167,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   else if (isWeekendToday) dayTypeLabel = 'Akhir Pekan';
 
   const datesInMonth = getDatesInMonth(currentMonth);
-
-  // Rekapitulasi shift piket bulanan per petugas (HANYA akun yang TIDAK dikecualikan / exclude_from_recap !== true)
-  const activeRecapProfiles = allProfilesList.filter((p) => !p.exclude_from_recap);
-
-  interface UserRecapItem {
-    id: string;
-    name: string;
-    email: string | null;
-    role: string;
-    weekdayShiftsCount: number;
-    holidayShiftsCount: number;
-    totalShiftsCount: number;
-  }
-
-  const recapItems: UserRecapItem[] = activeRecapProfiles.map((p) => {
-    const weekdayShifts = new Set<string>();
-    const holidayShifts = new Set<string>();
-
-    for (const a of attendances) {
-      if (a.user_id !== p.id) continue;
-      const key = `${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`;
-      const itemStatus = attendanceMap.get(key)?.status ?? 'kosong';
-      if (itemStatus === 'kosong') continue;
-
-      const [y, m, d] = a.work_date.split('-').map(Number);
-      const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-      const isOff = dow === 0 || dow === 6 || holidaySet.has(a.work_date);
-
-      const shiftId = `${a.work_date}#${a.shift_type}`;
-      if (isOff) {
-        holidayShifts.add(shiftId);
-      } else {
-        weekdayShifts.add(shiftId);
-      }
-    }
-
-    const name = p.full_name?.trim() || p.email?.split('@')[0] || 'Petugas';
-    return {
-      id: p.id,
-      name,
-      email: p.email,
-      role: p.role,
-      weekdayShiftsCount: weekdayShifts.size,
-      holidayShiftsCount: holidayShifts.size,
-      totalShiftsCount: weekdayShifts.size + holidayShifts.size,
-    };
-  });
-
-  recapItems.sort((a, b) => {
-    if (b.totalShiftsCount !== a.totalShiftsCount) {
-      return b.totalShiftsCount - a.totalShiftsCount;
-    }
-    return a.name.localeCompare(b.name);
-  });
-
-  const totalAllWeekdayShifts = recapItems.reduce((acc, curr) => acc + curr.weekdayShiftsCount, 0);
-  const totalAllHolidayShifts = recapItems.reduce((acc, curr) => acc + curr.holidayShiftsCount, 0);
-  const totalAllShifts = totalAllWeekdayShifts + totalAllHolidayShifts;
-  const currentMonthFormatted = new Intl.DateTimeFormat('id-ID', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(`${currentMonth}-01`));
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
@@ -469,177 +406,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         />
       </section>
 
-      {/* Tabel Rekapitulasi Piket Petugas */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-slate-800 pb-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <h3 className="font-bold text-gray-900 dark:text-slate-100 text-sm sm:text-base">
-                Rekapitulasi Piket Petugas
-              </h3>
-            </div>
-            <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-0.5">
-              Bulan {currentMonthFormatted} &bull; Rekapitulasi jumlah piket hari biasa dan hari libur per petugas.
-            </p>
-          </div>
-
-          <div className="inline-flex items-center gap-2 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 px-3 py-1.5 rounded-xl self-start sm:self-auto">
-            <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-              Total: <strong>{totalAllShifts}</strong> Shift ({totalAllWeekdayShifts} Biasa &bull; {totalAllHolidayShifts} Libur)
-            </span>
-          </div>
-        </div>
-
-        {/* Kartu Ringkasan Shift */}
-        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-          <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 text-center">
-            <span className="text-[11px] text-blue-800 dark:text-blue-300 block font-medium">Hari Biasa</span>
-            <span className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-400">
-              {totalAllWeekdayShifts}
-            </span>
-            <span className="text-[10px] text-blue-600/80 dark:text-blue-400/80 block font-medium">Shift</span>
-          </div>
-          <div className="p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 text-center">
-            <span className="text-[11px] text-amber-800 dark:text-amber-300 block font-medium">Hari Libur</span>
-            <span className="text-lg sm:text-xl font-bold text-amber-700 dark:text-amber-400">
-              {totalAllHolidayShifts}
-            </span>
-            <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 block font-medium">Shift</span>
-          </div>
-          <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 text-center">
-            <span className="text-[11px] text-emerald-800 dark:text-emerald-300 block font-medium">Total Seluruh</span>
-            <span className="text-lg sm:text-xl font-bold text-emerald-700 dark:text-emerald-400">
-              {totalAllShifts}
-            </span>
-            <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 block font-medium">Shift</span>
-          </div>
-        </div>
-
-        {/* Tabel Rekap Petugas */}
-        {recapItems.length === 0 ? (
-          <div className="text-center py-6 px-4 bg-gray-50/60 dark:bg-slate-800/40 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
-            <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
-              Tidak ada data petugas yang masuk dalam rekapitulasi.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Tampilan Desktop & Tablet: Tabel */}
-            <div className="hidden sm:block overflow-hidden rounded-xl border border-gray-100 dark:border-slate-800">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-gray-50/80 dark:bg-slate-800/60 text-gray-600 dark:text-slate-300 border-b border-gray-100 dark:border-slate-800">
-                  <tr>
-                    <th className="py-2.5 px-3 font-semibold w-12 text-center">No</th>
-                    <th className="py-2.5 px-3 font-semibold">Nama Petugas</th>
-                    <th className="py-2.5 px-3 font-semibold text-center">Piket Hari Biasa</th>
-                    <th className="py-2.5 px-3 font-semibold text-center">Piket Hari Libur</th>
-                    <th className="py-2.5 px-3 font-semibold text-center">Total Piket</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                  {recapItems.map((item, idx) => (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors"
-                    >
-                      <td className="py-3 px-3 text-center text-gray-500 dark:text-slate-400 font-medium">
-                        {idx === 0 && item.totalShiftsCount > 0 ? (
-                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-bold">
-                            1
-                          </span>
-                        ) : idx === 1 && item.totalShiftsCount > 0 ? (
-                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 text-[10px] font-bold">
-                            2
-                          </span>
-                        ) : idx === 2 && item.totalShiftsCount > 0 ? (
-                          <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-900/10 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 text-[10px] font-bold">
-                            3
-                          </span>
-                        ) : (
-                          <span>{idx + 1}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="font-semibold text-gray-900 dark:text-slate-100 text-xs sm:text-sm">
-                          {item.name}
-                        </div>
-                        {item.email && (
-                          <div className="text-[11px] text-gray-400 dark:text-slate-500 truncate max-w-[220px]">
-                            {item.email}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800">
-                          {item.weekdayShiftsCount} Shift
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800">
-                          {item.holidayShiftsCount} Shift
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 text-xs">
-                          {item.totalShiftsCount} Shift
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Tampilan Mobile: Kartu Ringkas */}
-            <div className="sm:hidden space-y-2.5">
-              {recapItems.map((item, idx) => (
-                <div
-                  key={item.id}
-                  className="p-3 rounded-xl bg-gray-50/70 dark:bg-slate-800/40 border border-gray-100 dark:border-slate-800 space-y-2.5"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-300 text-[10px] font-bold shrink-0">
-                        {idx + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-xs text-gray-900 dark:text-slate-100 truncate">
-                          {item.name}
-                        </p>
-                        {item.email && (
-                          <p className="text-[10px] text-gray-400 dark:text-slate-500 truncate">
-                            {item.email}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
-                      {item.totalShiftsCount} Shift
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200/60 dark:border-slate-700/60 text-center">
-                    <div className="p-1.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60">
-                      <span className="text-[10px] text-gray-500 dark:text-slate-400 block font-medium">Hari Biasa</span>
-                      <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
-                        {item.weekdayShiftsCount} Shift
-                      </span>
-                    </div>
-                    <div className="p-1.5 rounded-lg bg-amber-50/60 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/60">
-                      <span className="text-[10px] text-gray-500 dark:text-slate-400 block font-medium">Hari Libur</span>
-                      <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                        {item.holidayShiftsCount} Shift
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </section>
+      {/* Bagian Rekapitulasi Piket Petugas dengan Filter & Diagram */}
+      <RekapPiketSection
+        initialProfiles={allProfilesList}
+        initialAttendances={attendances}
+        initialAttachments={(attachmentsData ?? []) as Attachment[]}
+        holidays={holidays}
+        currentMonth={currentMonth}
+        today={today}
+      />
     </div>
   );
 }
