@@ -760,11 +760,11 @@ export function RekapPiketSection({
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-sm bg-blue-500" />
-                    <span className="text-gray-600 dark:text-slate-400">Hari Biasa</span>
+                    <span className="text-gray-600 dark:text-slate-400">Hari Biasa (Bawah)</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-sm bg-yellow-400" />
-                    <span className="text-gray-600 dark:text-slate-400">Hari Libur</span>
+                    <span className="text-gray-600 dark:text-slate-400">Hari Libur (Atas)</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-sm bg-emerald-500" />
@@ -773,36 +773,40 @@ export function RekapPiketSection({
                 </div>
               </div>
 
-              {/* Vertical Column Chart (Bawah ke Atas) */}
+              {/* Vertical Stacked Column Chart (Diagram Batang Bertumpuk Bawah ke Atas) */}
               <div className="bg-gray-50/70 dark:bg-slate-800/40 p-4 rounded-xl border border-gray-100 dark:border-slate-800 overflow-x-auto">
                 <div className="min-w-[500px]">
                   {recapItems.length === 0 ? (
                     <p className="text-xs text-center py-6 text-gray-500">Tidak ada data petugas.</p>
                   ) : (
                     (() => {
-                      const maxVal = Math.max(
-                        ...recapItems.map((r) => Math.max(r.weekdayShiftsCount, r.holidayShiftsCount)),
-                        4
-                      );
+                      const maxVal = Math.max(...recapItems.map((r) => r.totalShiftsCount), 4);
+                      const tickStep = maxVal <= 6 ? 2 : maxVal <= 12 ? 3 : Math.ceil(maxVal / 4);
+                      const yMax = Math.ceil(maxVal / tickStep) * tickStep;
+                      const ticks: number[] = [];
+                      for (let t = 0; t <= yMax; t += tickStep) {
+                        ticks.push(t);
+                      }
+
                       const chartH = 220;
                       const padL = 35;
                       const padR = 20;
                       const padT = 30;
                       const padB = 45;
-                      const plotW = Math.max(500, recapItems.length * 85 + 50) - padL - padR;
+                      const plotW = Math.max(500, recapItems.length * 80 + 50) - padL - padR;
                       const plotH = chartH - padT - padB;
                       const totalW = padL + plotW + padR;
 
                       const colWidth = plotW / Math.max(recapItems.length, 1);
-                      const barW = Math.min(Math.max(colWidth * 0.28, 14), 24);
+                      const barW = Math.min(Math.max(colWidth * 0.42, 22), 34);
 
                       const baselineY = padT + plotH;
 
                       return (
                         <svg viewBox={`0 0 ${totalW} ${chartH}`} className="w-full h-56 select-none">
                           {/* Gridlines */}
-                          {[0, Math.round(maxVal / 2), maxVal].map((tick) => {
-                            const y = padT + plotH - (tick / maxVal) * plotH;
+                          {ticks.map((tick) => {
+                            const y = padT + plotH - (tick / yMax) * plotH;
                             return (
                               <g key={tick}>
                                 <line
@@ -837,74 +841,87 @@ export function RekapPiketSection({
                             strokeWidth="1.5"
                           />
 
-                          {/* Groups of Bars for each Officer */}
+                          {/* Stacked Bars for each Officer */}
                           {recapItems.map((r, i) => {
                             const groupCenterX = padL + i * colWidth + colWidth / 2;
-                            const blueBarX = groupCenterX - barW - 2;
-                            const yellowBarX = groupCenterX + 2;
+                            const barX = groupCenterX - barW / 2;
 
-                            const blueH = (r.weekdayShiftsCount / maxVal) * plotH;
-                            const yellowH = (r.holidayShiftsCount / maxVal) * plotH;
+                            const weekday = r.weekdayShiftsCount;
+                            const holiday = r.holidayShiftsCount;
+                            const total = r.totalShiftsCount;
+
+                            const blueH = (weekday / yMax) * plotH;
+                            const yellowH = (holiday / yMax) * plotH;
+                            const totalH = blueH + yellowH;
 
                             const blueY = baselineY - blueH;
-                            const yellowY = baselineY - yellowH;
+                            const yellowY = baselineY - totalH;
 
                             const shortName = r.name.split(' ')[0] || r.name;
-                            const highestBarY = Math.min(blueY, yellowY);
 
                             return (
                               <g key={r.id} className="group">
-                                {/* Total badge on top of group */}
+                                {/* Total badge on top of stacked bar */}
                                 <text
                                   x={groupCenterX}
-                                  y={Math.max(highestBarY - 14, 14)}
+                                  y={total > 0 ? yellowY - 8 : baselineY - 8}
                                   textAnchor="middle"
-                                  className="text-[10px] font-bold fill-emerald-600 dark:fill-emerald-400"
+                                  className={`text-[10px] font-bold ${
+                                    total > 0
+                                      ? 'fill-emerald-600 dark:fill-emerald-400'
+                                      : 'fill-gray-400 dark:fill-slate-500 font-normal'
+                                  }`}
                                 >
-                                  {r.totalShiftsCount} Total
+                                  {total} Total
                                 </text>
 
-                                {/* Batang Biru (Hari Biasa) */}
-                                <rect
-                                  x={blueBarX}
-                                  y={blueY}
-                                  width={barW}
-                                  height={Math.max(blueH, 0)}
-                                  rx="3"
-                                  ry="3"
-                                  fill="#3b82f6"
-                                  className="hover:opacity-90 transition-opacity"
-                                />
-                                {r.weekdayShiftsCount > 0 && (
-                                  <text
-                                    x={blueBarX + barW / 2}
-                                    y={blueY - 3}
-                                    textAnchor="middle"
-                                    className="text-[9px] font-bold fill-blue-600 dark:fill-blue-400"
-                                  >
-                                    {r.weekdayShiftsCount}
-                                  </text>
+                                {/* Bagian Bawah: Hari Biasa (Biru) */}
+                                {weekday > 0 && (
+                                  <rect
+                                    x={barX}
+                                    y={blueY}
+                                    width={barW}
+                                    height={blueH}
+                                    rx={holiday > 0 ? 0 : 4}
+                                    ry={holiday > 0 ? 0 : 4}
+                                    fill="#3b82f6"
+                                    className="hover:opacity-90 transition-opacity"
+                                  />
                                 )}
 
-                                {/* Batang Kuning (Hari Libur) */}
-                                <rect
-                                  x={yellowBarX}
-                                  y={yellowY}
-                                  width={barW}
-                                  height={Math.max(yellowH, 0)}
-                                  rx="3"
-                                  ry="3"
-                                  fill="#facc15"
-                                  className="hover:opacity-90 transition-opacity"
-                                />
-                                {r.holidayShiftsCount > 0 && (
+                                {/* Bagian Atas: Hari Libur (Kuning) - Bertumpuk tepat di atas Biru */}
+                                {holiday > 0 && (
+                                  <rect
+                                    x={barX}
+                                    y={yellowY}
+                                    width={barW}
+                                    height={yellowH}
+                                    rx={4}
+                                    ry={4}
+                                    fill="#facc15"
+                                    className="hover:opacity-90 transition-opacity"
+                                  />
+                                )}
+
+                                {/* Angka nilai di dalam batang jika tingginya cukup */}
+                                {weekday > 0 && blueH >= 14 && (
                                   <text
-                                    x={yellowBarX + barW / 2}
-                                    y={yellowY - 3}
+                                    x={groupCenterX}
+                                    y={blueY + blueH / 2 + 4}
                                     textAnchor="middle"
-                                    className="text-[9px] font-bold fill-yellow-600 dark:fill-yellow-400"
+                                    className="text-[10px] font-bold fill-white pointer-events-none"
                                   >
-                                    {r.holidayShiftsCount}
+                                    {weekday}
+                                  </text>
+                                )}
+                                {holiday > 0 && yellowH >= 14 && (
+                                  <text
+                                    x={groupCenterX}
+                                    y={yellowY + yellowH / 2 + 4}
+                                    textAnchor="middle"
+                                    className="text-[10px] font-bold fill-yellow-950 pointer-events-none"
+                                  >
+                                    {holiday}
                                   </text>
                                 )}
 
@@ -969,6 +986,13 @@ export function RekapPiketSection({
                   ) : (
                     (() => {
                       const maxVal = Math.max(...recapItems.map((r) => r.totalShiftsCount), 4);
+                      const tickStep = maxVal <= 6 ? 2 : maxVal <= 12 ? 3 : Math.ceil(maxVal / 4);
+                      const yMax = Math.ceil(maxVal / tickStep) * tickStep;
+                      const ticks: number[] = [];
+                      for (let t = 0; t <= yMax; t += tickStep) {
+                        ticks.push(t);
+                      }
+
                       const chartH = 190;
                       const padL = 35;
                       const padR = 25;
@@ -981,7 +1005,7 @@ export function RekapPiketSection({
                       const stepX = recapItems.length > 1 ? plotW / (recapItems.length - 1) : plotW / 2;
 
                       const getX = (idx: number) => (recapItems.length > 1 ? padL + idx * stepX : padL + plotW / 2);
-                      const getY = (val: number) => padT + plotH - (val / maxVal) * plotH;
+                      const getY = (val: number) => padT + plotH - (val / yMax) * plotH;
 
                       const pointsWeekday = recapItems.map((r, i) => `${getX(i)},${getY(r.weekdayShiftsCount)}`).join(' ');
                       const pointsHoliday = recapItems.map((r, i) => `${getX(i)},${getY(r.holidayShiftsCount)}`).join(' ');
@@ -990,8 +1014,8 @@ export function RekapPiketSection({
                       return (
                         <svg viewBox={`0 0 ${totalW} ${chartH}`} className="w-full h-52 select-none">
                           {/* Gridlines */}
-                          {[0, Math.round(maxVal / 2), maxVal].map((tick) => {
-                            const y = getY(tick);
+                          {ticks.map((tick) => {
+                            const y = padT + plotH - (tick / yMax) * plotH;
                             return (
                               <g key={tick}>
                                 <line
