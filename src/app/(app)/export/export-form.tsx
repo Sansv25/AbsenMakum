@@ -112,7 +112,13 @@ export function ExportForm({ defaultStartDate, defaultEndDate }: ExportFormProps
       <div className="space-y-3 pt-2 border-t border-gray-100 dark:border-slate-800">
         <h2 className="font-semibold text-gray-900 dark:text-slate-100 text-sm">Kriteria Absensi</h2>
         <div className="space-y-2">
-          <label className="flex items-start gap-3 p-3 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-850/50 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+          <label
+            className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${
+              filterMode === 'complete_only'
+                ? 'border-blue-500 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-950/40'
+                : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/70 hover:bg-gray-50 dark:hover:bg-slate-800'
+            }`}
+          >
             <input
               type="radio"
               name="filter_mode"
@@ -130,7 +136,13 @@ export function ExportForm({ defaultStartDate, defaultEndDate }: ExportFormProps
             </div>
           </label>
 
-          <label className="flex items-start gap-3 p-3 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-850/50 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+          <label
+            className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${
+              filterMode === 'all_with_photos'
+                ? 'border-blue-500 dark:border-blue-600 bg-blue-50/50 dark:bg-blue-950/40'
+                : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/70 hover:bg-gray-50 dark:hover:bg-slate-800'
+            }`}
+          >
             <input
               type="radio"
               name="filter_mode"
