@@ -52,7 +52,7 @@ export default function RegisterPage() {
 
     // Validasi form
     if (!fullName.trim()) {
-      setError('Nama Lengkap wajib diisi.');
+      setError('Nama wajib diisi.');
       return;
     }
     if (!phone.trim()) {
@@ -224,7 +224,7 @@ export default function RegisterPage() {
               htmlFor="fullName"
               className="block text-xs font-semibold text-gray-700 mb-1"
             >
-              Nama Lengkap <span className="text-red-500">*</span>
+              Nama <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />

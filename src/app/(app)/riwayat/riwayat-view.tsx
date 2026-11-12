@@ -14,6 +14,8 @@ import {
   ExternalLink,
   Layers,
   CheckCircle2,
+  Search,
+  User,
 } from 'lucide-react';
 
 export interface RiwayatJobDetail {
@@ -27,6 +29,7 @@ export interface RiwayatJobDetail {
   mulaiThumbnail: string | null;
   selesaiThumbnail: string | null;
   ticketCount?: number;
+  userName?: string | null;
 }
 
 export interface RiwayatShiftGroup {
@@ -36,6 +39,7 @@ export interface RiwayatShiftGroup {
   holidayName?: string;
   overallStatus: ShiftStatus;
   jobs: Record<JobType, RiwayatJobDetail>;
+  userNames?: string[];
 }
 
 interface RiwayatViewProps {
@@ -48,6 +52,7 @@ interface RiwayatViewProps {
 export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: RiwayatViewProps) {
   const [shiftFilter, setShiftFilter] = useState<'all' | ShiftType>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ShiftStatus>('all');
+  const [searchName, setSearchName] = useState('');
   const [pageSize, setPageSize] = useState<number>(5);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [drawerShift, setDrawerShift] = useState<RiwayatShiftGroup | null>(null);
@@ -56,6 +61,13 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
   const filtered = items.filter((item) => {
     if (shiftFilter !== 'all' && item.shift_type !== shiftFilter) return false;
     if (statusFilter !== 'all' && item.overallStatus !== statusFilter) return false;
+
+    if (searchName.trim()) {
+      const q = searchName.toLowerCase().trim();
+      const hasMatchingUser = item.userNames && item.userNames.some((name) => name.toLowerCase().includes(q));
+      if (!hasMatchingUser) return false;
+    }
+
     return true;
   });
 
@@ -114,11 +126,39 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
       <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            <Filter className="h-3.5 w-3.5" /> Filter & Pengaturan Tampilan
+            <Filter className="h-3.5 w-3.5" /> Filter & Pencarian
           </div>
           <span className="text-[11px] text-gray-400 font-medium">
             {totalItems} shift tercatat
           </span>
+        </div>
+
+        {/* Input Pencarian Berdasarkan Nama Petugas */}
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchName}
+            onChange={(e) => {
+              setSearchName(e.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="Cari berdasarkan nama petugas..."
+            className="w-full pl-10 pr-9 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
+          />
+          {searchName && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchName('');
+                setCurrentPage(1);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+              aria-label="Hapus pencarian"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -169,8 +209,26 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
         {paginatedItems.length === 0 ? (
           <div className="bg-white rounded-2xl p-10 border border-gray-100 text-center text-gray-400">
             <FileText className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-            <p className="text-sm font-semibold text-gray-700">Tidak ada riwayat absensi</p>
-            <p className="text-xs text-gray-400 mt-1">Coba sesuaikan filter atau pilih bulan sebelumnya.</p>
+            <p className="text-sm font-semibold text-gray-700">
+              {searchName ? 'Tidak ada petugas yang cocok' : 'Tidak ada riwayat absensi'}
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              {searchName
+                ? `Tidak ditemukan riwayat piket oleh petugas dengan nama "${searchName}".`
+                : 'Coba sesuaikan filter atau pilih bulan sebelumnya.'}
+            </p>
+            {searchName && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchName('');
+                  setCurrentPage(1);
+                }}
+                className="mt-3 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold transition-colors"
+              >
+                Reset Pencarian Nama
+              </button>
+            )}
           </div>
         ) : (
           paginatedItems.map((item) => {
@@ -210,6 +268,21 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                       {formatIndonesia(item.work_date)}
                     </p>
 
+                    {/* Petugas Piket */}
+                    {item.userNames && item.userNames.length > 0 ? (
+                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-700">
+                        <User className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                        <span className="truncate">
+                          Petugas: <strong className="text-gray-900 font-semibold">{item.userNames.join(', ')}</strong>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400">
+                        <User className="h-3.5 w-3.5 text-gray-300 flex-shrink-0" />
+                        <span className="italic">Belum ada yang mengisi</span>
+                      </div>
+                    )}
+
                     {/* 3 Positions Status Pills */}
                     <div className="mt-3 grid grid-cols-3 gap-2">
                       {JOB_TYPES.map((jt) => {
@@ -234,6 +307,14 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                             >
                               {status}
                             </span>
+                            {job?.userName && (
+                              <span
+                                className="text-[9px] text-gray-600 font-medium truncate max-w-full mt-1 px-1 bg-white rounded border border-gray-200/60"
+                                title={job.userName}
+                              >
+                                {job.userName}
+                              </span>
+                            )}
                           </div>
                         );
                       })}
@@ -352,27 +433,40 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                     key={jt}
                     className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm space-y-3"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-900 text-sm">
-                          {jobLabel(jt)}
-                        </span>
-                        <span
-                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${
-                            status === 'lengkap'
-                              ? 'bg-green-100 text-green-700'
-                              : status === 'sebagian'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {status}
-                        </span>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-gray-900 text-sm">
+                            {jobLabel(jt)}
+                          </span>
+                          <span
+                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${
+                              status === 'lengkap'
+                                ? 'bg-green-100 text-green-700'
+                                : status === 'sebagian'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {status}
+                          </span>
+                        </div>
+                        {job?.userName ? (
+                          <p className="text-xs text-gray-600 mt-1 flex items-center gap-1 font-medium">
+                            <User className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                            <span>Petugas: <strong className="text-gray-900 font-semibold">{job.userName}</strong></span>
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-400 mt-1 italic flex items-center gap-1">
+                            <User className="h-3.5 w-3.5 text-gray-300 flex-shrink-0" />
+                            <span>Belum ada petugas</span>
+                          </p>
+                        )}
                       </div>
 
                       <Link
                         href={`/absen/${drawerShift.work_date}/${drawerShift.shift_type}?job=${jt}`}
-                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:underline"
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:underline flex-shrink-0 mt-0.5"
                       >
                         Buka Form <ExternalLink className="h-3 w-3" />
                       </Link>

@@ -102,7 +102,7 @@ export async function getCurrentUserProfile(): Promise<{
 }
 
 /**
- * Memperbarui data nama lengkap dan nomor telepon pengguna aktif
+ * Memperbarui data nama dan nomor telepon pengguna aktif
  */
 export async function updateCurrentUserProfile(
   fullName: string,

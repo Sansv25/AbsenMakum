@@ -8,7 +8,7 @@ export async function saveProfileDetails(formData: FormData) {
   const phone = (formData.get('phone') as string) || '';
 
   if (!fullName.trim()) {
-    return { error: 'Nama Lengkap wajib diisi.' };
+    return { error: 'Nama wajib diisi.' };
   }
 
   const cleanedPhone = phone.replace(/[^0-9+]/g, '');

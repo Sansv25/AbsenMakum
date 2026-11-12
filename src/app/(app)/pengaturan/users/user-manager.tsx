@@ -524,7 +524,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Nama Lengkap Petugas
+                  Nama
                 </label>
                 <input
                   type="text"

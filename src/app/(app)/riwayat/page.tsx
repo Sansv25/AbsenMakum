@@ -46,6 +46,21 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
   const attendances = (attendancesData ?? []) as Attendance[];
   const attendanceIds = attendances.map((a) => a.id);
 
+  // Ambil profil user untuk menampilkan nama petugas pada riwayat & pencarian
+  const userIds = Array.from(new Set(attendances.map((a) => a.user_id).filter(Boolean)));
+  const { data: profilesData } = userIds.length > 0
+    ? await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds)
+    : { data: [] };
+
+  const profileMap = new Map<string, string>();
+  for (const p of profilesData ?? []) {
+    const displayName = p.full_name?.trim() || p.email || 'Petugas';
+    profileMap.set(p.id, displayName);
+  }
+
   // Attachments
   const { data: attachmentsData } = attendanceIds.length > 0
     ? await supabase
@@ -128,6 +143,8 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
           partiallyFilled = true;
         }
 
+        const userName = att?.user_id ? (profileMap.get(att.user_id) ?? null) : null;
+
         jobs[job] = {
           id: att?.id,
           job_type: job,
@@ -139,6 +156,7 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
           mulaiThumbnail: mulai ? (signedUrlMap.get(mulai.storage_path) ?? null) : null,
           selesaiThumbnail: selesai ? (signedUrlMap.get(selesai.storage_path) ?? null) : null,
           ticketCount: tickets.length,
+          userName,
         };
       }
 
@@ -149,6 +167,12 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
         overallStatus = 'sebagian';
       }
 
+      const shiftUserNames = Array.from(
+        new Set(
+          JOB_TYPES.map((jt) => jobs[jt].userName).filter((n): n is string => !!n)
+        )
+      );
+
       items.push({
         work_date: date,
         shift_type: shift,
@@ -156,6 +180,7 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
         holidayName,
         overallStatus,
         jobs,
+        userNames: shiftUserNames,
       });
     }
   }
