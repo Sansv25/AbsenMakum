@@ -15,6 +15,7 @@ export interface Profile {
   phone?: string | null;
   description?: string | null;
   is_approved?: boolean;
+  exclude_from_recap?: boolean;
   created_at: string;
   updated_at: string;
 }

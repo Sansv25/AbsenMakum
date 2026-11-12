@@ -9,6 +9,7 @@ import {
   deleteUserAction,
   approveUserAction,
   updateUserProfileAdminAction,
+  toggleExcludeRecapAction,
 } from './actions';
 import type { AdminUserItem } from '@/lib/data/users';
 import type { UserRole } from '@/lib/supabase/types';
@@ -26,6 +27,8 @@ import {
   Edit3,
   Clock,
   UserCheck,
+  EyeOff,
+  BarChart2,
 } from 'lucide-react';
 import { formatIndonesia } from '@/lib/dates';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
@@ -49,6 +52,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
   const [editPhone, setEditPhone] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('user');
   const [editApproved, setEditApproved] = useState(true);
+  const [editExcludeFromRecap, setEditExcludeFromRecap] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -102,6 +106,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
     setEditPhone(user.phone || '');
     setEditRole(user.role);
     setEditApproved(user.is_approved);
+    setEditExcludeFromRecap(!!user.exclude_from_recap);
     setEditError(null);
   }
 
@@ -117,7 +122,8 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       editFullName,
       editPhone,
       editRole,
-      editApproved
+      editApproved,
+      editExcludeFromRecap
     );
 
     if (res.error) {
@@ -129,6 +135,36 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       setLoadingAction(null);
       router.refresh();
     }
+  }
+
+  async function handleToggleExcludeRecap(user: AdminUserItem) {
+    const newStatus = !user.exclude_from_recap;
+    const actionTitle = newStatus ? 'Kecualikan dari Rekapitulasi?' : 'Masukkan ke Rekapitulasi?';
+    const actionDesc = newStatus
+      ? `Akun ${user.full_name || user.email} akan disembunyikan dan TIDAK dihitung dalam tabel rekapitulasi piket di dashboard.`
+      : `Akun ${user.full_name || user.email} akan dimasukkan kembali ke tabel rekapitulasi piket di dashboard.`;
+
+    const confirmed = await showConfirm(
+      actionTitle,
+      actionDesc,
+      newStatus ? 'Ya, Jangan Rekap' : 'Ya, Masukkan Rekap'
+    );
+    if (!confirmed) return;
+
+    setLoadingAction(`recap-${user.id}`);
+    const res = await toggleExcludeRecapAction(user.id, newStatus);
+    if (res.error) {
+      showAlert('Gagal', `Gagal mengubah status rekap: ${res.error}`, 'error');
+    } else {
+      showToast(
+        newStatus
+          ? `Akun ${user.full_name || user.email} berhasil diset Jangan Rekap.`
+          : `Akun ${user.full_name || user.email} kembali masuk rekapitulasi.`,
+        'success'
+      );
+      router.refresh();
+    }
+    setLoadingAction(null);
   }
 
   async function handleCreateUser(e: React.FormEvent<HTMLFormElement>) {
@@ -401,6 +437,11 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                           <UserCheck className="h-2.5 w-2.5" /> Aktif
                         </span>
                       )}
+                      {user.exclude_from_recap && (
+                        <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 flex items-center gap-1" title="Dikecualikan dari tabel rekapitulasi piket di dashboard">
+                          <EyeOff className="h-2.5 w-2.5 text-amber-500" /> Jangan Rekap
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap text-[11px] text-gray-500 dark:text-slate-400 mt-1">
@@ -469,6 +510,41 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                         <>
                           <ShieldAlert className="h-3.5 w-3.5 text-gray-500 dark:text-slate-400" />
                           <span>{isUserMaster ? 'Ke Petugas' : 'Ke Master'}</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Toggle Jangan Rekap */}
+                  {!isPending && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleExcludeRecap(user)}
+                      disabled={loadingAction === `recap-${user.id}`}
+                      title={
+                        user.exclude_from_recap
+                          ? 'Klik untuk memasukkan akun ini ke tabel rekap piket dashboard'
+                          : 'Klik agar akun ini tidak dihitung dalam rekap piket dashboard (monitoring saja)'
+                      }
+                      className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1 min-h-[38px] border ${
+                        user.exclude_from_recap
+                          ? 'text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40'
+                          : 'text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 bg-white dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border-gray-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {loadingAction === `recap-${user.id}` ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : user.exclude_from_recap ? (
+                        <>
+                          <EyeOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          <span className="hidden sm:inline">Tidak Direkap</span>
+                          <span className="sm:hidden">Off</span>
+                        </>
+                      ) : (
+                        <>
+                          <BarChart2 className="h-3.5 w-3.5 text-gray-500 dark:text-slate-400" />
+                          <span className="hidden sm:inline">Jangan Rekap</span>
+                          <span className="sm:hidden">Rekap</span>
                         </>
                       )}
                     </button>
@@ -593,6 +669,26 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                     </span>
                     <span className="text-[11px] text-gray-500 dark:text-slate-400 block">
                       Centang untuk mengizinkan pengguna masuk dan mengisi piket.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="pt-1">
+                <label className="flex items-start gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editExcludeFromRecap}
+                    onChange={(e) => setEditExcludeFromRecap(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div>
+                    <span className="text-xs font-semibold text-gray-900 dark:text-slate-100 flex items-center gap-1.5">
+                      <EyeOff className="h-3.5 w-3.5 text-amber-500" />
+                      Jangan Rekap (Kecualikan dari Tabel Dashboard)
+                    </span>
+                    <span className="text-[11px] text-gray-500 dark:text-slate-400 block mt-0.5 leading-relaxed">
+                      Centang opsi ini untuk akun Master / Monitoring yang tidak piket agar namanya tidak muncul di tabel rekap piket dashboard.
                     </span>
                   </div>
                 </label>

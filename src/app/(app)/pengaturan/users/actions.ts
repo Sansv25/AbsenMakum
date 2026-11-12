@@ -8,6 +8,7 @@ import {
   adminDeleteUser,
   adminApproveUser,
   adminUpdateUserProfile,
+  adminToggleExcludeRecap,
 } from '@/lib/data/users';
 import type { UserRole } from '@/lib/supabase/types';
 
@@ -71,12 +72,23 @@ export async function updateUserProfileAdminAction(
   fullName: string,
   phone: string,
   role: UserRole,
-  setApproved: boolean
+  setApproved: boolean,
+  excludeFromRecap?: boolean
 ) {
-  const result = await adminUpdateUserProfile(userId, fullName, phone, role, setApproved);
+  const result = await adminUpdateUserProfile(userId, fullName, phone, role, setApproved, excludeFromRecap);
   if (result.error) return { error: result.error };
 
   revalidatePath('/pengaturan/users');
+  revalidatePath('/');
   return { success: true };
+}
+
+export async function toggleExcludeRecapAction(userId: string, newExcludeStatus: boolean) {
+  const result = await adminToggleExcludeRecap(userId, newExcludeStatus);
+  if (result.error) return { error: result.error };
+
+  revalidatePath('/pengaturan/users');
+  revalidatePath('/');
+  return { success: true, newStatus: newExcludeStatus };
 }
 

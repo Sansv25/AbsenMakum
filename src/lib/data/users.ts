@@ -10,6 +10,7 @@ export interface AdminUserItem {
   phone?: string | null;
   description?: string | null;
   is_approved: boolean;
+  exclude_from_recap?: boolean;
   created_at: string;
   last_sign_in_at: string | null;
 }
@@ -26,7 +27,25 @@ export async function adminGetUsers(): Promise<{ users: AdminUserItem[]; error?:
     return { users: [], error: error.message };
   }
 
-  return { users: (data ?? []) as AdminUserItem[] };
+  const users = (data ?? []) as AdminUserItem[];
+
+  // Ambil opsi exclude_from_recap dari tabel profiles
+  try {
+    const { data: recapProfiles } = await supabase
+      .from('profiles')
+      .select('id, exclude_from_recap');
+
+    if (recapProfiles && recapProfiles.length > 0) {
+      const recapMap = new Map(recapProfiles.map((p) => [p.id, !!p.exclude_from_recap]));
+      users.forEach((u) => {
+        u.exclude_from_recap = recapMap.get(u.id) ?? false;
+      });
+    }
+  } catch {
+    // Abaikan jika kolom exclude_from_recap belum dibuat di database
+  }
+
+  return { users };
 }
 
 export async function adminCreateUser(
@@ -137,7 +156,8 @@ export async function adminUpdateUserProfile(
   newFullName: string,
   newPhone: string,
   newRole: UserRole,
-  setApproved: boolean
+  setApproved: boolean,
+  excludeFromRecap?: boolean
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const { isMaster } = await getCurrentUserProfile();
@@ -152,6 +172,40 @@ export async function adminUpdateUserProfile(
     new_role: newRole,
     set_approved: setApproved,
   });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  // Jika opsi excludeFromRecap disediakan, update langsung di profiles
+  if (typeof excludeFromRecap === 'boolean') {
+    try {
+      await supabase
+        .from('profiles')
+        .update({ exclude_from_recap: excludeFromRecap })
+        .eq('id', targetUserId);
+    } catch {
+      // Abaikan jika kolom belum ada
+    }
+  }
+
+  return { success: true };
+}
+
+export async function adminToggleExcludeRecap(
+  targetUserId: string,
+  newExcludeStatus: boolean
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const { isMaster } = await getCurrentUserProfile();
+  if (!isMaster) {
+    return { success: false, error: 'Hanya Akun Master yang diizinkan mengubah opsi rekap.' };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ exclude_from_recap: newExcludeStatus })
+    .eq('id', targetUserId);
 
   if (error) {
     return { success: false, error: error.message };
