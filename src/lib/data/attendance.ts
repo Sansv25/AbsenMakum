@@ -103,12 +103,19 @@ export async function updateNote(
     .eq('id', attendanceId)
     .maybeSingle();
 
+  // Cek apakah absensi ini sudah pernah diisi bukti foto oleh user lain
+  const { count: otherAttachCount } = await supabase
+    .from('attachments')
+    .select('*', { count: 'exact', head: true })
+    .eq('attendance_id', attendanceId)
+    .neq('user_id', user.id);
+
   if (!isMaster && att) {
     if (att.is_locked) {
       return { success: false, error: 'Absensi telah dikunci.' };
     }
-    // Kunci berbasis akun: jika sudah diisi user lain, hanya author atau master yang boleh edit
-    if (att.user_id && att.user_id !== user.id) {
+    // Kunci berbasis akun: HANYA aktif jika sudah ada data dari user lain
+    if (att.user_id && att.user_id !== user.id && (otherAttachCount ?? 0) > 0) {
       return { success: false, error: 'Hanya akun petugas pengisi yang dapat mengedit absensi ini.' };
     }
   }
@@ -122,21 +129,16 @@ export async function updateNote(
     updated_at: new Date().toISOString(),
   };
 
-  // Jika record belum punya user_id, tautkan ke user yang sedang mengisi
-  if (att && !att.user_id) {
+  // Tautkan kepemilikan absensi ke user yang sedang mengisi jika belum ada data user lain
+  if (isMaster || (otherAttachCount ?? 0) === 0) {
     updateData.user_id = user.id;
   }
 
-  let updateQuery = supabase
+  const { error } = await supabase
     .from('attendances')
     .update(updateData)
     .eq('id', attendanceId);
 
-  if (!isMaster && att?.user_id) {
-    updateQuery = updateQuery.eq('user_id', user.id);
-  }
-
-  const { error } = await updateQuery;
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
@@ -235,7 +237,8 @@ export async function claimDeviceForAttendance(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: 'Tidak terautentikasi' };
 
-  // Set user_id jika attendance record belum memiliki author atau masih kosong
+  const { isMaster } = await getCurrentUserProfile();
+
   const { data: current } = await supabase
     .from('attendances')
     .select('user_id, is_locked')
@@ -243,19 +246,25 @@ export async function claimDeviceForAttendance(
     .maybeSingle();
 
   if (current && !current.is_locked) {
-    const { count } = await supabase
+    // Cek apakah ada bukti lampiran dari user lain
+    const { count: otherAttachCount } = await supabase
       .from('attachments')
       .select('*', { count: 'exact', head: true })
-      .eq('attendance_id', attendanceId);
+      .eq('attendance_id', attendanceId)
+      .neq('user_id', user.id);
 
-    if ((count === 0 || !current.user_id) && current.user_id !== user.id) {
-      await supabase
-        .from('attendances')
-        .update({
-          user_id: user.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', attendanceId);
+    // Jika tidak ada data dari user lain (atau Akun Master),
+    // kunci kepemilikan absensi ke user yang saat ini sedang mengunggah/mengedit!
+    if (isMaster || (otherAttachCount ?? 0) === 0) {
+      if (current.user_id !== user.id) {
+        await supabase
+          .from('attendances')
+          .update({
+            user_id: user.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', attendanceId);
+      }
     }
   }
 

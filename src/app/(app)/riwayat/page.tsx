@@ -145,7 +145,8 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
           partiallyFilled = true;
         }
 
-        const userName = att?.user_id ? (profileMap.get(att.user_id) ?? null) : null;
+        // Nama petugas HANYA diambil jika shift pekerjaan ini tidak kosong (sudah ada yang mengisi)
+        const userName = (status !== 'kosong' && att?.user_id) ? (profileMap.get(att.user_id) ?? null) : null;
         const aktivitasThumbnails = aktivitas
           .map((a) => signedUrlMap.get(a.storage_path) ?? null)
           .filter((url): url is string => !!url);
@@ -174,9 +175,13 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
         overallStatus = 'sebagian';
       }
 
+      // Kumpulkan nama petugas HANYA dari pekerjaan yang benar-benar pernah diisi (status !== 'kosong')
       const shiftUserNames = Array.from(
         new Set(
-          JOB_TYPES.map((jt) => jobs[jt].userName).filter((n): n is string => !!n)
+          JOB_TYPES
+            .filter((jt) => jobs[jt].status !== 'kosong')
+            .map((jt) => jobs[jt].userName)
+            .filter((n): n is string => !!n)
         )
       );
 

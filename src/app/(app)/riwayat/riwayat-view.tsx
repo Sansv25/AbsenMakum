@@ -408,7 +408,7 @@ export function RiwayatView({
                             >
                               {status}
                             </span>
-                            {job?.userName && (
+                            {status !== 'kosong' && job?.userName && (
                               <span
                                 className="text-[9px] text-gray-600 dark:text-slate-300 font-medium truncate max-w-full mt-1 px-1 bg-white dark:bg-slate-800 rounded border border-gray-200/60 dark:border-slate-700"
                                 title={job.userName}

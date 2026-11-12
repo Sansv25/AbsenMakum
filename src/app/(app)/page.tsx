@@ -110,7 +110,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       status = 'sebagian';
     }
 
-    const authorName = a.user_id ? (profileMap.get(a.user_id) ?? null) : null;
+    // Nama petugas HANYA diambil jika shift pekerjaan ini tidak kosong
+    const authorName = (status !== 'kosong' && a.user_id) ? (profileMap.get(a.user_id) ?? null) : null;
     attendanceMap.set(`${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`, {
       status,
       id: a.id,
@@ -119,9 +120,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     });
   }
 
-  // Filter piket akun yang sedang login di bulan ini
+  // Filter piket akun yang sedang login di bulan ini (HANYA yang benar-benar pernah diisi / status !== 'kosong')
   const myAttendances = attendances
-    .filter((a) => a.user_id === user.id)
+    .filter((a) => {
+      if (a.user_id !== user.id) return false;
+      const key = `${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`;
+      const itemStatus = attendanceMap.get(key)?.status ?? 'kosong';
+      return itemStatus !== 'kosong';
+    })
     .sort((a, b) => b.work_date.localeCompare(a.work_date) || (b.shift_type === 'malam' ? 1 : -1));
 
   const myUniqueDatesCount = new Set(myAttendances.map((a) => a.work_date)).size;

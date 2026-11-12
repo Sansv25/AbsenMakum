@@ -6,6 +6,7 @@ import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { compressImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
+import { claimDeviceAction } from '@/app/(app)/absen/[date]/[shift]/actions';
 import type { AttachmentWithUrl } from '@/lib/data/attendance';
 import type { ShiftType } from '@/lib/supabase/types';
 
@@ -111,6 +112,13 @@ export function TicketUpload({
           ...inserted,
           signedUrl: signed?.signedUrl ?? null,
         });
+      }
+
+      // Pastikan attendance tercatat atas nama akun user yang mengunggah tiket
+      try {
+        await claimDeviceAction(attendanceId);
+      } catch {
+        // non-blocking
       }
 
       setTickets((prev) => [...prev, ...newItems]);
