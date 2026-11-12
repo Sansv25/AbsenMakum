@@ -20,10 +20,11 @@ interface SingleUploadProps {
   workDate: string;
   shiftType: ShiftType;
   initialAttachment?: AttachmentWithUrl | null;
-  onSaved: () => void;
+  onSaved: (attachment?: AttachmentWithUrl | null) => void;
   canEdit?: boolean;
   deviceId?: string;
   deviceInfo?: string;
+  onOpenLightbox?: (url: string) => void;
 }
 
 export function SingleUpload({
@@ -39,6 +40,7 @@ export function SingleUpload({
   canEdit = true,
   deviceId,
   deviceInfo,
+  onOpenLightbox,
 }: SingleUploadProps) {
   const [attachment, setAttachment] = useState<AttachmentWithUrl | null>(
     initialAttachment ?? null
@@ -114,15 +116,17 @@ export function SingleUpload({
         .from('evidence')
         .createSignedUrl(storagePath, 3600);
 
-      setAttachment({
+      const newAttachment = {
         ...inserted,
         signedUrl: signed?.signedUrl ?? null,
-      });
+      };
+
+      setAttachment(newAttachment);
 
       setStatusMsg('Tersimpan');
       showToast(`Foto ${title} berhasil disimpan`, 'success');
       setTimeout(() => setStatusMsg(null), 3000);
-      onSaved();
+      onSaved(newAttachment);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mengunggah foto.';
       showAlert('Gagal Unggah', msg, 'error');
@@ -157,7 +161,7 @@ export function SingleUpload({
       ]);
 
       showToast(`Foto ${title} berhasil dihapus`, 'info');
-      onSaved();
+      onSaved(null);
     } catch {
       setAttachment(prevAttachment);
       showAlert('Gagal', 'Terjadi kesalahan saat menghapus foto.', 'error');
@@ -188,7 +192,15 @@ export function SingleUpload({
       {attachment?.signedUrl ? (
         <div className="space-y-3">
           <div
-            onClick={() => setLightboxOpen(true)}
+            onClick={() => {
+              if (attachment?.signedUrl) {
+                if (onOpenLightbox) {
+                  onOpenLightbox(attachment.signedUrl);
+                } else {
+                  setLightboxOpen(true);
+                }
+              }
+            }}
             className="group relative rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-black/5 dark:bg-black/30 aspect-[4/3] flex items-center justify-center cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-xs"
             title="Klik untuk memperbesar / Fullscreen (bisa di-zoom)"
           >
@@ -299,11 +311,13 @@ export function SingleUpload({
         userName={userName}
       />
 
-      <ImageLightbox
-        open={lightboxOpen}
-        close={() => setLightboxOpen(false)}
-        slides={attachment?.signedUrl ? [{ src: attachment.signedUrl, title }] : []}
-      />
+      {!onOpenLightbox && (
+        <ImageLightbox
+          open={lightboxOpen}
+          close={() => setLightboxOpen(false)}
+          slides={attachment?.signedUrl ? [{ src: attachment.signedUrl, title }] : []}
+        />
+      )}
     </div>
   );
 }

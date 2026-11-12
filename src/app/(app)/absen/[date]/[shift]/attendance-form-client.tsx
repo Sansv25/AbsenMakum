@@ -27,7 +27,8 @@ import {
   getSingleFormExportData,
 } from '@/app/(app)/absen/[date]/[shift]/actions';
 import { generateSingleFormPdf } from '@/lib/pdf';
-import type { AttendanceDetail } from '@/lib/data/attendance';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
+import type { AttendanceDetail, AttachmentWithUrl } from '@/lib/data/attendance';
 import type { ShiftType } from '@/lib/supabase/types';
 
 interface AttendanceFormClientProps {
@@ -58,8 +59,16 @@ export function AttendanceFormClient({
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
 
-  const mulaiAttachment = attendance.attachments.find((a) => a.kind === 'mulai') ?? null;
-  const selesaiAttachment = attendance.attachments.find((a) => a.kind === 'selesai') ?? null;
+  const [currentAttachments, setCurrentAttachments] = useState<AttachmentWithUrl[]>(attendance.attachments);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  useEffect(() => {
+    setCurrentAttachments(attendance.attachments);
+  }, [attendance.attachments]);
+
+  const mulaiAttachment = currentAttachments.find((a) => a.kind === 'mulai') ?? null;
+  const selesaiAttachment = currentAttachments.find((a) => a.kind === 'selesai') ?? null;
 
   useEffect(() => {
     const devId = getOrCreateDeviceId();
@@ -103,6 +112,78 @@ export function AttendanceFormClient({
 
   function handleRefresh() {
     router.refresh();
+  }
+
+  function handleMulaiSaved(newAtt?: AttachmentWithUrl | null) {
+    if (newAtt) {
+      setCurrentAttachments((prev) => {
+        const rest = prev.filter((a) => a.kind !== 'mulai');
+        return [...rest, newAtt];
+      });
+    } else if (newAtt === null) {
+      setCurrentAttachments((prev) => prev.filter((a) => a.kind !== 'mulai'));
+    }
+    handleRefresh();
+  }
+
+  function handleSelesaiSaved(newAtt?: AttachmentWithUrl | null) {
+    if (newAtt) {
+      setCurrentAttachments((prev) => {
+        const rest = prev.filter((a) => a.kind !== 'selesai');
+        return [...rest, newAtt];
+      });
+    } else if (newAtt === null) {
+      setCurrentAttachments((prev) => prev.filter((a) => a.kind !== 'selesai'));
+    }
+    handleRefresh();
+  }
+
+  function handleAktivitasSaved(newItems?: AttachmentWithUrl[]) {
+    if (newItems) {
+      setCurrentAttachments((prev) => {
+        const nonAktivitas = prev.filter((a) => a.kind !== 'aktivitas');
+        return [...nonAktivitas, ...newItems];
+      });
+    }
+    handleRefresh();
+  }
+
+  // Galeri foto terpadu seluruh form: Mulai -> Selesai -> Aktivitas #1, #2, dst.
+  const unifiedSlides: { src: string; title: string }[] = [];
+
+  if (mulaiAttachment?.signedUrl) {
+    unifiedSlides.push({
+      src: mulaiAttachment.signedUrl,
+      title: '1. Bukti Piket — Mulai Kerja',
+    });
+  }
+
+  if (selesaiAttachment?.signedUrl) {
+    unifiedSlides.push({
+      src: selesaiAttachment.signedUrl,
+      title: '2. Bukti Piket — Selesai Kerja',
+    });
+  }
+
+  const activityItems = currentAttachments
+    .filter((a) => a.kind === 'aktivitas' && !!a.signedUrl)
+    .sort((a, b) => a.sort_order - b.sort_order);
+
+  activityItems.forEach((a, idx) => {
+    unifiedSlides.push({
+      src: a.signedUrl!,
+      title: `3. Bukti Aktivitas Piket #${idx + 1}`,
+    });
+  });
+
+  function handleOpenLightbox(url: string) {
+    const idx = unifiedSlides.findIndex((s) => s.src === url);
+    if (idx !== -1) {
+      setLightboxIndex(idx);
+    } else {
+      setLightboxIndex(0);
+    }
+    setLightboxOpen(true);
   }
 
   async function handleUnlockAttendance() {
@@ -311,10 +392,11 @@ export function AttendanceFormClient({
         workDate={workDate}
         shiftType={shiftType}
         initialAttachment={mulaiAttachment}
-        onSaved={handleRefresh}
+        onSaved={handleMulaiSaved}
         canEdit={canEdit}
         deviceId={clientDeviceId}
         deviceInfo={clientDeviceLabel}
+        onOpenLightbox={handleOpenLightbox}
       />
 
       {/* 3. Bukti Piket 2: Selesai Kerja */}
@@ -328,10 +410,11 @@ export function AttendanceFormClient({
         workDate={workDate}
         shiftType={shiftType}
         initialAttachment={selesaiAttachment}
-        onSaved={handleRefresh}
+        onSaved={handleSelesaiSaved}
         canEdit={canEdit}
         deviceId={clientDeviceId}
         deviceInfo={clientDeviceLabel}
+        onOpenLightbox={handleOpenLightbox}
       />
 
       {/* 4. Bukti Aktivitas Piket (Minimal 2 Gambar) */}
@@ -342,11 +425,12 @@ export function AttendanceFormClient({
         userName={userName}
         workDate={workDate}
         shiftType={shiftType}
-        initialAttachments={attendance.attachments}
-        onSaved={handleRefresh}
+        initialAttachments={currentAttachments}
+        onSaved={handleAktivitasSaved}
         canEdit={canEdit}
         deviceId={clientDeviceId}
         deviceInfo={clientDeviceLabel}
+        onOpenLightbox={handleOpenLightbox}
       />
 
       {/* 5. Catatan Piket */}
@@ -409,6 +493,14 @@ export function AttendanceFormClient({
           Selesai & Kembali ke Dashboard
         </Link>
       </div>
+
+      {/* 8. Lightbox Terpadu Seluruh Form Absensi: Mulai -> Selesai -> Aktivitas */}
+      <ImageLightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={unifiedSlides}
+        index={lightboxIndex}
+      />
     </div>
   );
 }

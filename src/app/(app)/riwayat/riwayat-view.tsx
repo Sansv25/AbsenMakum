@@ -64,6 +64,34 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
   const [lightboxSlides, setLightboxSlides] = useState<{ src: string; title?: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  function openJobLightbox(job: RiwayatJobDetail, targetUrl: string) {
+    const slides: { src: string; title: string }[] = [];
+    if (job.mulaiThumbnail) {
+      slides.push({
+        src: job.mulaiThumbnail,
+        title: '1. Bukti Mulai Kerja',
+      });
+    }
+    if (job.selesaiThumbnail) {
+      slides.push({
+        src: job.selesaiThumbnail,
+        title: '2. Bukti Selesai Kerja',
+      });
+    }
+    if (job.aktivitasThumbnails && job.aktivitasThumbnails.length > 0) {
+      job.aktivitasThumbnails.forEach((url, i) => {
+        slides.push({
+          src: url,
+          title: `3. Bukti Aktivitas Piket #${i + 1}`,
+        });
+      });
+    }
+    const idx = slides.findIndex((s) => s.src === targetUrl);
+    setLightboxSlides(slides);
+    setLightboxIndex(Math.max(0, idx));
+    setLightboxOpen(true);
+  }
+
   // Filter
   const filtered = items.filter((item) => {
     if (shiftFilter !== 'all' && item.shift_type !== shiftFilter) return false;
@@ -494,11 +522,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                         {job?.hasMulai ? (
                           job?.mulaiThumbnail ? (
                             <div
-                              onClick={() => {
-                                setLightboxSlides([{ src: job.mulaiThumbnail!, title: '1. Bukti Mulai Kerja' }]);
-                                setLightboxIndex(0);
-                                setLightboxOpen(true);
-                              }}
+                              onClick={() => openJobLightbox(job, job.mulaiThumbnail!)}
                               className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700 cursor-pointer group hover:border-blue-400 relative"
                               title="Klik untuk Zoom / Fullscreen"
                             >
@@ -534,11 +558,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                         {job?.hasSelesai ? (
                           job?.selesaiThumbnail ? (
                             <div
-                              onClick={() => {
-                                setLightboxSlides([{ src: job.selesaiThumbnail!, title: '2. Bukti Selesai Kerja' }]);
-                                setLightboxIndex(0);
-                                setLightboxOpen(true);
-                              }}
+                              onClick={() => openJobLightbox(job, job.selesaiThumbnail!)}
                               className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700 cursor-pointer group hover:border-blue-400 relative"
                               title="Klik untuk Zoom / Fullscreen"
                             >
@@ -588,15 +608,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                           {job.aktivitasThumbnails.map((url, aIdx) => (
                             <div
                               key={aIdx}
-                              onClick={() => {
-                                const slides = job.aktivitasThumbnails!.map((u, i) => ({
-                                  src: u,
-                                  title: `Bukti Aktivitas #${i + 1}`,
-                                }));
-                                setLightboxSlides(slides);
-                                setLightboxIndex(aIdx);
-                                setLightboxOpen(true);
-                              }}
+                              onClick={() => openJobLightbox(job, url)}
                               className="relative aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-xs border border-gray-200 dark:border-slate-700 cursor-pointer group hover:border-blue-400"
                               title="Klik untuk Zoom / Fullscreen"
                             >

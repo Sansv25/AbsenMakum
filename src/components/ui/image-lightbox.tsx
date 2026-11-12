@@ -4,7 +4,11 @@ import Lightbox, { SlideImage } from 'yet-another-react-lightbox';
 import Zoom from 'yet-another-react-lightbox/plugins/zoom';
 import Fullscreen from 'yet-another-react-lightbox/plugins/fullscreen';
 import Download from 'yet-another-react-lightbox/plugins/download';
+import Captions from 'yet-another-react-lightbox/plugins/captions';
+import Counter from 'yet-another-react-lightbox/plugins/counter';
 import 'yet-another-react-lightbox/styles.css';
+import 'yet-another-react-lightbox/plugins/captions.css';
+import 'yet-another-react-lightbox/plugins/counter.css';
 
 export interface LightboxSlide extends SlideImage {
   title?: string;
@@ -27,7 +31,7 @@ export function ImageLightbox({ open, close, slides, index = 0 }: ImageLightboxP
       close={close}
       index={index}
       slides={slides}
-      plugins={[Zoom, Fullscreen, Download]}
+      plugins={[Zoom, Fullscreen, Download, Captions, Counter]}
       zoom={{
         maxZoomPixelRatio: 6,
         zoomInMultiplier: 1.5,
@@ -38,11 +42,16 @@ export function ImageLightbox({ open, close, slides, index = 0 }: ImageLightboxP
         pinchZoomDistanceFactor: 100,
         scrollToZoom: true,
       }}
+      captions={{
+        showToggle: false,
+        descriptionTextAlign: 'center',
+      }}
       animation={{ fade: 200, swipe: 250 }}
       controller={{ closeOnBackdropClick: true }}
       styles={{
-        container: { backgroundColor: 'rgba(0, 0, 0, 0.92)' },
+        container: { backgroundColor: 'rgba(0, 0, 0, 0.94)' },
       }}
     />
   );
 }
+

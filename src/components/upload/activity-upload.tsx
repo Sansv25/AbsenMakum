@@ -27,10 +27,11 @@ interface ActivityUploadProps {
   workDate: string;
   shiftType: ShiftType;
   initialAttachments: AttachmentWithUrl[];
-  onSaved: () => void;
+  onSaved: (items?: AttachmentWithUrl[]) => void;
   canEdit?: boolean;
   deviceId?: string;
   deviceInfo?: string;
+  onOpenLightbox?: (url: string) => void;
 }
 
 export function ActivityUpload({
@@ -44,6 +45,7 @@ export function ActivityUpload({
   canEdit = true,
   deviceId,
   deviceInfo,
+  onOpenLightbox,
 }: ActivityUploadProps) {
   const [items, setItems] = useState<AttachmentWithUrl[]>(
     initialAttachments.filter((a) => a.kind === 'aktivitas')
@@ -244,8 +246,9 @@ export function ActivityUpload({
         supabase.from('attachments').delete().eq('id', item.id),
       ]);
 
+      const remaining = previousItems.filter((x) => x.id !== item.id);
       showToast('Foto aktivitas berhasil dihapus.', 'info');
-      onSaved();
+      onSaved(remaining);
     } catch (err: unknown) {
       // Rollback jika terjadi kesalahan jaringan
       setItems(previousItems);
@@ -350,8 +353,12 @@ export function ActivityUpload({
             key={item.id}
             onClick={() => {
               if (item.signedUrl) {
-                setLightboxIndex(idx);
-                setLightboxOpen(true);
+                if (onOpenLightbox) {
+                  onOpenLightbox(item.signedUrl);
+                } else {
+                  setLightboxIndex(idx);
+                  setLightboxOpen(true);
+                }
               }
             }}
             className="group relative aspect-video sm:aspect-square bg-gray-100 dark:bg-slate-800 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-xs cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-all"
@@ -382,8 +389,12 @@ export function ActivityUpload({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setLightboxIndex(idx);
-                    setLightboxOpen(true);
+                    if (onOpenLightbox) {
+                      onOpenLightbox(item.signedUrl!);
+                    } else {
+                      setLightboxIndex(idx);
+                      setLightboxOpen(true);
+                    }
                   }}
                   className="p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-white transition-colors"
                   title="Perbesar / Fullscreen"
@@ -590,18 +601,20 @@ export function ActivityUpload({
         userName={userName}
       />
 
-      {/* Lightbox dengan fitur Zoom, Pan, dan Fullscreen */}
-      <ImageLightbox
-        open={lightboxOpen}
-        close={() => setLightboxOpen(false)}
-        index={lightboxIndex}
-        slides={items
-          .filter((x) => !!x.signedUrl)
-          .map((x, i) => ({
-            src: x.signedUrl!,
-            title: `Foto Aktivitas #${i + 1}`,
-          }))}
-      />
+      {/* Lightbox fallback jika tidak menggunakan shared lightbox */}
+      {!onOpenLightbox && (
+        <ImageLightbox
+          open={lightboxOpen}
+          close={() => setLightboxOpen(false)}
+          index={lightboxIndex}
+          slides={items
+            .filter((x) => !!x.signedUrl)
+            .map((x, i) => ({
+              src: x.signedUrl!,
+              title: `Foto Aktivitas #${i + 1}`,
+            }))}
+        />
+      )}
     </div>
   );
 }
