@@ -50,7 +50,7 @@ export function AttendanceOfficerCard({
 }: AttendanceOfficerCardProps) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>(currentUserId || '');
+  const [selectedUserId, setSelectedUserId] = useState<string>(currentUserId || 'none');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -63,8 +63,11 @@ export function AttendanceOfficerCard({
   }, [isModalOpen]);
 
   async function handleSaveOfficer() {
-    if (!selectedUserId) {
-      showAlert('Pilih Petugas', 'Silakan pilih petugas piket dari daftar.', 'warning');
+    const isCurrentNone = !currentUserId || currentUserId === 'none';
+    const isSelectedNone = !selectedUserId || selectedUserId === 'none';
+
+    if (isCurrentNone && isSelectedNone) {
+      setIsModalOpen(false);
       return;
     }
 
@@ -75,9 +78,10 @@ export function AttendanceOfficerCard({
 
     try {
       setIsSubmitting(true);
+      const targetUserId = isSelectedNone ? null : selectedUserId;
       const res = await changeAttendanceOfficerAction(
         attendanceId,
-        selectedUserId,
+        targetUserId,
         workDate,
         shiftType
       );
@@ -87,10 +91,14 @@ export function AttendanceOfficerCard({
         return;
       }
 
-      const targetOfficer = availableOfficers.find((o) => o.id === selectedUserId);
-      const newName = targetOfficer ? targetOfficer.fullName : 'petugas terpilih';
+      if (isSelectedNone) {
+        showToast('Petugas piket berhasil dikosongkan (tidak memilih petugas siapapun).', 'success');
+      } else {
+        const targetOfficer = availableOfficers.find((o) => o.id === selectedUserId);
+        const newName = targetOfficer ? targetOfficer.fullName : 'petugas terpilih';
+        showToast(`Petugas piket berhasil dialihkan ke ${newName}!`, 'success');
+      }
 
-      showToast(`Petugas piket berhasil dialihkan ke ${newName}!`, 'success');
       setIsModalOpen(false);
       router.refresh();
     } catch (err: unknown) {
@@ -101,6 +109,8 @@ export function AttendanceOfficerCard({
     }
   }
 
+  const isOfficerAssigned = Boolean(currentUserId && authorName && authorName !== 'Belum Ada yang Mengisi');
+
   return (
     <>
       {/* Kartu Petugas Pengisi Piket */}
@@ -108,7 +118,7 @@ export function AttendanceOfficerCard({
         <div className="flex items-center gap-3">
           <div
             className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0 ${
-              hasFilledData
+              isOfficerAssigned
                 ? 'bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400'
                 : 'bg-gray-100 dark:bg-slate-800 border border-gray-200/60 dark:border-slate-700/60 text-gray-400 dark:text-slate-500'
             }`}
@@ -122,32 +132,32 @@ export function AttendanceOfficerCard({
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
               <span
                 className={`text-sm ${
-                  hasFilledData
+                  isOfficerAssigned
                     ? 'font-bold text-gray-900 dark:text-slate-100'
                     : 'font-medium text-gray-500 dark:text-slate-400 italic'
                 }`}
               >
-                {hasFilledData ? authorName : 'Belum ada yang mengisi'}
+                {isOfficerAssigned ? authorName : 'Belum ada yang mengisi'}
               </span>
 
-              {/* Tombol Ubah Petugas khusus Akun Master (Hanya jika data sudah pernah diisi) */}
-              {isMaster && hasFilledData && (
+              {/* Tombol Ubah Petugas khusus Akun Master */}
+              {isMaster && (
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedUserId(currentUserId || (availableOfficers[0]?.id ?? ''));
+                    setSelectedUserId(currentUserId || 'none');
                     setIsModalOpen(true);
                   }}
                   className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors shadow-2xs min-h-[26px]"
-                  title="Ubah petugas piket untuk shift ini (Khusus Akun Master)"
+                  title="Atur petugas piket untuk shift ini (Khusus Akun Master)"
                 >
                   <UserCheck className="h-3.5 w-3.5" />
-                  <span>Ubah</span>
+                  <span>{currentUserId ? 'Ubah' : 'Pilih Petugas'}</span>
                 </button>
               )}
             </div>
 
-            {hasFilledData && updatedAt && (
+            {isOfficerAssigned && updatedAt && (
               <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 <span>
@@ -162,7 +172,7 @@ export function AttendanceOfficerCard({
           </div>
         </div>
 
-        {/* Status badge: HANYA ditampilkan saat sudah ada data (Lengkap / Sebagian). Saat kosong, tidak menduplikasi 'Belum ada yang mengisi' */}
+        {/* Status badge: HANYA ditampilkan saat sudah ada data */}
         {hasFilledData && (
           <div className="flex items-center gap-2 self-start sm:self-center">
             <span
@@ -245,6 +255,9 @@ export function AttendanceOfficerCard({
                   disabled={isSubmitting}
                   className="w-full py-2.5 px-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 >
+                  <option value="none" className="text-gray-500 font-normal">
+                    -- Tidak Memilih Petugas Siapapun (Kosongkan) --
+                  </option>
                   {availableOfficers.map((officer) => (
                     <option key={officer.id} value={officer.id}>
                       {officer.fullName} ({officer.email}) {officer.role === 'master' ? '👑 [Master]' : ''}

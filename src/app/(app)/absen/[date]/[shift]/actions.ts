@@ -153,7 +153,7 @@ export async function getSingleFormExportData(attendanceId: string): Promise<{
 
 export async function changeAttendanceOfficerAction(
   attendanceId: string,
-  newUserId: string,
+  newUserId: string | null,
   date: string,
   shift: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -168,24 +168,30 @@ export async function changeAttendanceOfficerAction(
       };
     }
 
-    // Pastikan user baru ada di profiles
-    const { data: targetUser, error: userError } = await supabase
-      .from('profiles')
-      .select('id, full_name, email')
-      .eq('id', newUserId)
-      .maybeSingle();
+    const isUnassigning = !newUserId || newUserId === 'none' || newUserId === '';
 
-    if (userError || !targetUser) {
-      return { success: false, error: 'User petugas yang dipilih tidak ditemukan.' };
+    if (!isUnassigning) {
+      // Pastikan user baru ada di profiles
+      const { data: targetUser, error: userError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('id', newUserId)
+        .maybeSingle();
+
+      if (userError || !targetUser) {
+        return { success: false, error: 'User petugas yang dipilih tidak ditemukan.' };
+      }
     }
 
+    const targetUserId = isUnassigning ? null : newUserId;
+
     const updateData: {
-      user_id: string;
+      user_id: string | null;
       updated_at: string;
       device_id?: string | null;
       device_info?: string | null;
     } = {
-      user_id: newUserId,
+      user_id: targetUserId,
       updated_at: new Date().toISOString(),
       device_id: null,
       device_info: null,
@@ -197,14 +203,22 @@ export async function changeAttendanceOfficerAction(
       .eq('id', attendanceId);
 
     if (updateError) {
+      if (updateError.message.includes('not-null') || updateError.message.includes('null value in column')) {
+        return {
+          success: false,
+          error: 'Kolom user_id di database belum mengizinkan nilai NULL. Silakan jalankan script migration_nullable_officer.sql di Supabase SQL Editor.',
+        };
+      }
       return { success: false, error: updateError.message };
     }
 
-    // Update attachments user_id agar sinkron
-    await supabase
-      .from('attachments')
-      .update({ user_id: newUserId })
-      .eq('attendance_id', attendanceId);
+    // Update attachments user_id agar sinkron jika dialihkan ke user baru
+    if (targetUserId) {
+      await supabase
+        .from('attachments')
+        .update({ user_id: targetUserId })
+        .eq('attendance_id', attendanceId);
+    }
 
     revalidatePath(`/absen/${date}/${shift}`);
     revalidatePath('/');
