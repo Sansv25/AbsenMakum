@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { Loader2, MailCheck, AlertCircle, ArrowLeft, RotateCw, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Loader2, MailCheck, AlertCircle, ArrowLeft, RotateCw } from 'lucide-react';
 
 function VerifyOtpContent() {
   const router = useRouter();
@@ -18,23 +18,13 @@ function VerifyOtpContent() {
   const [cooldown, setCooldown] = useState(60);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
-  const [alreadyVerified, setAlreadyVerified] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync email from search params and check if already verified
+  // Sync email from search params
   useEffect(() => {
     if (emailParam) {
       setEmail(emailParam);
-      // Cek apakah akun ini sudah pernah terverifikasi/terdaftar
-      const supabase = createClient();
-      supabase.rpc('check_email_registered', {
-        check_email: emailParam.trim().toLowerCase(),
-      }).then(({ data }) => {
-        if (data) {
-          setAlreadyVerified(true);
-        }
-      });
     }
   }, [emailParam]);
 
@@ -91,11 +81,7 @@ function VerifyOtpContent() {
 
       if (verifyError) {
         const lowerErr = verifyError.message.toLowerCase();
-        if (alreadyVerified) {
-          setError(
-            'Akun dengan email ini SUDAH TERVERIFIKASI sebelumnya! Silakan langsung klik "Masuk / Login" di bawah.'
-          );
-        } else if (lowerErr.includes('expired') || lowerErr.includes('invalid')) {
+        if (lowerErr.includes('expired') || lowerErr.includes('invalid')) {
           setError(
             'Kode OTP salah atau telah kadaluarsa. Pastikan memasukkan seluruh digit kode (6 atau 8 digit) dari email TERAKHIR yang masuk.'
           );
@@ -176,25 +162,6 @@ function VerifyOtpContent() {
           {email || 'email@anda.com'}
         </span>
       </div>
-
-      {alreadyVerified && (
-        <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs">
-          <div className="flex items-center gap-1.5 font-semibold text-emerald-900 mb-1">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-            <span>Akun ini sudah berhasil terverifikasi!</span>
-          </div>
-          <p className="mb-3 text-emerald-700">
-            Email Anda sudah aktif di database dan tidak perlu memasukkan kode OTP lagi.
-          </p>
-          <Link
-            href="/login"
-            className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-xs transition-colors shadow-xs"
-          >
-            <span>Langsung Masuk / Login Sekarang</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-      )}
 
       {error && (
         <div className="mb-4 flex items-start gap-2 text-red-600 text-xs bg-red-50 border border-red-200 rounded-xl p-3">
