@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { GoogleIcon } from '@/components/ui/google-icon';
-import { Loader2, User, Phone, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Loader2, User, Phone, Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -80,6 +80,17 @@ export default function RegisterPage() {
       const supabase = createClient();
       const cleanEmail = email.trim().toLowerCase();
 
+      // 1. Cek apakah email sudah terdaftar sebelumnya di database
+      const { data: alreadyRegistered } = await supabase.rpc('check_email_registered', {
+        check_email: cleanEmail,
+      });
+
+      if (alreadyRegistered) {
+        setError('Email ini sudah terdaftar. Silakan masuk (login) atau gunakan email lain.');
+        setLoading(false);
+        return;
+      }
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: cleanEmail,
         password,
@@ -92,19 +103,31 @@ export default function RegisterPage() {
       });
 
       if (signUpError) {
-        if (signUpError.message.toLowerCase().includes('already registered')) {
-          setError('Email sudah terdaftar. Silakan login atau gunakan email lain.');
+        const lowerErr = signUpError.message.toLowerCase();
+        if (lowerErr.includes('already registered') || lowerErr.includes('user already exists')) {
+          setError('Email ini sudah terdaftar. Silakan masuk (login) atau gunakan email lain.');
         } else if (
-          signUpError.message.includes('504') ||
-          signUpError.message.toLowerCase().includes('timeout') ||
-          signUpError.message.toLowerCase().includes('deadline exceeded')
+          lowerErr.includes('504') ||
+          lowerErr.includes('timeout') ||
+          lowerErr.includes('deadline exceeded')
         ) {
           setError(
             'Layanan pengiriman email sedang sibuk atau timeout (HTTP 504). Silakan coba lagi beberapa saat atau pasang Custom SMTP di Supabase.'
           );
+        } else if (lowerErr.includes('error sending confirmation email')) {
+          setError(
+            'Gagal mengirim email OTP. Di Supabase SMTP Settings, pastikan "Sender email" diisi: onboarding@resend.dev (bukan @gmail.com).'
+          );
         } else {
           setError(signUpError.message || 'Gagal mendaftarkan akun.');
         }
+        setLoading(false);
+        return;
+      }
+
+      // Deteksi proteksi enumerasi Supabase (user sudah ada mengembalikan identities kosong)
+      if (data?.user?.identities && data.user.identities.length === 0) {
+        setError('Email ini sudah terdaftar. Silakan masuk (login) atau gunakan email lain.');
         setLoading(false);
         return;
       }
@@ -179,9 +202,20 @@ export default function RegisterPage() {
         {/* Form Registrasi Manual */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="flex items-start gap-2 text-red-600 text-xs bg-red-50 border border-red-200 rounded-xl p-3">
-              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-              <span>{error}</span>
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 text-red-600 text-xs bg-red-50 border border-red-200 rounded-xl p-3">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{error}</span>
+              </div>
+              {error.includes('sudah terdaftar') && (
+                <Link
+                  href="/login"
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-semibold transition-colors"
+                >
+                  <span>Masuk ke Halaman Login</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </div>
           )}
 
