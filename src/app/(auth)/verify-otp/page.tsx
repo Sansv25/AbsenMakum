@@ -18,6 +18,8 @@ function VerifyOtpContent() {
   const [cooldown, setCooldown] = useState(60);
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [realtimeListening, setRealtimeListening] = useState(false);
+  const [approvedViaRealtime, setApprovedViaRealtime] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -42,12 +44,11 @@ function VerifyOtpContent() {
     inputRef.current?.focus();
   }, []);
 
-  async function handleVerify(e?: React.FormEvent) {
-    if (e) e.preventDefault();
+  async function executeVerify(rawToken?: string) {
     setError(null);
     setInfoMessage(null);
 
-    const cleanToken = token.trim();
+    const cleanToken = (rawToken || token).trim();
     if (!email.trim()) {
       setError('Email wajib diisi.');
       return;
@@ -97,6 +98,7 @@ function VerifyOtpContent() {
           setError(verifyError.message || 'Verifikasi OTP gagal.');
         }
         setLoading(false);
+        setApprovedViaRealtime(false);
         return;
       }
 
@@ -128,8 +130,49 @@ function VerifyOtpContent() {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
       setError(message);
       setLoading(false);
+      setApprovedViaRealtime(false);
     }
   }
+
+  async function handleVerify(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    await executeVerify(token);
+  }
+
+  // Supabase Realtime: Dengarkan sinyal persetujuan instan jika link di email dibuka di perangkat lain (PC/Laptop)
+  useEffect(() => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) return;
+
+    const supabase = createClient();
+    const channelName = `login-sync-${cleanEmail.replace(/[^a-zA-Z0-9]/g, '-')}`;
+
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false },
+      },
+    });
+
+    channel
+      .on('broadcast', { event: 'approved' }, async (payload) => {
+        const incomingToken = payload.payload?.token;
+        if (incomingToken) {
+          setApprovedViaRealtime(true);
+          setToken(incomingToken);
+          setInfoMessage('Persetujuan login diterima dari email! Memproses masuk ke dashboard...');
+          await executeVerify(incomingToken);
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeListening(true);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [email, typeParam]);
 
   async function handleResendOtp() {
     if (cooldown > 0 || resending) return;
@@ -230,6 +273,21 @@ function VerifyOtpContent() {
       {infoMessage && (
         <div className="mb-4 text-emerald-700 dark:text-emerald-400 text-xs bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-3">
           {infoMessage}
+        </div>
+      )}
+
+      {/* Realtime Live Indicator */}
+      {realtimeListening && (
+        <div className="mb-5 flex items-center justify-center gap-2 py-2 px-3 bg-sky-50 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900 rounded-xl text-xs text-sky-700 dark:text-sky-300">
+          <span className="relative flex h-2 w-2 flex-shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+          </span>
+          <span className="text-[11px] font-medium leading-tight text-center">
+            {approvedViaRealtime
+              ? 'Persetujuan terdeteksi! Memverifikasi sesi Anda...'
+              : 'Realtime Aktif: Anda dapat ketik OTP di bawah atau klik link di email Anda.'}
+          </span>
         </div>
       )}
 
