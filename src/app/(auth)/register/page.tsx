@@ -94,6 +94,14 @@ export default function RegisterPage() {
       if (signUpError) {
         if (signUpError.message.toLowerCase().includes('already registered')) {
           setError('Email sudah terdaftar. Silakan login atau gunakan email lain.');
+        } else if (
+          signUpError.message.includes('504') ||
+          signUpError.message.toLowerCase().includes('timeout') ||
+          signUpError.message.toLowerCase().includes('deadline exceeded')
+        ) {
+          setError(
+            'Layanan pengiriman email sedang sibuk atau timeout (HTTP 504). Silakan coba lagi beberapa saat atau pasang Custom SMTP di Supabase.'
+          );
         } else {
           setError(signUpError.message || 'Gagal mendaftarkan akun.');
         }

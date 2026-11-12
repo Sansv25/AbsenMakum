@@ -121,7 +121,17 @@ function VerifyOtpContent() {
       });
 
       if (resendError) {
-        setError(resendError.message || 'Gagal mengirim ulang OTP.');
+        if (
+          resendError.message.includes('504') ||
+          resendError.message.toLowerCase().includes('timeout') ||
+          resendError.message.toLowerCase().includes('deadline exceeded')
+        ) {
+          setError(
+            'Layanan pengiriman email sedang sibuk atau timeout (HTTP 504). Silakan coba kirim ulang dalam beberapa saat.'
+          );
+        } else {
+          setError(resendError.message || 'Gagal mengirim ulang OTP.');
+        }
       } else {
         setInfoMessage('Kode OTP baru telah berhasil dikirim ke email Anda.');
         setCooldown(60); // Reset timer 60 detik
