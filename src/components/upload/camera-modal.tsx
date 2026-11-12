@@ -22,6 +22,7 @@ export function CameraModal({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const logoRef = useRef<HTMLImageElement | null>(null);
+  const plnLogoRef = useRef<HTMLImageElement | null>(null);
 
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(initialFacingMode);
   const [isSwitching, setIsSwitching] = useState<boolean>(false);
@@ -30,15 +31,13 @@ export function CameraModal({
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // GPS, Address & Compass States
+  // GPS & Address States
   const [coordsStr, setCoordsStr] = useState<string | null>(null);
   const [addressLines, setAddressLines] = useState<string[]>([
     'Denpasar Barat',
     'Kota Denpasar',
     'Bali',
   ]);
-  const [compassHeading, setCompassHeading] = useState<number>(160);
-  const [compassDir, setCompassDir] = useState<string>('S');
   const [currentTimeStr, setCurrentTimeStr] = useState<string>('');
 
   const cleanUserName = useMemo(() => {
@@ -55,13 +54,20 @@ export function CameraModal({
     return () => clearInterval(interval);
   }, [isOpen]);
 
-  // Preload logo
+  // Preload logo ICONNET dan Logo PLN Icon Plus
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = '/images/logo.svg';
     img.onload = () => {
       logoRef.current = img;
+    };
+
+    const plnImg = new Image();
+    plnImg.crossOrigin = 'anonymous';
+    plnImg.src = '/images/logowhitepln.png';
+    plnImg.onload = () => {
+      plnLogoRef.current = plnImg;
     };
   }, []);
 
@@ -98,30 +104,6 @@ export function CameraModal({
     }
   }, [isOpen]);
 
-  // Request Compass Orientation
-  useEffect(() => {
-    if (!isOpen) return;
-
-    function handleOrientation(e: DeviceOrientationEvent) {
-      let heading: number | null = null;
-      if ('webkitCompassHeading' in e && typeof (e as unknown as { webkitCompassHeading: unknown }).webkitCompassHeading === 'number') {
-        heading = (e as unknown as { webkitCompassHeading: number }).webkitCompassHeading;
-      } else if (e.alpha !== null && typeof e.alpha === 'number') {
-        heading = (360 - e.alpha) % 360;
-      }
-
-      if (heading !== null && !isNaN(heading)) {
-        const rounded = Math.round(heading);
-        setCompassHeading(rounded);
-        setCompassDir(getCompassDirection(rounded));
-      }
-    }
-
-    window.addEventListener('deviceorientation', handleOrientation, true);
-    return () => {
-      window.removeEventListener('deviceorientation', handleOrientation, true);
-    };
-  }, [isOpen]);
 
   // Lock background scroll when modal is open
   useEffect(() => {
@@ -263,19 +245,30 @@ export function CameraModal({
     }
     ctx.restore();
 
-    // 3. KIRI ATAS: Kompas Dial
-    const compassR = Math.round(36 * scale);
-    const compassX = margin + compassR;
-    const compassY = margin + compassR;
-    drawCompassDial(ctx, compassX, compassY, compassR, compassHeading);
+    // 3. KIRI ATAS: Logo PLN Icon Plus (menggantikan kompas)
+    const plnH = Math.round(48 * scale);
+    const plnW = Math.round(plnH * (480 / 173));
+    const plnX = margin;
+    const plnY = margin;
 
-    // 4. KANAN BAWAH: Text Overlay (Timestamp, Koordinat, Heading, Alamat, #Nama)
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+    ctx.shadowBlur = 8 * scale;
+    ctx.shadowOffsetX = 1 * scale;
+    ctx.shadowOffsetY = 1 * scale;
+    if (plnLogoRef.current && plnLogoRef.current.complete) {
+      ctx.drawImage(plnLogoRef.current, plnX, plnY, plnW, plnH);
+    } else {
+      drawPlnSymbol(ctx, plnX, plnY, plnW, plnH);
+    }
+    ctx.restore();
+
+    // 4. KANAN BAWAH: Text Overlay (Timestamp, Koordinat, Alamat, #Nama)
     const lines: string[] = [];
     lines.push(formatCameraTimestamp());
     if (coordsStr) {
       lines.push(coordsStr);
     }
-    lines.push(`${compassHeading}° ${compassDir}`);
     if (addressLines && addressLines.length > 0) {
       addressLines.forEach((al) => lines.push(al));
     }
@@ -432,25 +425,20 @@ export function CameraModal({
                 />
               </div>
 
-              {/* 2. KIRI ATAS: Kompas Dial */}
+              {/* 2. KIRI ATAS: Logo PLN Icon Plus (menggantikan kompas) */}
               <div className="absolute top-3 left-3 z-10 pointer-events-none drop-shadow-md">
-                <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-black/50 border border-white/80 flex items-center justify-center relative text-[9px] font-bold text-white shadow-xs">
-                  <span className="absolute top-0.5">N</span>
-                  <span className="absolute right-1">E</span>
-                  <span className="absolute bottom-0.5">S</span>
-                  <span className="absolute left-1">M</span>
-                  <div
-                    className="h-3 w-1 bg-cyan-400 rounded-full origin-bottom transition-transform duration-300"
-                    style={{ transform: `rotate(${compassHeading}deg)` }}
-                  />
-                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/logowhitepln.png"
+                  alt="PLN Icon Plus"
+                  className="h-8 sm:h-10 w-auto object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)]"
+                />
               </div>
 
               {/* 3. KANAN BAWAH: Live Text Info */}
               <div className="absolute bottom-3 right-3 z-10 pointer-events-none text-right text-white font-semibold text-[10px] sm:text-xs leading-snug drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] max-w-[85%] sm:max-w-[70%]">
                 <p>{currentTimeStr}</p>
                 {coordsStr && <p className="font-mono text-[9px] sm:text-[11px]">{coordsStr}</p>}
-                <p>{compassHeading}° {compassDir}</p>
                 {addressLines.map((al, idx) => (
                   <p key={idx}>{al}</p>
                 ))}
@@ -520,57 +508,61 @@ export function CameraModal({
   );
 }
 
-// Helper: Direction letters
-function getCompassDirection(deg: number): string {
-  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  const index = Math.round(deg / 45) % 8;
-  return dirs[index];
-}
-
-// Canvas Drawer: Compass Dial
-function drawCompassDial(
+// Canvas Drawer: Fallback Logo PLN Icon Plus
+function drawPlnSymbol(
   ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  r: number,
-  headingDeg: number
+  x: number,
+  y: number,
+  w: number,
+  h: number
 ) {
   ctx.save();
-  // Disc
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.translate(x, y);
+  const s = h / 100;
+  ctx.scale(s, s);
+
+  // Kotak Kuning PLN
+  ctx.fillStyle = '#FFE500';
   ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(0, 0, 100, 100, 10);
+  } else {
+    ctx.rect(0, 0, 100, 100);
+  }
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-  ctx.lineWidth = Math.max(1.5, r * 0.05);
-  ctx.stroke();
+  // 3 Gelombang Biru
+  ctx.strokeStyle = '#00A3E0';
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) {
+    const yWave = 48 + i * 15;
+    ctx.beginPath();
+    ctx.moveTo(15, yWave);
+    ctx.bezierCurveTo(30, yWave - 7, 45, yWave + 7, 60, yWave);
+    ctx.bezierCurveTo(75, yWave - 7, 90, yWave + 7, 85, yWave);
+    ctx.stroke();
+  }
 
-  // Cardinal letters
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${Math.round(r * 0.35)}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  ctx.fillText('N', cx, cy - r * 0.72);
-  ctx.fillText('E', cx + r * 0.72, cy);
-  ctx.fillText('S', cx, cy + r * 0.72);
-  ctx.fillText('M', cx - r * 0.72, cy);
-
-  // Pointer needle pointing at heading
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate((headingDeg * Math.PI) / 180);
-
-  ctx.fillStyle = '#06b6d4';
+  // Petir Merah PLN
+  ctx.fillStyle = '#ED1C24';
   ctx.beginPath();
-  ctx.moveTo(0, -r * 0.6);
-  ctx.lineTo(-r * 0.15, r * 0.25);
-  ctx.lineTo(r * 0.15, r * 0.25);
+  ctx.moveTo(56, 10);
+  ctx.lineTo(36, 52);
+  ctx.lineTo(52, 52);
+  ctx.lineTo(40, 92);
+  ctx.lineTo(72, 42);
+  ctx.lineTo(54, 42);
   ctx.closePath();
   ctx.fill();
 
-  ctx.restore();
+  // Teks Putih PLN Icon Plus
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 36px sans-serif';
+  ctx.fillText('PLN', 115, 42);
+  ctx.font = '600 24px sans-serif';
+  ctx.fillText('Icon Plus', 115, 78);
+
   ctx.restore();
 }
 
