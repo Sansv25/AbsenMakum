@@ -104,33 +104,45 @@ export function AttendanceOfficerCard({
   return (
     <>
       {/* Kartu Petugas Pengisi Piket */}
-      <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
+      <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold flex-shrink-0">
+          <div
+            className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0 ${
+              hasFilledData
+                ? 'bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400'
+                : 'bg-gray-100 dark:bg-slate-800 border border-gray-200/60 dark:border-slate-700/60 text-gray-400 dark:text-slate-500'
+            }`}
+          >
             <User className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-400 tracking-wider">
-              Petugas Pengisi Piket
+            <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-500 tracking-wider">
+              Petugas Piket
             </p>
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
-              <span className="text-sm font-bold text-gray-900 dark:text-slate-100">
-                {hasFilledData ? authorName : 'Belum Ada yang Mengisi'}
+              <span
+                className={`text-sm ${
+                  hasFilledData
+                    ? 'font-bold text-gray-900 dark:text-slate-100'
+                    : 'font-medium text-gray-500 dark:text-slate-400 italic'
+                }`}
+              >
+                {hasFilledData ? authorName : 'Belum ada yang mengisi'}
               </span>
 
-              {/* Tombol Ubah Petugas khusus Akun Master */}
-              {isMaster && (
+              {/* Tombol Ubah Petugas khusus Akun Master (Hanya jika data sudah pernah diisi) */}
+              {isMaster && hasFilledData && (
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedUserId(currentUserId || (availableOfficers[0]?.id ?? ''));
                     setIsModalOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors shadow-2xs min-h-[28px]"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors shadow-2xs min-h-[26px]"
                   title="Ubah petugas piket untuk shift ini (Khusus Akun Master)"
                 >
                   <UserCheck className="h-3.5 w-3.5" />
-                  <span>Ubah Petugas</span>
+                  <span>Ubah</span>
                 </button>
               )}
             </div>
@@ -150,21 +162,25 @@ export function AttendanceOfficerCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-center">
-          <span
-            className={`text-xs font-semibold px-3 py-1 rounded-full capitalize flex items-center gap-1.5 ${
-              jobStatus === 'lengkap'
-                ? 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-400 border border-green-200 dark:border-green-800'
-                : jobStatus === 'sebagian'
-                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/60 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
-                : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
-            }`}
-          >
-            {jobStatus === 'lengkap' && <CheckCircle2 className="h-3.5 w-3.5" />}
-            {jobStatus === 'sebagian' && <AlertCircle className="h-3.5 w-3.5" />}
-            Status: {jobStatus}
-          </span>
-        </div>
+        {/* Status badge: HANYA ditampilkan saat sudah ada data (Lengkap / Sebagian). Saat kosong, tidak menduplikasi 'Belum ada yang mengisi' */}
+        {hasFilledData && (
+          <div className="flex items-center gap-2 self-start sm:self-center">
+            <span
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize flex items-center gap-1.5 ${
+                jobStatus === 'lengkap'
+                  ? 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-400 border border-green-200 dark:border-green-800'
+                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/60 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
+              }`}
+            >
+              {jobStatus === 'lengkap' ? (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              ) : (
+                <AlertCircle className="h-3.5 w-3.5" />
+              )}
+              {jobStatus}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Modal Dialog Ubah Petugas (Khusus Akun Master) */}

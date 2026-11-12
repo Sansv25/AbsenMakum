@@ -178,114 +178,104 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-5">
-      {/* Header bar */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 min-h-[44px] py-2 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" /> Kembali
-        </Link>
-        {!isRequired && hasExistingData && (
-          <span className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-full">
-            Di luar jadwal wajib
-          </span>
-        )}
+    <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-4">
+      {/* Header Bar: Navigasi & Tanggal */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 min-h-[36px] py-1 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" /> Kembali ke Dashboard
+          </Link>
+          {!isRequired && hasExistingData && (
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-0.5 rounded-full">
+              Di luar jadwal wajib
+            </span>
+          )}
+        </div>
+
+        {/* Tanggal & Badge Libur Tunggal (Tanpa Duplikasi) */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-slate-100">
+              {formatIndonesia(date)}
+            </h1>
+            {!(requiredShifts.length > 1 || Boolean(holiday)) && (
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                {shiftLabel(shiftType)}
+              </p>
+            )}
+          </div>
+
+          {holiday && (
+            <span className="text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/80 px-2.5 py-1 rounded-full">
+              Libur: {holiday.name}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Navigasi Pilihan Shift Piket (Pagi / Malam) - Khusus Hari Libur & Akhir Pekan */}
       {(requiredShifts.length > 1 || Boolean(holiday)) && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between px-0.5">
-            <span className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <span>Pilihan Shift Piket</span>
-              {holiday && (
-                <span className="text-[10px] font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800/80 px-2 py-0.5 rounded-full">
-                  Libur: {holiday.name}
-                </span>
-              )}
-            </span>
-          </div>
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 dark:bg-slate-800/80 rounded-xl border border-gray-200/60 dark:border-slate-700/60">
+          <Link
+            href={`/absen/${date}/pagi?job=${jobType}`}
+            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all min-h-[40px] ${
+              shiftType === 'pagi'
+                ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs border border-amber-200/80 dark:border-amber-800/60'
+                : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Sun className={`h-4 w-4 ${shiftType === 'pagi' ? 'text-amber-500 fill-amber-500/20' : 'text-gray-400 dark:text-slate-500'}`} />
+            <span>Piket Pagi</span>
+          </Link>
 
-          <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-slate-800/80 rounded-2xl border border-gray-200/60 dark:border-slate-700/60">
-            <Link
-              href={`/absen/${date}/pagi?job=${jobType}`}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all min-h-[42px] ${
-                shiftType === 'pagi'
-                  ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs border border-amber-200/80 dark:border-amber-800/60'
-                  : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <Sun className={`h-4 w-4 ${shiftType === 'pagi' ? 'text-amber-500 fill-amber-500/20' : 'text-gray-400 dark:text-slate-500'}`} />
-              <span>Piket Pagi</span>
-              <span className="text-[10px] font-medium opacity-75">(Shift 1)</span>
-            </Link>
-
-            <Link
-              href={`/absen/${date}/malam?job=${jobType}`}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all min-h-[42px] ${
-                shiftType === 'malam'
-                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-indigo-200/80 dark:border-indigo-800/60'
-                  : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-slate-800/50'
-              }`}
-            >
-              <Moon className={`h-4 w-4 ${shiftType === 'malam' ? 'text-indigo-500 fill-indigo-500/20' : 'text-gray-400 dark:text-slate-500'}`} />
-              <span>Piket Malam</span>
-              <span className="text-[10px] font-medium opacity-75">(Shift 2)</span>
-            </Link>
-          </div>
+          <Link
+            href={`/absen/${date}/malam?job=${jobType}`}
+            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all min-h-[40px] ${
+              shiftType === 'malam'
+                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-indigo-200/80 dark:border-indigo-800/60'
+                : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Moon className={`h-4 w-4 ${shiftType === 'malam' ? 'text-indigo-500 fill-indigo-500/20' : 'text-gray-400 dark:text-slate-500'}`} />
+            <span>Piket Malam</span>
+          </Link>
         </div>
       )}
 
       {/* Job Type Switcher Tabs with Status Dots */}
-      <div className="space-y-1.5">
-        {(requiredShifts.length > 1 || Boolean(holiday)) && (
-          <span className="text-[11px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider px-0.5">
-            Pekerjaan / Job
-          </span>
-        )}
-        <div className="flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-slate-800/80 rounded-2xl">
-          {JOB_TYPES.map((jt) => {
-            const isActive = jt === jobType;
-            const status = jobStatusMap.get(jt) ?? 'kosong';
+      <div className="flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-slate-800/80 rounded-xl border border-gray-200/60 dark:border-slate-700/60">
+        {JOB_TYPES.map((jt) => {
+          const isActive = jt === jobType;
+          const status = jobStatusMap.get(jt) ?? 'kosong';
 
-            return (
-              <Link
-                key={jt}
-                href={`/absen/${date}/${shift}?job=${jt}`}
-                className={`flex-1 text-center py-2 px-2.5 rounded-xl text-xs font-semibold transition-all min-h-[38px] flex items-center justify-center gap-1.5 ${
-                  isActive
-                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'
-                }`}
-              >
-                <span>{jobLabel(jt)}</span>
-                {status === 'lengkap' ? (
-                  <span className="h-2 w-2 rounded-full bg-green-500 shadow-xs" title="Lengkap" />
-                ) : status === 'sebagian' ? (
-                  <span className="h-2 w-2 rounded-full bg-yellow-400 shadow-xs" title="Sebagian" />
-                ) : (
-                  <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-slate-600" title="Kosong" />
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100">
-          {shiftLabel(shiftType)} &mdash; {jobLabel(jobType)}
-        </h1>
-        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-          {formatIndonesia(date)}
-          {holiday ? ` • Tanggal Merah (${holiday.name})` : ''}
-        </p>
+          return (
+            <Link
+              key={jt}
+              href={`/absen/${date}/${shift}?job=${jt}`}
+              className={`flex-1 text-center py-2 px-2.5 rounded-lg text-xs font-semibold transition-all min-h-[38px] flex items-center justify-center gap-1.5 ${
+                isActive
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs border border-blue-200/80 dark:border-blue-800/60'
+                  : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <span>{jobLabel(jt)}</span>
+              {status === 'lengkap' ? (
+                <span className="h-2 w-2 rounded-full bg-green-500 shadow-xs" title="Lengkap" />
+              ) : status === 'sebagian' ? (
+                <span className="h-2 w-2 rounded-full bg-yellow-400 shadow-xs" title="Sebagian" />
+              ) : (
+                <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-slate-600" title="Kosong" />
+              )}
+            </Link>
+          );
+        })}
       </div>
 
       {/* Progress Kelengkapan Bukti Form */}
-      <div className="p-3 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
+      <div className="p-3 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-2 text-xs">
         <span className="font-semibold text-gray-700 dark:text-slate-300 text-[11px] sm:text-xs">
           Kelengkapan Bukti:
         </span>
