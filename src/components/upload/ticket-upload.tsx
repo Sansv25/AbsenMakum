@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Upload, Trash2, ArrowUp, ArrowDown, Clipboard, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Upload, Trash2, ArrowUp, ArrowDown, Clipboard, Loader2, CheckCircle2, AlertTriangle, ZoomIn } from 'lucide-react';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { compressImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
@@ -33,6 +34,8 @@ export function TicketUpload({
   const [uploading, setUploading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -268,23 +271,44 @@ export function TicketUpload({
                 #{index + 1}
               </span>
 
-              <div className="w-16 h-12 rounded-lg overflow-hidden bg-black/10 dark:bg-black/40 flex-shrink-0 relative">
+              <div
+                onClick={() => {
+                  if (ticket.signedUrl) {
+                    setLightboxIndex(index);
+                    setLightboxOpen(true);
+                  }
+                }}
+                className="w-16 h-12 rounded-lg overflow-hidden bg-black/10 dark:bg-black/40 flex-shrink-0 relative cursor-pointer group hover:ring-2 hover:ring-blue-500 transition-all"
+                title="Klik untuk Zoom / Fullscreen"
+              >
                 {ticket.signedUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={ticket.signedUrl}
                     alt={`Tiket #${index + 1}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-slate-500">
                     Foto
                   </div>
                 )}
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                  <ZoomIn className="h-4 w-4" />
+                </div>
               </div>
 
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 dark:text-slate-200 truncate">
+              <div
+                onClick={() => {
+                  if (ticket.signedUrl) {
+                    setLightboxIndex(index);
+                    setLightboxOpen(true);
+                  }
+                }}
+                className="flex-1 min-w-0 cursor-pointer"
+                title="Klik untuk Zoom / Fullscreen"
+              >
+                <p className="text-xs font-medium text-gray-800 dark:text-slate-200 truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                   Ticket #{index + 1}
                 </p>
                 <p className="text-[10px] text-gray-400 dark:text-slate-500">
@@ -326,6 +350,19 @@ export function TicketUpload({
           ))}
         </div>
       )}
+
+      {/* Lightbox Zoom & Fullscreen */}
+      <ImageLightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        index={lightboxIndex}
+        slides={tickets
+          .filter((t) => !!t.signedUrl)
+          .map((t, idx) => ({
+            src: t.signedUrl!,
+            title: `Ticket #${idx + 1}`,
+          }))}
+      />
     </div>
   );
 }

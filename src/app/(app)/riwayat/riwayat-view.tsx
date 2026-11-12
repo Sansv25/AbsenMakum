@@ -16,7 +16,9 @@ import {
   CheckCircle2,
   Search,
   User,
+  ZoomIn,
 } from 'lucide-react';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 export interface RiwayatJobDetail {
   id?: string;
@@ -58,6 +60,9 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
   const [pageSize, setPageSize] = useState<number>(5);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [drawerShift, setDrawerShift] = useState<RiwayatShiftGroup | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxSlides, setLightboxSlides] = useState<{ src: string; title?: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // Filter
   const filtered = items.filter((item) => {
@@ -488,9 +493,20 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                         </div>
                         {job?.hasMulai ? (
                           job?.mulaiThumbnail ? (
-                            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700">
+                            <div
+                              onClick={() => {
+                                setLightboxSlides([{ src: job.mulaiThumbnail!, title: '1. Bukti Mulai Kerja' }]);
+                                setLightboxIndex(0);
+                                setLightboxOpen(true);
+                              }}
+                              className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700 cursor-pointer group hover:border-blue-400 relative"
+                              title="Klik untuk Zoom / Fullscreen"
+                            >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={job.mulaiThumbnail} alt="Bukti Mulai" className="w-full h-full object-cover" />
+                              <img src={job.mulaiThumbnail} alt="Bukti Mulai" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                <ZoomIn className="h-4 w-4" />
+                              </div>
                             </div>
                           ) : (
                             <div className="w-full aspect-video rounded-lg bg-green-50/70 dark:bg-green-950/40 border border-green-200 dark:border-green-800 flex flex-col items-center justify-center text-xs text-green-700 dark:text-green-400 font-medium p-2">
@@ -517,9 +533,20 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                         </div>
                         {job?.hasSelesai ? (
                           job?.selesaiThumbnail ? (
-                            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700">
+                            <div
+                              onClick={() => {
+                                setLightboxSlides([{ src: job.selesaiThumbnail!, title: '2. Bukti Selesai Kerja' }]);
+                                setLightboxIndex(0);
+                                setLightboxOpen(true);
+                              }}
+                              className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700 cursor-pointer group hover:border-blue-400 relative"
+                              title="Klik untuk Zoom / Fullscreen"
+                            >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={job.selesaiThumbnail} alt="Bukti Selesai" className="w-full h-full object-cover" />
+                              <img src={job.selesaiThumbnail} alt="Bukti Selesai" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                <ZoomIn className="h-4 w-4" />
+                              </div>
                             </div>
                           ) : (
                             <div className="w-full aspect-video rounded-lg bg-green-50/70 dark:bg-green-950/40 border border-green-200 dark:border-green-800 flex flex-col items-center justify-center text-xs text-green-700 dark:text-green-400 font-medium p-2">
@@ -559,9 +586,25 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                       {job?.aktivitasThumbnails && job.aktivitasThumbnails.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {job.aktivitasThumbnails.map((url, aIdx) => (
-                            <div key={aIdx} className="relative aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-xs border border-gray-200 dark:border-slate-700">
+                            <div
+                              key={aIdx}
+                              onClick={() => {
+                                const slides = job.aktivitasThumbnails!.map((u, i) => ({
+                                  src: u,
+                                  title: `Bukti Aktivitas #${i + 1}`,
+                                }));
+                                setLightboxSlides(slides);
+                                setLightboxIndex(aIdx);
+                                setLightboxOpen(true);
+                              }}
+                              className="relative aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-xs border border-gray-200 dark:border-slate-700 cursor-pointer group hover:border-blue-400"
+                              title="Klik untuk Zoom / Fullscreen"
+                            >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={url} alt={`Aktivitas ${aIdx + 1}`} className="w-full h-full object-cover" />
+                              <img src={url} alt={`Aktivitas ${aIdx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                <ZoomIn className="h-4 w-4" />
+                              </div>
                               <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] text-white font-medium">
                                 #{aIdx + 1}
                               </span>
@@ -599,6 +642,14 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
           </div>
         </div>
       )}
+
+      {/* Lightbox Preview */}
+      <ImageLightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={lightboxSlides}
+        index={lightboxIndex}
+      />
     </div>
   );
 }

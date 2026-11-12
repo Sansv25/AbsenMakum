@@ -1,8 +1,9 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { Camera, Upload, Trash2, Loader2, CheckCircle2, Lock } from 'lucide-react';
+import { Camera, Upload, Trash2, Loader2, CheckCircle2, Lock, ZoomIn } from 'lucide-react';
 import { CameraModal } from './camera-modal';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { compressImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
@@ -49,6 +50,7 @@ export function SingleUpload({
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -185,13 +187,22 @@ export function SingleUpload({
 
       {attachment?.signedUrl ? (
         <div className="space-y-3">
-          <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-black/5 dark:bg-black/30 aspect-[4/3] flex items-center justify-center">
+          <div
+            onClick={() => setLightboxOpen(true)}
+            className="group relative rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-black/5 dark:bg-black/30 aspect-[4/3] flex items-center justify-center cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-xs"
+            title="Klik untuk memperbesar / Fullscreen (bisa di-zoom)"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={attachment.signedUrl}
               alt={title}
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain group-hover:scale-[1.01] transition-transform duration-200"
             />
+            {/* Zoom pill indicator */}
+            <div className="absolute bottom-2.5 right-2.5 bg-black/65 hover:bg-black/85 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-md pointer-events-none transition-colors">
+              <ZoomIn className="h-3.5 w-3.5" />
+              <span>Perbesar / Fullscreen</span>
+            </div>
           </div>
 
           {canEdit ? (
@@ -286,6 +297,12 @@ export function SingleUpload({
         onClose={() => setCameraOpen(false)}
         onCapture={(file) => handleFileProcess(file)}
         userName={userName}
+      />
+
+      <ImageLightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        slides={attachment?.signedUrl ? [{ src: attachment.signedUrl, title }] : []}
       />
     </div>
   );

@@ -8,11 +8,11 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Eye,
-  X,
   Clipboard,
+  ZoomIn,
 } from 'lucide-react';
 import { CameraModal } from './camera-modal';
+import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { compressImage } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
@@ -57,7 +57,8 @@ export function ActivityUpload({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -347,14 +348,21 @@ export function ActivityUpload({
         {items.map((item, idx) => (
           <div
             key={item.id}
-            className="group relative aspect-video sm:aspect-square bg-gray-100 dark:bg-slate-800 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-xs"
+            onClick={() => {
+              if (item.signedUrl) {
+                setLightboxIndex(idx);
+                setLightboxOpen(true);
+              }
+            }}
+            className="group relative aspect-video sm:aspect-square bg-gray-100 dark:bg-slate-800 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-xs cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-all"
+            title="Klik untuk perbesar / Fullscreen (bisa di-zoom)"
           >
             {item.signedUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={item.signedUrl}
                 alt={`Aktivitas ${idx + 1}`}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
@@ -367,20 +375,21 @@ export function ActivityUpload({
               Aktivitas #{idx + 1}
             </span>
 
-            {/* Quick action buttons (selalu terlihat & responsif tanpa perlu hover) */}
+            {/* Quick action buttons */}
             <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
               {item.signedUrl && (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setPreviewUrl(item.signedUrl);
+                    setLightboxIndex(idx);
+                    setLightboxOpen(true);
                   }}
                   className="p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-white transition-colors"
-                  title="Lihat ukuran penuh"
-                  aria-label="Lihat ukuran penuh"
+                  title="Perbesar / Fullscreen"
+                  aria-label="Perbesar / Fullscreen"
                 >
-                  <Eye className="h-3.5 w-3.5" />
+                  <ZoomIn className="h-3.5 w-3.5" />
                 </button>
               )}
 
@@ -405,10 +414,11 @@ export function ActivityUpload({
               )}
             </div>
 
-            {/* Hover overlay with action buttons on desktop */}
-            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 pointer-events-none">
-              <span className="text-[11px] text-white/90 bg-black/50 px-2 py-0.5 rounded-md">
-                Klik ikon untuk aksi
+            {/* Hover overlay hint */}
+            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+              <span className="text-[11px] text-white/95 bg-black/65 px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-md">
+                <ZoomIn className="h-3.5 w-3.5" />
+                <span>Klik untuk Zoom</span>
               </span>
             </div>
           </div>
@@ -580,33 +590,18 @@ export function ActivityUpload({
         userName={userName}
       />
 
-      {/* Modal Preview Gambar Penuh */}
-      {previewUrl && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setPreviewUrl(null)}
-        >
-          <div
-            className="relative max-w-3xl max-h-[90vh] bg-black rounded-2xl overflow-hidden shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setPreviewUrl(null)}
-              className="absolute top-3 right-3 p-2 bg-black/60 hover:bg-black/90 text-white rounded-full z-10 transition-colors"
-              aria-label="Tutup preview"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl}
-              alt="Preview Ukuran Penuh"
-              className="max-w-full max-h-[85vh] object-contain"
-            />
-          </div>
-        </div>
-      )}
+      {/* Lightbox dengan fitur Zoom, Pan, dan Fullscreen */}
+      <ImageLightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        index={lightboxIndex}
+        slides={items
+          .filter((x) => !!x.signedUrl)
+          .map((x, i) => ({
+            src: x.signedUrl!,
+            title: `Foto Aktivitas #${i + 1}`,
+          }))}
+      />
     </div>
   );
 }
