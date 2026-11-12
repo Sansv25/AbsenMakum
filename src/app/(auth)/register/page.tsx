@@ -116,7 +116,7 @@ export default function RegisterPage() {
           );
         } else if (lowerErr.includes('error sending confirmation email')) {
           setError(
-            'Gagal mengirim email OTP. Di Supabase SMTP Settings, pastikan "Sender email" diisi: onboarding@resend.dev (bukan @gmail.com).'
+            'Gagal mengirim email OTP: Kredensial SMTP di Supabase ditolak (Authentication failed). Pastikan Username dan SMTP Key Brevo sudah sesuai.'
           );
         } else {
           setError(signUpError.message || 'Gagal mendaftarkan akun.');
