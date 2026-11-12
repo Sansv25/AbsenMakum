@@ -9,6 +9,7 @@ import {
 } from '@/lib/data/attendance';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserProfile } from '@/lib/data/profile';
 import type { PdfAttendanceItem } from '@/lib/pdf';
 import type { ShiftType, JobType } from '@/lib/supabase/types';
 
@@ -153,4 +154,74 @@ export async function getSingleFormExportData(attendanceId: string): Promise<{
   };
 
   return { data: item };
+}
+
+export async function changeAttendanceOfficerAction(
+  attendanceId: string,
+  newUserId: string,
+  date: string,
+  shift: string,
+  resetDevice: boolean = true
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient();
+    const { isMaster } = await getCurrentUserProfile();
+
+    if (!isMaster) {
+      return {
+        success: false,
+        error: 'Akses ditolak. Hanya Akun Master yang berhak merubah petugas piket.',
+      };
+    }
+
+    // Pastikan user baru ada di profiles
+    const { data: targetUser, error: userError } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('id', newUserId)
+      .maybeSingle();
+
+    if (userError || !targetUser) {
+      return { success: false, error: 'User petugas yang dipilih tidak ditemukan.' };
+    }
+
+    const updateData: {
+      user_id: string;
+      updated_at: string;
+      device_id?: string | null;
+      device_info?: string | null;
+    } = {
+      user_id: newUserId,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (resetDevice) {
+      updateData.device_id = null;
+      updateData.device_info = null;
+    }
+
+    const { error: updateError } = await supabase
+      .from('attendances')
+      .update(updateData)
+      .eq('id', attendanceId);
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    // Update attachments user_id agar sinkron
+    await supabase
+      .from('attachments')
+      .update({ user_id: newUserId })
+      .eq('attendance_id', attendanceId);
+
+    revalidatePath(`/absen/${date}/${shift}`);
+    revalidatePath('/');
+    revalidatePath('/riwayat');
+
+    return { success: true };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
+    return { success: false, error: msg };
+  }
 }
