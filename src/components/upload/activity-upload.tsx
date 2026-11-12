@@ -256,22 +256,22 @@ export function ActivityUpload({
   return (
     <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
       {/* Header bar */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-bold text-gray-900 dark:text-slate-100 text-sm sm:text-base">
               3. Bukti Aktivitas Piket
             </h3>
             {isFulfilled ? (
-              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 font-semibold border border-green-200 dark:border-green-800 flex items-center gap-1">
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 font-semibold border border-green-200 dark:border-green-800 inline-flex items-center gap-1 whitespace-nowrap">
                 <CheckCircle2 className="h-3 w-3" /> {count} Foto (Lengkap)
               </span>
             ) : count === 1 ? (
-              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 font-semibold border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 font-semibold border border-amber-300 dark:border-amber-800 inline-flex items-center gap-1 whitespace-nowrap">
                 <AlertCircle className="h-3 w-3" /> 1 / 2 Foto (Kurang 1 Foto)
               </span>
             ) : (
-              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 font-semibold border border-red-200 dark:border-red-800 flex items-center gap-1">
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 font-semibold border border-red-200 dark:border-red-800 inline-flex items-center gap-1 whitespace-nowrap">
                 <AlertCircle className="h-3 w-3" /> Wajib Minimal 2 Foto
               </span>
             )}
@@ -283,12 +283,12 @@ export function ActivityUpload({
 
         {/* Action Buttons if canEdit */}
         {canEdit && (
-          <div className="flex items-center gap-1.5 flex-wrap flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap w-full sm:w-auto">
             <button
               type="button"
               onClick={handlePasteClipboard}
               disabled={uploading}
-              className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 min-h-[38px] shadow-2xs"
+              className="flex-1 sm:flex-initial px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 min-h-[38px] shadow-2xs"
               title="Paste screenshot langsung dari clipboard (atau tekan Ctrl + V)"
             >
               <Clipboard className="h-4 w-4" />
@@ -299,22 +299,22 @@ export function ActivityUpload({
               type="button"
               onClick={() => setCameraOpen(true)}
               disabled={uploading}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm min-h-[38px]"
+              className="flex-1 sm:flex-initial px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm min-h-[38px]"
               title="Ambil foto menggunakan kamera"
             >
               <Camera className="h-4 w-4" />
-              <span className="hidden sm:inline">Kamera</span>
+              <span>Kamera</span>
             </button>
 
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="px-3 py-1.5 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 min-h-[38px]"
+              className="flex-1 sm:flex-initial px-3 py-1.5 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 min-h-[38px]"
               title="Pilih file foto dari galeri"
             >
               <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Galeri</span>
+              <span>Galeri</span>
             </button>
 
             <input
@@ -432,154 +432,80 @@ export function ActivityUpload({
         {/* Placeholders for unfilled required slots (Slot 1 & Slot 2) */}
         {count === 0 && (
           <>
-            <div className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors">
-              <div>
-                <span className="text-xs font-bold text-red-700 dark:text-red-400 block">
-                  Foto Aktivitas #1
-                </span>
-                <span className="text-[10px] text-red-500">Wajib Diisi</span>
+            <div
+              onClick={() => canEdit && setCameraOpen(true)}
+              className={`aspect-video sm:aspect-square rounded-2xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-3 sm:p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-all ${
+                canEdit ? 'hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer active:scale-[0.98]' : ''
+              }`}
+              title={canEdit ? 'Klik untuk mengambil Foto Aktivitas #1 via Kamera' : undefined}
+            >
+              <div className="h-9 w-9 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center shadow-2xs">
+                <Camera className="h-4 w-4" />
               </div>
-
-              {canEdit && (
-                <div className="flex items-center gap-1 flex-wrap justify-center">
-                  <button
-                    type="button"
-                    onClick={handlePasteClipboard}
-                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                    title="Paste screenshot (Ctrl+V)"
-                  >
-                    <Clipboard className="h-3 w-3" /> Paste
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCameraOpen(true)}
-                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                  >
-                    <Camera className="h-3 w-3" /> Kamera
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                  >
-                    <Upload className="h-3 w-3" /> Galeri
-                  </button>
-                </div>
-              )}
+              <span className="text-xs font-bold text-red-700 dark:text-red-400">
+                Foto Aktivitas #1
+              </span>
+              <span className="text-[10px] text-red-500 font-medium">
+                Wajib Diisi {canEdit ? '• Ketuk Kamera' : ''}
+              </span>
             </div>
 
-            <div className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors">
-              <div>
-                <span className="text-xs font-bold text-red-700 dark:text-red-400 block">
-                  Foto Aktivitas #2
-                </span>
-                <span className="text-[10px] text-red-500">Wajib Diisi</span>
+            <div
+              onClick={() => canEdit && setCameraOpen(true)}
+              className={`aspect-video sm:aspect-square rounded-2xl border-2 border-dashed border-red-300 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 p-3 sm:p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-all ${
+                canEdit ? 'hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer active:scale-[0.98]' : ''
+              }`}
+              title={canEdit ? 'Klik untuk mengambil Foto Aktivitas #2 via Kamera' : undefined}
+            >
+              <div className="h-9 w-9 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center shadow-2xs">
+                <Camera className="h-4 w-4" />
               </div>
-
-              {canEdit && (
-                <div className="flex items-center gap-1 flex-wrap justify-center">
-                  <button
-                    type="button"
-                    onClick={handlePasteClipboard}
-                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                    title="Paste screenshot (Ctrl+V)"
-                  >
-                    <Clipboard className="h-3 w-3" /> Paste
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCameraOpen(true)}
-                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                  >
-                    <Camera className="h-3 w-3" /> Kamera
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                  >
-                    <Upload className="h-3 w-3" /> Galeri
-                  </button>
-                </div>
-              )}
+              <span className="text-xs font-bold text-red-700 dark:text-red-400">
+                Foto Aktivitas #2
+              </span>
+              <span className="text-[10px] text-red-500 font-medium">
+                Wajib Diisi {canEdit ? '• Ketuk Kamera' : ''}
+              </span>
             </div>
           </>
         )}
 
         {count === 1 && (
-          <div className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-amber-300 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors">
-            <div>
-              <span className="text-xs font-bold text-amber-800 dark:text-amber-400 block">
-                Foto Aktivitas #2
-              </span>
-              <span className="text-[10px] text-amber-600">Wajib (Kurang 1 Foto)</span>
+          <div
+            onClick={() => canEdit && setCameraOpen(true)}
+            className={`aspect-video sm:aspect-square rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20 p-3 sm:p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-all ${
+              canEdit ? 'hover:bg-amber-50 dark:hover:bg-amber-950/40 cursor-pointer active:scale-[0.98]' : ''
+            }`}
+            title={canEdit ? 'Klik untuk mengambil Foto Aktivitas #2 via Kamera' : undefined}
+          >
+            <div className="h-9 w-9 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 flex items-center justify-center shadow-2xs">
+              <Camera className="h-4 w-4" />
             </div>
-
-            {canEdit && (
-              <div className="flex items-center gap-1 flex-wrap justify-center">
-                <button
-                  type="button"
-                  onClick={handlePasteClipboard}
-                  className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                  title="Paste screenshot (Ctrl+V)"
-                >
-                  <Clipboard className="h-3 w-3" /> Paste
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCameraOpen(true)}
-                  className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                >
-                  <Camera className="h-3 w-3" /> Kamera
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-slate-700 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                >
-                  <Upload className="h-3 w-3" /> Galeri
-                </button>
-              </div>
-            )}
+            <span className="text-xs font-bold text-amber-800 dark:text-amber-400">
+              Foto Aktivitas #2
+            </span>
+            <span className="text-[10px] text-amber-600 font-medium">
+              Wajib (Kurang 1 Foto) {canEdit ? '• Ketuk Kamera' : ''}
+            </span>
           </div>
         )}
 
         {/* Slot tambah foto tambahan jika sudah memenuhi minimal 2 */}
         {count >= 2 && canEdit && (
-          <div className="aspect-video sm:aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-gray-50/50 dark:bg-slate-800/40 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors">
-            <div>
-              <span className="text-xs font-semibold text-gray-700 dark:text-slate-300 block">
-                Tambah Foto
-              </span>
-              <span className="text-[10px] text-gray-400 dark:text-slate-500">
-                (Opsional)
-              </span>
+          <div
+            onClick={() => setCameraOpen(true)}
+            className="aspect-video sm:aspect-square rounded-2xl border-2 border-dashed border-gray-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-gray-50/50 dark:bg-slate-800/40 hover:bg-blue-50/40 dark:hover:bg-blue-950/30 p-3 sm:p-4 flex flex-col items-center justify-center text-center gap-1.5 transition-all cursor-pointer active:scale-[0.98]"
+            title="Klik untuk menambah foto via Kamera"
+          >
+            <div className="h-9 w-9 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-2xs">
+              <Camera className="h-4 w-4" />
             </div>
-
-            <div className="flex items-center gap-1 flex-wrap justify-center">
-              <button
-                type="button"
-                onClick={handlePasteClipboard}
-                className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-slate-700 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-                title="Paste screenshot (Ctrl+V)"
-              >
-                <Clipboard className="h-3 w-3" /> Paste
-              </button>
-              <button
-                type="button"
-                onClick={() => setCameraOpen(true)}
-                className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-slate-700 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-              >
-                <Camera className="h-3 w-3" /> Kamera
-              </button>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-slate-700 rounded-lg text-[10px] font-semibold flex items-center gap-1 shadow-2xs transition-colors"
-              >
-                <Upload className="h-3 w-3" /> Galeri
-              </button>
-            </div>
+            <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">
+              Tambah Foto
+            </span>
+            <span className="text-[10px] text-gray-400 dark:text-slate-500 font-medium">
+              (Opsional) • Ketuk Kamera
+            </span>
           </div>
         )}
       </div>

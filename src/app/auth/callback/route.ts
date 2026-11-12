@@ -8,10 +8,14 @@ export async function GET(request: Request) {
   const errorDescription = searchParams.get('error_description');
   const next = searchParams.get('next') ?? '/';
 
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const isLocalEnv = process.env.NODE_ENV === 'development';
+  const redirectBase = isLocalEnv ? origin : (forwardedHost ? `https://${forwardedHost}` : origin);
+
   // Jika penyedia OAuth mengembalikan error (misal Client Secret salah di Supabase)
   if (errorParam || errorDescription) {
     const errorMsg = errorDescription || errorParam || 'Gagal autentikasi Google';
-    return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorMsg)}`);
+    return NextResponse.redirect(`${redirectBase}/login?error=${encodeURIComponent(errorMsg)}`);
   }
 
   if (code) {
@@ -19,7 +23,6 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Periksa apakah pengguna sudah melengkapi nomor telepon di profil
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -31,28 +34,30 @@ export async function GET(request: Request) {
           .eq('id', user.id)
           .maybeSingle();
 
-        // Jika nomor telepon belum ada, wajib arahkan ke halaman lengkapi profil
-        if (!profile?.phone || profile.phone.trim() === '') {
-          return NextResponse.redirect(`${origin}/complete-profile`);
+        const isMaster =
+          profile?.role === 'master' ||
+          user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+
+        // 1. Jika bukan master dan akun belum disetujui, langsung arahkan ke pending approval
+        if (!isMaster && (profile?.is_approved === false || !profile)) {
+          return NextResponse.redirect(`${redirectBase}/pending-approval`);
         }
 
-        const isMaster =
-          profile.role === 'master' ||
-          user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
-        if (!isMaster && profile.is_approved === false) {
-          return NextResponse.redirect(`${origin}/pending-approval`);
+        // 2. Jika sudah disetujui namun nomor telepon belum diisi, arahkan untuk lengkapi profil
+        if (!profile?.phone || profile.phone.trim() === '') {
+          return NextResponse.redirect(`${redirectBase}/complete-profile`);
         }
       }
 
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${redirectBase}${next}`);
     } else {
       return NextResponse.redirect(
-        `${origin}/login?error=${encodeURIComponent(error.message || 'Gagal tukar sesi autentikasi')}`
+        `${redirectBase}/login?error=${encodeURIComponent(error.message || 'Gagal tukar sesi autentikasi')}`
       );
     }
   }
 
   // Jika code tidak ditemukan
-  return NextResponse.redirect(`${origin}/login?error=Kode+autentikasi+tidak+ditemukan`);
+  return NextResponse.redirect(`${redirectBase}/login?error=Kode+autentikasi+tidak+ditemukan`);
 }
 
