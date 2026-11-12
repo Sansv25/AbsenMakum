@@ -11,19 +11,15 @@ import {
   Lock,
   Unlock,
   Crown,
-  Smartphone,
   Calendar,
   Loader2,
-  RotateCcw,
   ShieldAlert,
   FileDown,
 } from 'lucide-react';
-import { getOrCreateDeviceId, getDeviceLabel } from '@/lib/device';
 import { isWithin48Hours } from '@/lib/dates';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import {
   unlockAttendanceAction,
-  resetDeviceAction,
   getSingleFormExportData,
 } from '@/app/(app)/absen/[date]/[shift]/actions';
 import { generateSingleFormPdf } from '@/lib/pdf';
@@ -52,9 +48,6 @@ export function AttendanceFormClient({
 }: AttendanceFormClientProps) {
   const router = useRouter();
 
-  const [clientDeviceId, setClientDeviceId] = useState<string>('');
-  const [clientDeviceLabel, setClientDeviceLabel] = useState<string>('');
-  const [isMounted, setIsMounted] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
@@ -70,26 +63,17 @@ export function AttendanceFormClient({
   const mulaiAttachment = currentAttachments.find((a) => a.kind === 'mulai') ?? null;
   const selesaiAttachment = currentAttachments.find((a) => a.kind === 'selesai') ?? null;
 
-  useEffect(() => {
-    const devId = getOrCreateDeviceId();
-    const devLabel = getDeviceLabel();
-    setClientDeviceId(devId);
-    setClientDeviceLabel(devLabel);
-    setIsMounted(true);
-  }, []);
-
-  // Evaluasi hak akses edit
+  // Evaluasi hak akses edit: Penguncian Berbasis Akun
   const isWithin48 = isWithin48Hours(workDate);
   const isFuture = workDate > today;
   const isLocked = !!attendance.is_locked;
-  const boundDeviceId = attendance.device_id;
-  const isAuthor = attendance.user_id === userId;
-  const hasExistingData = !!boundDeviceId || !!mulaiAttachment || !!selesaiAttachment || attendance.attachments.length > 0 || !!attendance.note;
-  // Jika belum di-mount (SSR), anggap sama agar tidak flicker
-  const isSameDevice = !isMounted || !boundDeviceId || (clientDeviceId && boundDeviceId === clientDeviceId);
+  const isAuthor = !attendance.user_id || attendance.user_id === userId;
+  const hasExistingData =
+    attendance.attachments.length > 0 ||
+    Boolean(attendance.note && attendance.note.trim().length > 0);
 
   let canEdit = true;
-  let lockReason: 'locked' | 'device_mismatch' | 'expired' | 'future' | 'other_user' | null = null;
+  let lockReason: 'locked' | 'expired' | 'future' | 'other_user' | null = null;
 
   if (!isMaster) {
     if (isFuture) {
@@ -104,9 +88,6 @@ export function AttendanceFormClient({
     } else if (!isAuthor && hasExistingData) {
       canEdit = false;
       lockReason = 'other_user';
-    } else if (!isSameDevice) {
-      canEdit = false;
-      lockReason = 'device_mismatch';
     }
   }
 
@@ -189,7 +170,7 @@ export function AttendanceFormClient({
   async function handleUnlockAttendance() {
     const confirmed = await showConfirm(
       'Buka Kunci Absensi?',
-      'Akun user pada perangkat yang sah akan dapat mengedit kembali.',
+      'Petugas piket yang bersangkutan akan dapat mengedit absensi ini kembali.',
       'Ya, Buka Kunci'
     );
     if (!confirmed) return;
@@ -205,32 +186,6 @@ export function AttendanceFormClient({
       router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal membuka kunci.';
-      showAlert('Gagal', msg, 'error');
-    } finally {
-      setIsProcessing(false);
-    }
-  }
-
-  async function handleResetDevice() {
-    const confirmed = await showConfirm(
-      'Reset Perangkat?',
-      'Perangkat berikutnya yang membuka shift ini akan didaftarkan sebagai pemilik sah.',
-      'Ya, Reset Perangkat',
-      true
-    );
-    if (!confirmed) return;
-
-    try {
-      setIsProcessing(true);
-      const res = await resetDeviceAction(attendance.id, workDate, shiftType);
-      if (res && !res.success) {
-        showAlert('Gagal', res.error || 'Terjadi kesalahan sistem.', 'error');
-        return;
-      }
-      showToast('Kunci perangkat berhasil di-reset!', 'success');
-      router.refresh();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal mereset perangkat.';
       showAlert('Gagal', msg, 'error');
     } finally {
       setIsProcessing(false);
@@ -272,18 +227,13 @@ export function AttendanceFormClient({
             <div>
               <p className="font-bold text-amber-900 dark:text-amber-300 text-sm">Mode Akun Master (Akses Penuh)</p>
               <p className="text-amber-800 dark:text-amber-400 text-xs mt-0.5">
-                Anda dapat mengedit absensi kapan pun tanpa batas waktu atau penguncian perangkat.
+                Anda dapat mengedit absensi kapan pun tanpa batas waktu atau batasan akun.
               </p>
-              {attendance.device_info && (
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1 flex items-center gap-1 font-mono">
-                  <Smartphone className="h-3 w-3 inline" /> Perangkat user: {attendance.device_info}
-                </p>
-              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
-            {isLocked && (
+          {isLocked && (
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
               <button
                 type="button"
                 onClick={handleUnlockAttendance}
@@ -293,19 +243,8 @@ export function AttendanceFormClient({
                 {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlock className="h-3.5 w-3.5" />}
                 Buka Kunci
               </button>
-            )}
-            {attendance.device_id && (
-              <button
-                type="button"
-                onClick={handleResetDevice}
-                disabled={isProcessing}
-                className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-slate-700 text-amber-900 dark:text-amber-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm min-h-[36px]"
-              >
-                {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-                Reset Device
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -317,13 +256,8 @@ export function AttendanceFormClient({
               <div>
                 <p className="font-bold text-amber-900 dark:text-amber-300 text-sm">Absensi Diisi Oleh Petugas Lain</p>
                 <p className="text-amber-800 dark:text-amber-400 mt-0.5">
-                  Absensi shift ini sudah diisi oleh rekan petugas Anda. Demi integritas data, akun Anda saat ini berada dalam mode <em>baca (read-only)</em>.
+                  Absensi shift ini sudah diisi oleh rekan petugas Anda. Penguncian berbasis akun aktif — hanya akun petugas pengisi atau Akun Master yang dapat mengedit absensi ini.
                 </p>
-                {attendance.device_info && (
-                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
-                    Perangkat yang digunakan: <strong>{attendance.device_info}</strong>
-                  </p>
-                )}
               </div>
             </div>
           )}
@@ -335,21 +269,6 @@ export function AttendanceFormClient({
                 <p className="font-bold text-red-900 dark:text-red-200 text-sm">Absensi Selesai & Terkunci</p>
                 <p className="text-red-700 dark:text-red-300 mt-0.5">
                   Absensi shift ini telah difinalisasi dan dikunci. Perubahan tidak dapat dilakukan oleh akun user biasa. Hubungi Akun Master jika membutuhkan koreksi.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {lockReason === 'device_mismatch' && (
-            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex items-start gap-3 text-amber-900 dark:text-amber-300 text-xs shadow-sm">
-              <Smartphone className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-amber-900 dark:text-amber-300 text-sm">Terkunci Pada Perangkat Lain</p>
-                <p className="text-amber-800 dark:text-amber-400 mt-0.5">
-                  Absensi ini telah dimulai dari perangkat: <strong>{attendance.device_info || 'Perangkat Awal'}</strong>.
-                </p>
-                <p className="text-amber-700 dark:text-amber-400 text-[11px] mt-1">
-                  Untuk keamanan, hanya HP / perangkat yang pertama kali digunakan yang diizinkan mengedit. Perangkat saat ini (<strong>{clientDeviceLabel}</strong>) hanya dalam mode <em>baca (read-only)</em>.
                 </p>
               </div>
             </div>
@@ -394,8 +313,6 @@ export function AttendanceFormClient({
         initialAttachment={mulaiAttachment}
         onSaved={handleMulaiSaved}
         canEdit={canEdit}
-        deviceId={clientDeviceId}
-        deviceInfo={clientDeviceLabel}
         onOpenLightbox={handleOpenLightbox}
       />
 
@@ -412,8 +329,6 @@ export function AttendanceFormClient({
         initialAttachment={selesaiAttachment}
         onSaved={handleSelesaiSaved}
         canEdit={canEdit}
-        deviceId={clientDeviceId}
-        deviceInfo={clientDeviceLabel}
         onOpenLightbox={handleOpenLightbox}
       />
 
@@ -428,8 +343,6 @@ export function AttendanceFormClient({
         initialAttachments={currentAttachments}
         onSaved={handleAktivitasSaved}
         canEdit={canEdit}
-        deviceId={clientDeviceId}
-        deviceInfo={clientDeviceLabel}
         onOpenLightbox={handleOpenLightbox}
       />
 
@@ -439,8 +352,6 @@ export function AttendanceFormClient({
         attendanceId={attendance.id}
         initialNote={attendance.note}
         canEdit={canEdit}
-        deviceId={clientDeviceId}
-        deviceInfo={clientDeviceLabel}
       />
 
       {/* 6. Export Laporan Form Ini (PDF) */}

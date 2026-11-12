@@ -15,29 +15,24 @@ import type { ShiftType, JobType } from '@/lib/supabase/types';
 
 export async function saveNoteAction(
   attendanceId: string,
-  note: string,
-  deviceId?: string,
-  deviceInfo?: string
+  note: string
 ) {
-  return await updateNote(attendanceId, note, deviceId, deviceInfo);
+  return await updateNote(attendanceId, note);
 }
 
 export async function claimDeviceAction(
-  attendanceId: string,
-  deviceId: string,
-  deviceInfo: string
+  attendanceId: string
 ) {
-  const result = await claimDeviceForAttendance(attendanceId, deviceId, deviceInfo);
+  const result = await claimDeviceForAttendance(attendanceId);
   return result;
 }
 
 export async function lockAttendanceAction(
   attendanceId: string,
   date: string,
-  shift: string,
-  deviceId?: string
+  shift: string
 ) {
-  const result = await lockAttendance(attendanceId, deviceId);
+  const result = await lockAttendance(attendanceId);
   revalidatePath(`/absen/${date}/${shift}`);
   revalidatePath('/');
   revalidatePath('/riwayat');
@@ -160,8 +155,7 @@ export async function changeAttendanceOfficerAction(
   attendanceId: string,
   newUserId: string,
   date: string,
-  shift: string,
-  resetDevice: boolean = true
+  shift: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient();
@@ -193,12 +187,9 @@ export async function changeAttendanceOfficerAction(
     } = {
       user_id: newUserId,
       updated_at: new Date().toISOString(),
+      device_id: null,
+      device_info: null,
     };
-
-    if (resetDevice) {
-      updateData.device_id = null;
-      updateData.device_info = null;
-    }
 
     const { error: updateError } = await supabase
       .from('attendances')

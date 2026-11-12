@@ -29,8 +29,6 @@ interface ActivityUploadProps {
   initialAttachments: AttachmentWithUrl[];
   onSaved: (items?: AttachmentWithUrl[]) => void;
   canEdit?: boolean;
-  deviceId?: string;
-  deviceInfo?: string;
   onOpenLightbox?: (url: string) => void;
 }
 
@@ -43,8 +41,6 @@ export function ActivityUpload({
   initialAttachments,
   onSaved,
   canEdit = true,
-  deviceId,
-  deviceInfo,
   onOpenLightbox,
 }: ActivityUploadProps) {
   const [items, setItems] = useState<AttachmentWithUrl[]>(
@@ -108,13 +104,11 @@ export function ActivityUpload({
 
         if (dbError) throw new Error(dbError.message);
 
-        // Kunci device jika belum diikat
-        if (deviceId && deviceInfo) {
-          try {
-            await claimDeviceAction(attendanceId, deviceId, deviceInfo);
-          } catch {
-            // ignore
-          }
+        // Pastikan attendance tercatat atas nama akun user yang mengunggah
+        try {
+          await claimDeviceAction(attendanceId);
+        } catch {
+          // ignore
         }
       }
 

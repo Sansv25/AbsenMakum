@@ -22,8 +22,6 @@ interface SingleUploadProps {
   initialAttachment?: AttachmentWithUrl | null;
   onSaved: (attachment?: AttachmentWithUrl | null) => void;
   canEdit?: boolean;
-  deviceId?: string;
-  deviceInfo?: string;
   onOpenLightbox?: (url: string) => void;
 }
 
@@ -38,8 +36,6 @@ export function SingleUpload({
   initialAttachment,
   onSaved,
   canEdit = true,
-  deviceId,
-  deviceInfo,
   onOpenLightbox,
 }: SingleUploadProps) {
   const [attachment, setAttachment] = useState<AttachmentWithUrl | null>(
@@ -102,13 +98,11 @@ export function SingleUpload({
 
       if (dbError) throw new Error(dbError.message);
 
-      // 4.5 Kunci/ikat perangkat dan author saat pertama kali unggah foto
-      if (deviceId && deviceInfo) {
-        try {
-          await claimDeviceAction(attendanceId, deviceId, deviceInfo);
-        } catch {
-          // non-blocking
-        }
+      // 4.5 Pastikan attendance tercatat atas nama akun user yang mengunggah
+      try {
+        await claimDeviceAction(attendanceId);
+      } catch {
+        // non-blocking
       }
 
       // 5. Buat signed URL untuk pratinjau langsung

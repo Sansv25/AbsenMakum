@@ -89,9 +89,7 @@ export async function getAttendanceWithAttachments(
 
 export async function updateNote(
   attendanceId: string,
-  note: string,
-  deviceId?: string,
-  deviceInfo?: string
+  note: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -101,7 +99,7 @@ export async function updateNote(
 
   const { data: att } = await supabase
     .from('attendances')
-    .select('device_id, is_locked, user_id')
+    .select('is_locked, user_id')
     .eq('id', attendanceId)
     .maybeSingle();
 
@@ -109,26 +107,23 @@ export async function updateNote(
     if (att.is_locked) {
       return { success: false, error: 'Absensi telah dikunci.' };
     }
-    if (att.device_id && deviceId && att.device_id !== deviceId) {
-      return { success: false, error: 'Hanya perangkat yang memulai absen yang dapat mengedit.' };
+    // Kunci berbasis akun: jika sudah diisi user lain, hanya author atau master yang boleh edit
+    if (att.user_id && att.user_id !== user.id) {
+      return { success: false, error: 'Hanya akun petugas pengisi yang dapat mengedit absensi ini.' };
     }
   }
 
   const updateData: {
     note: string;
     updated_at: string;
-    device_id?: string;
-    device_info?: string;
     user_id?: string;
   } = {
     note,
     updated_at: new Date().toISOString(),
   };
 
-  // Jika belum punya device_id dan ada deviceId, ikatkan perangkat dan author saat pertama kali input
-  if (att && !att.device_id && deviceId) {
-    updateData.device_id = deviceId;
-    if (deviceInfo) updateData.device_info = deviceInfo;
+  // Jika record belum punya user_id, tautkan ke user yang sedang mengisi
+  if (att && !att.user_id) {
     updateData.user_id = user.id;
   }
 
@@ -137,16 +132,12 @@ export async function updateNote(
     .update(updateData)
     .eq('id', attendanceId);
 
-  // Jika sudah terikat ke petugas lain, pastikan hanya author atau master yang boleh update
-  if (!isMaster && att?.device_id && att.user_id !== user.id) {
+  if (!isMaster && att?.user_id) {
     updateQuery = updateQuery.eq('user_id', user.id);
   }
 
   const { error } = await updateQuery;
-
-  if (error) {
-    return { success: false, error: error.message };
-  }
+  if (error) return { success: false, error: error.message };
   return { success: true };
 }
 
@@ -238,41 +229,41 @@ export async function updateTicketOrders(
 }
 
 export async function claimDeviceForAttendance(
-  attendanceId: string,
-  deviceId: string,
-  deviceInfo: string
+  attendanceId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: 'Tidak terautentikasi' };
 
-  // Only claim if device_id is currently null and not locked
+  // Set user_id jika attendance record belum memiliki author atau masih kosong
   const { data: current } = await supabase
     .from('attendances')
-    .select('device_id, is_locked')
+    .select('user_id, is_locked')
     .eq('id', attendanceId)
     .maybeSingle();
 
-  if (current && !current.device_id && !current.is_locked) {
-    const { error } = await supabase
-      .from('attendances')
-      .update({
-        user_id: user.id,
-        device_id: deviceId,
-        device_info: deviceInfo,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', attendanceId);
+  if (current && !current.is_locked) {
+    const { count } = await supabase
+      .from('attachments')
+      .select('*', { count: 'exact', head: true })
+      .eq('attendance_id', attendanceId);
 
-    if (error) return { success: false, error: error.message };
+    if ((count === 0 || !current.user_id) && current.user_id !== user.id) {
+      await supabase
+        .from('attendances')
+        .update({
+          user_id: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', attendanceId);
+    }
   }
 
   return { success: true };
 }
 
 export async function lockAttendance(
-  attendanceId: string,
-  deviceId?: string
+  attendanceId: string
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -283,14 +274,12 @@ export async function lockAttendance(
   if (!isMaster) {
     const { data: att } = await supabase
       .from('attendances')
-      .select('device_id, is_locked')
+      .select('user_id, is_locked')
       .eq('id', attendanceId)
       .maybeSingle();
 
-    if (att) {
-      if (att.device_id && deviceId && att.device_id !== deviceId) {
-        return { success: false, error: 'Hanya perangkat yang memulai absen yang dapat mengunci.' };
-      }
+    if (att && att.user_id && att.user_id !== user.id) {
+      return { success: false, error: 'Hanya akun petugas pengisi yang dapat mengunci absensi ini.' };
     }
   }
 

@@ -51,7 +51,6 @@ export function AttendanceOfficerCard({
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>(currentUserId || '');
-  const [resetDevice, setResetDevice] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSaveOfficer() {
@@ -71,8 +70,7 @@ export function AttendanceOfficerCard({
         attendanceId,
         selectedUserId,
         workDate,
-        shiftType,
-        resetDevice
+        shiftType
       );
 
       if (!res.success) {
@@ -233,18 +231,11 @@ export function AttendanceOfficerCard({
                 </p>
               </div>
 
-              <label className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={resetDevice}
-                  onChange={(e) => setResetDevice(e.target.checked)}
-                  disabled={isSubmitting}
-                  className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
-                />
-                <span className="text-xs text-blue-900 dark:text-blue-200">
-                  <strong>Reset Kunci Perangkat</strong> (Disarankan: agar petugas baru dapat mengedit atau menambahkan foto langsung dari HP mereka tanpa kendala).
-                </span>
-              </label>
+              <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60 text-xs text-blue-900 dark:text-blue-200">
+                <p>
+                  <strong>Kunci Berbasis Akun:</strong> Petugas baru yang dialihkan akan otomatis memiliki hak akses edit absensi ini menggunakan akun mereka dari perangkat mana pun tanpa kendala.
+                </p>
+              </div>
             </div>
 
             {/* Modal Footer */}
@@ -282,3 +273,4 @@ export function AttendanceOfficerCard({
     </>
   );
 }
+
