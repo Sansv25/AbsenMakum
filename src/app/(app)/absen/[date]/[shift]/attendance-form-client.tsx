@@ -154,16 +154,16 @@ export function AttendanceFormClient({
     <div className="space-y-6">
       {/* 1. Status / Banner Keamanan */}
       {isMaster && (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-950 text-xs shadow-sm">
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-950 dark:text-amber-200 text-xs shadow-sm">
           <div className="flex items-start gap-2.5">
-            <Crown className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <Crown className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold text-amber-900 text-sm">Mode Akun Master (Akses Penuh)</p>
-              <p className="text-amber-800 text-xs mt-0.5">
+              <p className="font-bold text-amber-900 dark:text-amber-300 text-sm">Mode Akun Master (Akses Penuh)</p>
+              <p className="text-amber-800 dark:text-amber-400 text-xs mt-0.5">
                 Anda dapat mengedit absensi kapan pun tanpa batas waktu atau penguncian perangkat.
               </p>
               {attendance.device_info && (
-                <p className="text-[11px] text-amber-700 mt-1 flex items-center gap-1 font-mono">
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1 flex items-center gap-1 font-mono">
                   <Smartphone className="h-3 w-3 inline" /> Perangkat user: {attendance.device_info}
                 </p>
               )}
@@ -187,7 +187,7 @@ export function AttendanceFormClient({
                 type="button"
                 onClick={handleResetDevice}
                 disabled={isProcessing}
-                className="px-3 py-1.5 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm min-h-[36px]"
+                className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-slate-700 text-amber-900 dark:text-amber-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm min-h-[36px]"
               >
                 {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
                 Reset Device
@@ -200,15 +200,15 @@ export function AttendanceFormClient({
       {!isMaster && !canEdit && (
         <>
           {lockReason === 'other_user' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-amber-900 text-xs shadow-sm">
-              <ShieldAlert className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex items-start gap-3 text-amber-900 dark:text-amber-300 text-xs shadow-sm">
+              <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-amber-900 text-sm">Absensi Diisi Oleh Petugas Lain</p>
-                <p className="text-amber-800 mt-0.5">
+                <p className="font-bold text-amber-900 dark:text-amber-300 text-sm">Absensi Diisi Oleh Petugas Lain</p>
+                <p className="text-amber-800 dark:text-amber-400 mt-0.5">
                   Absensi shift ini sudah diisi oleh rekan petugas Anda. Demi integritas data, akun Anda saat ini berada dalam mode <em>baca (read-only)</em>.
                 </p>
                 {attendance.device_info && (
-                  <p className="text-[11px] text-amber-700 mt-1">
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
                     Perangkat yang digunakan: <strong>{attendance.device_info}</strong>
                   </p>
                 )}
@@ -217,11 +217,11 @@ export function AttendanceFormClient({
           )}
 
           {lockReason === 'locked' && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-red-800 text-xs shadow-sm">
-              <Lock className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-2xl p-4 flex items-start gap-3 text-red-800 dark:text-red-300 text-xs shadow-sm">
+              <Lock className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-red-900 text-sm">Absensi Selesai & Terkunci</p>
-                <p className="text-red-700 mt-0.5">
+                <p className="font-bold text-red-900 dark:text-red-200 text-sm">Absensi Selesai & Terkunci</p>
+                <p className="text-red-700 dark:text-red-300 mt-0.5">
                   Absensi shift ini telah difinalisasi dan dikunci. Perubahan tidak dapat dilakukan oleh akun user biasa. Hubungi Akun Master jika membutuhkan koreksi.
                 </p>
               </div>
@@ -229,14 +229,14 @@ export function AttendanceFormClient({
           )}
 
           {lockReason === 'device_mismatch' && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-amber-900 text-xs shadow-sm">
-              <Smartphone className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex items-start gap-3 text-amber-900 dark:text-amber-300 text-xs shadow-sm">
+              <Smartphone className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-amber-900 text-sm">Terkunci Pada Perangkat Lain</p>
-                <p className="text-amber-800 mt-0.5">
+                <p className="font-bold text-amber-900 dark:text-amber-300 text-sm">Terkunci Pada Perangkat Lain</p>
+                <p className="text-amber-800 dark:text-amber-400 mt-0.5">
                   Absensi ini telah dimulai dari perangkat: <strong>{attendance.device_info || 'Perangkat Awal'}</strong>.
                 </p>
-                <p className="text-amber-700 text-[11px] mt-1">
+                <p className="text-amber-700 dark:text-amber-400 text-[11px] mt-1">
                   Untuk keamanan, hanya HP / perangkat yang pertama kali digunakan yang diizinkan mengedit. Perangkat saat ini (<strong>{clientDeviceLabel}</strong>) hanya dalam mode <em>baca (read-only)</em>.
                 </p>
               </div>
@@ -244,11 +244,11 @@ export function AttendanceFormClient({
           )}
 
           {lockReason === 'expired' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3 text-blue-900 text-xs shadow-sm">
-              <Calendar className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-2xl p-4 flex items-start gap-3 text-blue-900 dark:text-blue-300 text-xs shadow-sm">
+              <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-blue-900 text-sm">Batas Waktu Pengisian Berakhir (48 Jam)</p>
-                <p className="text-blue-800 mt-0.5">
+                <p className="font-bold text-blue-900 dark:text-blue-200 text-sm">Batas Waktu Pengisian Berakhir (48 Jam)</p>
+                <p className="text-blue-800 dark:text-blue-300 mt-0.5">
                   Absensi shift ini telah melewati batas toleransi pengisian (48 jam) dan otomatis terkunci dalam mode <em>baca (read-only)</em>. Hubungi Akun Master jika membutuhkan koreksi data.
                 </p>
               </div>
@@ -256,11 +256,11 @@ export function AttendanceFormClient({
           )}
 
           {lockReason === 'future' && (
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex items-start gap-3 text-gray-700 text-xs shadow-sm">
-              <Calendar className="h-5 w-5 text-gray-500 flex-shrink-0 mt-0.5" />
+            <div className="bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-4 flex items-start gap-3 text-gray-700 dark:text-slate-300 text-xs shadow-sm">
+              <Calendar className="h-5 w-5 text-gray-500 dark:text-slate-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-gray-900 text-sm">Absensi Belum Dimulai</p>
-                <p className="text-gray-600 mt-0.5">
+                <p className="font-bold text-gray-900 dark:text-slate-100 text-sm">Absensi Belum Dimulai</p>
+                <p className="text-gray-600 dark:text-slate-400 mt-0.5">
                   Tanggal shift ini berada di masa depan. Pengisian absensi baru dapat dilakukan pada saat hari piket tiba.
                 </p>
               </div>
@@ -325,10 +325,10 @@ export function AttendanceFormClient({
         deviceInfo={clientDeviceLabel}
       />
 
-      {/* 6. Aksi Bawah & Tombol Kunci */}
-      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-2 text-xs text-gray-600">
-          <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+      {/* 6. Aksi Bawah & Tombol Selesai */}
+      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-slate-300">
+          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
           <span>Semua foto dan catatan <strong>tersimpan otomatis</strong>.</span>
         </div>
 

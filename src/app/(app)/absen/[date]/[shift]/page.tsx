@@ -8,7 +8,7 @@ import { getRequiredShifts, shiftLabel, JOB_TYPES, jobLabel, type JobType } from
 import { formatIndonesia, todayWITA } from '@/lib/dates';
 import { AttendanceFormClient } from './attendance-form-client';
 import type { ShiftType } from '@/lib/supabase/types';
-import { ArrowLeft, AlertCircle, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ShieldAlert, User, CheckCircle2, Clock } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,25 +105,48 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
     );
   }
 
+  // Data pengisi piket & status kelengkapan
+  const hasFilledData = attendance.attachments.length > 0 || (attendance.note && attendance.note.trim().length > 0);
+  let authorName = 'Belum Ada yang Mengisi';
+  if (hasFilledData && attendance.user_id) {
+    const { data: authorProfile } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('id', attendance.user_id)
+      .maybeSingle();
+    authorName = authorProfile?.full_name?.trim() || authorProfile?.email || 'Petugas';
+  }
+
+  const mulai = attendance.attachments.find((a) => a.kind === 'mulai');
+  const selesai = attendance.attachments.find((a) => a.kind === 'selesai');
+  const aktivitas = attendance.attachments.filter((a) => a.kind === 'aktivitas');
+
+  let jobStatus: 'lengkap' | 'sebagian' | 'kosong' = 'kosong';
+  if (mulai && selesai && aktivitas.length >= 2) {
+    jobStatus = 'lengkap';
+  } else if (hasFilledData) {
+    jobStatus = 'sebagian';
+  }
+
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-5">
       {/* Header bar */}
       <div className="flex items-center justify-between">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-900 min-h-[44px] py-2"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 min-h-[44px] py-2 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" /> Kembali
         </Link>
         {!isRequired && hasExistingData && (
-          <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1 rounded-full">
             Di luar jadwal wajib
           </span>
         )}
       </div>
 
       {/* Job Type Switcher Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-2xl">
+      <div className="flex items-center gap-1.5 p-1 bg-gray-100 dark:bg-slate-800/80 rounded-2xl">
         {JOB_TYPES.map((jt) => {
           const isActive = jt === jobType;
           return (
@@ -132,8 +155,8 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
               href={`/absen/${date}/${shift}?job=${jt}`}
               className={`flex-1 text-center py-2 px-3 rounded-xl text-xs font-semibold transition-all min-h-[38px] flex items-center justify-center gap-1.5 ${
                 isActive
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 hover:bg-gray-200/50 dark:hover:bg-slate-700/50'
               }`}
             >
               <span>{jobLabel(jt)}</span>
@@ -143,13 +166,54 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
       </div>
 
       <div>
-        <h1 className="text-xl font-bold text-gray-900">
+        <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100">
           {shiftLabel(shiftType)} &mdash; {jobLabel(jobType)}
         </h1>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
           {formatIndonesia(date)}
           {holiday ? ` • Tanggal Merah (${holiday.name})` : ''}
         </p>
+      </div>
+
+      {/* Status & Petugas Pengisi Piket */}
+      <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-100 dark:border-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold flex-shrink-0">
+            <User className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-400 tracking-wider">
+              Petugas Pengisi Piket
+            </p>
+            <p className="text-sm font-bold text-gray-900 dark:text-slate-100">
+              {hasFilledData ? authorName : 'Belum Ada yang Mengisi'}
+            </p>
+            {hasFilledData && attendance.updated_at && (
+              <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>
+                  Update: {new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Makassar' }).format(new Date(attendance.updated_at))} WITA
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <span
+            className={`text-xs font-semibold px-3 py-1 rounded-full capitalize flex items-center gap-1.5 ${
+              jobStatus === 'lengkap'
+                ? 'bg-green-100 text-green-700 dark:bg-green-950/60 dark:text-green-400 border border-green-200 dark:border-green-800'
+                : jobStatus === 'sebagian'
+                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/60 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
+                : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
+            }`}
+          >
+            {jobStatus === 'lengkap' && <CheckCircle2 className="h-3.5 w-3.5" />}
+            {jobStatus === 'sebagian' && <AlertCircle className="h-3.5 w-3.5" />}
+            Status: {jobStatus}
+          </span>
+        </div>
       </div>
 
       {/* Main interactive form */}

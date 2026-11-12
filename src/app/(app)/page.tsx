@@ -102,16 +102,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
       {/* Kartu Hari Ini */}
-      <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5">
         <div className="mb-4">
-          <p className="text-xs uppercase tracking-wide text-gray-400 font-medium">Hari ini</p>
-          <h2 className="text-xl font-bold text-gray-900 mt-0.5">{formatIndonesia(today)}</h2>
+          <p className="text-xs uppercase tracking-wide text-gray-400 dark:text-slate-400 font-medium">Hari ini</p>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 mt-0.5">{formatIndonesia(today)}</h2>
           <span className={`inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full ${
             isHolidayToday
-              ? 'bg-red-100 text-red-700'
+              ? 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
               : isWeekendToday
-              ? 'bg-yellow-100 text-yellow-700'
-              : 'bg-gray-100 text-gray-600'
+              ? 'bg-yellow-100 dark:bg-yellow-950/60 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
+              : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700'
           }`}>
             {dayTypeLabel}
           </span>
@@ -122,11 +122,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             return (
               <div
                 key={shift}
-                className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 space-y-3"
+                className="rounded-2xl border border-gray-100 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/40 p-4 space-y-3"
               >
-                <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
-                  <p className="font-bold text-gray-900 text-sm">{shiftLabel(shift)}</p>
-                  <span className="text-[11px] text-gray-500 font-medium">3 Pekerjaan</span>
+                <div className="flex items-center justify-between border-b border-gray-200/60 dark:border-slate-700/60 pb-2">
+                  <p className="font-bold text-gray-900 dark:text-slate-100 text-sm">{shiftLabel(shift)}</p>
+                  <span className="text-[11px] text-gray-500 dark:text-slate-400 font-medium">3 Pekerjaan</span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2.5">
@@ -138,12 +138,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     return (
                       <div
                         key={job}
-                        className="flex items-center justify-between p-3 rounded-xl bg-white border border-gray-100 shadow-sm"
+                        className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 shadow-sm"
                       >
                         <div className="flex items-center gap-3">
                           <StatusIcon status={status} />
                           <div>
-                            <p className="font-semibold text-gray-800 text-xs sm:text-sm">
+                            <p className="font-semibold text-gray-800 dark:text-slate-200 text-xs sm:text-sm">
                               {jobLabel(job)}
                             </p>
                             <p className={`text-[11px] capitalize font-medium ${statusColor(status)}`}>
@@ -168,9 +168,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </section>
 
       {/* Kalender Bulanan */}
-      <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-gray-900 capitalize">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-slate-100 capitalize">
             {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
               new Date(`${currentMonth}-01`)
             )}
@@ -179,14 +179,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div className="flex items-center gap-1">
             <Link
               href={`/?month=${prevMonthStr}`}
-              className="p-2 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-2 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               aria-label="Bulan sebelumnya"
             >
               <ChevronLeft className="h-5 w-5" />
             </Link>
             <Link
               href={`/?month=${nextMonthStr}`}
-              className="p-2 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-2 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               aria-label="Bulan berikutnya"
             >
               <ChevronRight className="h-5 w-5" />
@@ -195,7 +195,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center gap-4 text-[11px] text-gray-500 mb-4 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+        <div className="flex flex-wrap items-center gap-4 text-[11px] text-gray-500 dark:text-slate-400 mb-4 bg-gray-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-slate-800">
           <div className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-green-500" />
             <span>Lengkap</span>
@@ -209,12 +209,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <span>Terlewat</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-gray-200" />
+            <span className="h-2 w-2 rounded-full bg-gray-200 dark:bg-slate-700" />
             <span>Belum tiba</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-400 mb-2">
+        <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-400 dark:text-slate-500 mb-2">
           {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((d) => (
             <div key={d} className="font-semibold py-1">{d}</div>
           ))}
@@ -281,7 +281,7 @@ function CalendarGrid({
           }
         }
 
-        let dotColor = 'bg-gray-200';
+        let dotColor = 'bg-gray-200 dark:bg-slate-700';
         if (isPast || isToday) {
           if (statuses.every((s) => s === 'lengkap')) dotColor = 'bg-green-500';
           else if (statuses.some((s) => s !== 'kosong')) dotColor = 'bg-yellow-400';
@@ -296,10 +296,18 @@ function CalendarGrid({
             key={dateStr}
             href={`/absen/${dateStr}/${targetShift}`}
             className={`relative flex flex-col items-center py-2 rounded-xl text-xs transition-colors min-h-[48px] ${
-              isToday ? 'bg-blue-50 ring-2 ring-blue-500' : 'hover:bg-gray-100'
-            } ${isHoliday ? 'text-red-600 font-bold' : isWeekend ? 'text-orange-600 font-semibold' : 'text-gray-700'}`}
+              isToday
+                ? 'bg-blue-50 dark:bg-blue-950/60 ring-2 ring-blue-500'
+                : 'hover:bg-gray-100 dark:hover:bg-slate-800'
+            } ${
+              isHoliday
+                ? 'text-red-600 dark:text-red-400 font-bold'
+                : isWeekend
+                ? 'text-orange-600 dark:text-orange-400 font-semibold'
+                : 'text-gray-700 dark:text-slate-300'
+            }`}
           >
-            <span className={`font-medium ${isToday ? 'text-blue-700 font-bold' : ''}`}>
+            <span className={`font-medium ${isToday ? 'text-blue-700 dark:text-blue-300 font-bold' : ''}`}>
               {d}
             </span>
             <span className={`mt-1 h-1.5 w-1.5 rounded-full ${dotColor}`} />

@@ -61,24 +61,24 @@ export function NoteAutosave({
   }
 
   return (
-    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-2">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 shadow-sm space-y-2">
       <div className="flex items-center justify-between">
-        <label htmlFor="attendance-note" className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+        <label htmlFor="attendance-note" className="font-semibold text-gray-900 dark:text-slate-100 text-sm flex items-center gap-1.5">
           Catatan Piket (Opsional)
           {!canEdit && (
-            <span className="text-[11px] font-normal text-gray-400 flex items-center gap-1">
+            <span className="text-[11px] font-normal text-gray-400 dark:text-slate-500 flex items-center gap-1">
               <Lock className="h-3 w-3" /> (Hanya Lihat)
             </span>
           )}
         </label>
         <div className="text-xs flex items-center gap-1 min-h-[20px]">
           {saving && (
-            <span className="text-gray-400 flex items-center gap-1">
+            <span className="text-gray-400 dark:text-slate-400 flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" /> Menyimpan...
             </span>
           )}
           {saved && (
-            <span className="text-green-600 flex items-center gap-1 font-medium">
+            <span className="text-green-600 dark:text-green-400 flex items-center gap-1 font-medium">
               <CheckCircle2 className="h-3 w-3" /> Tersimpan
             </span>
           )}
@@ -94,8 +94,8 @@ export function NoteAutosave({
         placeholder={canEdit ? "Tuliskan catatan kondisi, insiden, atau informasi tambahan selama piket..." : "Tidak ada catatan piket."}
         className={`w-full p-3 border rounded-xl text-sm transition-shadow ${
           canEdit
-            ? 'border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white'
-            : 'border-gray-100 bg-gray-50/70 text-gray-700 cursor-default'
+            ? 'border-gray-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500'
+            : 'border-gray-100 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-800/50 text-gray-700 dark:text-slate-300 cursor-default'
         }`}
       />
     </div>
