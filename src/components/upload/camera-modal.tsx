@@ -123,6 +123,21 @@ export function CameraModal({
     };
   }, [isOpen]);
 
+  // Lock background scroll when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+    };
+  }, [isOpen]);
+
   // Start Camera
   useEffect(() => {
     if (!isOpen) {
@@ -321,10 +336,13 @@ export function CameraModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl overflow-hidden max-w-2xl w-full flex flex-col shadow-2xl max-h-[95vh]">
+    <div
+      className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 overscroll-contain touch-none select-none"
+      onTouchMove={(e) => e.stopPropagation()}
+    >
+      <div className="bg-white dark:bg-slate-900 sm:border border-gray-100 dark:border-slate-800 sm:rounded-2xl overflow-hidden max-w-2xl w-full h-[100dvh] sm:h-auto sm:max-h-[92dvh] flex flex-col shadow-2xl">
         {/* Modal Header */}
-        <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0 bg-white dark:bg-slate-900 z-10">
           <div className="flex items-center gap-2">
             <Camera className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <div>
@@ -374,7 +392,7 @@ export function CameraModal({
         </div>
 
         {/* Viewport Kamera / Pratinjau */}
-        <div className="relative bg-black flex-1 flex items-center justify-center min-h-[340px] sm:min-h-[420px] overflow-hidden">
+        <div className="relative bg-black flex-1 min-h-0 flex items-center justify-center overflow-hidden touch-none">
           {cameraError ? (
             <div className="p-6 text-center text-white">
               <p className="text-sm text-red-400 mb-4">{cameraError}</p>
@@ -390,17 +408,17 @@ export function CameraModal({
             <img
               src={capturedPreview}
               alt="Pratinjau Foto"
-              className="max-h-[68vh] w-auto object-contain"
+              className="max-h-full max-w-full w-auto h-auto object-contain"
             />
           ) : (
-            <div className="relative w-full h-full flex items-center justify-center">
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
                 style={{ transform: isMirrored ? 'scaleX(-1)' : 'none' }}
-                className="max-h-[68vh] w-full object-contain transition-transform duration-200"
+                className="w-full h-full object-contain transition-transform duration-200"
               />
 
               {/* LIVE OVERLAY HUD */}
@@ -443,7 +461,7 @@ export function CameraModal({
         </div>
 
         {/* Modal Controls */}
-        <div className="p-3 sm:p-4 bg-gray-50 dark:bg-slate-900 flex items-center justify-between gap-3 border-t border-gray-100 dark:border-slate-800">
+        <div className="p-3 sm:p-4 bg-gray-50 dark:bg-slate-900 flex items-center justify-between gap-3 border-t border-gray-100 dark:border-slate-800 flex-shrink-0 pb-[max(0.875rem,env(safe-area-inset-bottom))]">
           {capturedPreview ? (
             <>
               <button
