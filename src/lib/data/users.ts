@@ -8,6 +8,7 @@ export interface AdminUserItem {
   role: UserRole;
   full_name?: string | null;
   phone?: string | null;
+  description?: string | null;
   is_approved: boolean;
   created_at: string;
   last_sign_in_at: string | null;

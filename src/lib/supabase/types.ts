@@ -13,6 +13,7 @@ export interface Profile {
   role: UserRole;
   full_name?: string | null;
   phone?: string | null;
+  description?: string | null;
   is_approved?: boolean;
   created_at: string;
   updated_at: string;

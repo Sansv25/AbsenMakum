@@ -405,6 +405,12 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                         Daftar: {formatIndonesia(user.created_at.slice(0, 10))}
                       </span>
                     </div>
+
+                    {user.description && (
+                      <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-2.5 py-1 mt-1.5 font-normal">
+                        <span className="font-semibold text-gray-700">Catatan/Rekening:</span> {user.description}
+                      </p>
+                    )}
                   </div>
                 </div>
 

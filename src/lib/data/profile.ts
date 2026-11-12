@@ -15,6 +15,7 @@ export async function getCurrentUserProfile(): Promise<{
   isMaster: boolean;
   fullName: string | null;
   phone: string | null;
+  description: string | null;
   isApproved: boolean;
 }> {
   const supabase = await createClient();
@@ -30,6 +31,7 @@ export async function getCurrentUserProfile(): Promise<{
       isMaster: false,
       fullName: null,
       phone: null,
+      description: null,
       isApproved: false,
     };
   }
@@ -57,6 +59,7 @@ export async function getCurrentUserProfile(): Promise<{
         isMaster: true,
         fullName: profile.full_name ?? null,
         phone: profile.phone ?? null,
+        description: profile.description ?? null,
         isApproved: true,
       };
     }
@@ -71,6 +74,7 @@ export async function getCurrentUserProfile(): Promise<{
       isMaster,
       fullName: profile.full_name ?? null,
       phone: profile.phone ?? null,
+      description: profile.description ?? null,
       isApproved,
     };
   }
@@ -97,16 +101,18 @@ export async function getCurrentUserProfile(): Promise<{
     isMaster: isMasterEmail,
     fullName: metaFullName || null,
     phone: metaPhone || null,
+    description: null,
     isApproved,
   };
 }
 
 /**
- * Memperbarui data nama dan nomor telepon pengguna aktif
+ * Memperbarui data nama, nomor telepon, dan deskripsi akun pengguna aktif
  */
 export async function updateCurrentUserProfile(
   fullName: string,
-  phone: string
+  phone: string,
+  description?: string | null
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const {
@@ -117,13 +123,24 @@ export async function updateCurrentUserProfile(
     return { success: false, error: 'Tidak terautentikasi.' };
   }
 
+  const updatePayload: {
+    full_name: string;
+    phone: string;
+    updated_at: string;
+    description?: string | null;
+  } = {
+    full_name: fullName.trim(),
+    phone: phone.trim(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (description !== undefined) {
+    updatePayload.description = description ? description.trim() : null;
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .update({
-      full_name: fullName.trim(),
-      phone: phone.trim(),
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', user.id);
 
   if (error) {
