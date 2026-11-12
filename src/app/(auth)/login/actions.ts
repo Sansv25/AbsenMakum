@@ -16,8 +16,12 @@ export async function login(formData: FormData) {
 
   if (error) {
     if (error.message?.toLowerCase().includes('email not confirmed')) {
+      await supabase.auth.resend({
+        type: 'signup',
+        email,
+      });
       return {
-        error: 'Email Anda belum diverifikasi.',
+        error: 'Email Anda belum diverifikasi. Kode OTP baru telah dikirim ke email.',
         needsOtp: true,
         email,
       };
@@ -28,29 +32,31 @@ export async function login(formData: FormData) {
     return { error: error.message || 'Gagal login, periksa koneksi atau kredensial Anda.' };
   }
 
-  // Cek apakah user perlu melengkapi profil (no telepon)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Kredensial email & password valid!
+  // Terapkan alur 2-Step Verification (2FA via Email OTP):
+  // 1. Cabut sesi sementara agar pengguna wajib memverifikasi OTP terlebih dahulu
+  await supabase.auth.signOut();
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('phone, is_approved, role')
-      .eq('id', user.id)
-      .maybeSingle();
+  // 2. Kirim kode OTP 6-digit ke email pengguna
+  const { error: otpError } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: false,
+    },
+  });
 
-    if (!profile?.phone || profile.phone.trim() === '') {
-      redirect('/complete-profile');
-    }
-
-    const isMaster = profile?.role === 'master' || user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
-    if (!isMaster && profile?.is_approved === false) {
-      redirect('/pending-approval');
-    }
+  if (otpError) {
+    return {
+      error: otpError.message || 'Gagal mengirim kode verifikasi OTP ke email.',
+    };
   }
 
-  redirect('/');
+  // 3. Kembalikan respons berhasil agar antarmuka mengalihkan ke /verify-otp
+  return {
+    success: true,
+    needsOtp: true,
+    email,
+  };
 }
 
 export async function logout() {

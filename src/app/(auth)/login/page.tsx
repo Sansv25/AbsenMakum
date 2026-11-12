@@ -67,6 +67,11 @@ function LoginContent() {
         setNeedsOtpEmail(result.email);
       }
       setLoading(false);
+    } else if (result?.needsOtp && result.email) {
+      // 2FA: Kredensial valid & kode OTP terkirim, arahkan langsung ke halaman verifikasi OTP
+      router.push(`/verify-otp?email=${encodeURIComponent(result.email)}&type=email`);
+    } else {
+      setLoading(false);
     }
   }
 

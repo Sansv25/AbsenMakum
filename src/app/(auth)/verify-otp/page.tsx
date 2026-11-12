@@ -1,15 +1,15 @@
 'use client';
 
 import { Suspense, useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2, MailCheck, AlertCircle, ArrowLeft, RotateCw } from 'lucide-react';
 
 function VerifyOtpContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const emailParam = searchParams.get('email') || '';
+  const typeParam = searchParams.get('type') || '';
 
   const [email, setEmail] = useState(emailParam);
   const [token, setToken] = useState('');
@@ -62,21 +62,29 @@ function VerifyOtpContent() {
     try {
       const supabase = createClient();
       
-      // Coba verifikasi dengan type 'signup' terlebih dahulu
-      let { error: verifyError } = await supabase.auth.verifyOtp({
+      // Tentukan prioritas tipe verifikasi berdasarkan alur (signup vs login 2FA)
+      const primaryType = typeParam === 'signup' ? 'signup' : 'email';
+      const secondaryType = primaryType === 'email' ? 'signup' : 'email';
+
+      let { data, error: verifyError } = await supabase.auth.verifyOtp({
         email: email.trim().toLowerCase(),
         token: cleanToken,
-        type: 'signup',
+        type: primaryType as 'email' | 'signup',
       });
 
-      // Jika gagal dengan 'signup', coba fallback dengan 'email'
+      // Jika gagal dengan tipe utama, coba fallback
       if (verifyError) {
         const fallbackRes = await supabase.auth.verifyOtp({
           email: email.trim().toLowerCase(),
           token: cleanToken,
-          type: 'email',
+          type: secondaryType as 'email' | 'signup',
         });
-        verifyError = fallbackRes.error;
+        if (!fallbackRes.error) {
+          verifyError = null;
+          data = fallbackRes.data;
+        } else {
+          verifyError = fallbackRes.error;
+        }
       }
 
       if (verifyError) {
@@ -92,9 +100,30 @@ function VerifyOtpContent() {
         return;
       }
 
-      // Verifikasi berhasil! Sesi aktif, arahkan ke dashboard
-      router.push('/');
-      router.refresh();
+      // Verifikasi berhasil! Sesi aktif
+      if (data?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('phone, is_approved, role')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        const isMaster =
+          profile?.role === 'master' ||
+          data.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+
+        if (!profile?.phone || profile.phone.trim() === '') {
+          window.location.href = '/complete-profile';
+          return;
+        }
+
+        if (!isMaster && profile?.is_approved === false) {
+          window.location.href = '/pending-approval';
+          return;
+        }
+      }
+
+      window.location.href = '/';
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
       setError(message);
@@ -116,10 +145,36 @@ function VerifyOtpContent() {
 
     try {
       const supabase = createClient();
-      const { error: resendError } = await supabase.auth.resend({
-        type: 'signup',
-        email: email.trim().toLowerCase(),
-      });
+      const cleanEmail = email.trim().toLowerCase();
+
+      let resendError = null;
+      if (typeParam === 'signup') {
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email: cleanEmail,
+        });
+        resendError = error;
+        if (error) {
+          const fallbackRes = await supabase.auth.signInWithOtp({
+            email: cleanEmail,
+            options: { shouldCreateUser: false },
+          });
+          resendError = fallbackRes.error;
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: cleanEmail,
+          options: { shouldCreateUser: false },
+        });
+        resendError = error;
+        if (error) {
+          const fallbackRes = await supabase.auth.resend({
+            type: 'signup',
+            email: cleanEmail,
+          });
+          resendError = fallbackRes.error;
+        }
+      }
 
       if (resendError) {
         if (
@@ -153,10 +208,12 @@ function VerifyOtpContent() {
           <MailCheck className="h-8 w-8" />
         </div>
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-slate-100">
-          Verifikasi Email OTP
+          {typeParam === 'email' ? 'Verifikasi Masuk (2FA)' : 'Verifikasi Email OTP'}
         </h1>
-        <p className="text-center text-gray-500 dark:text-slate-400 text-xs mt-1.5 max-w-xs">
-          Masukkan kode OTP yang telah dikirim ke alamat email:
+        <p className="text-center text-gray-500 dark:text-slate-400 text-xs mt-1.5 max-w-xs text-balance">
+          {typeParam === 'email'
+            ? 'Untuk keamanan akun di perangkat ini, masukkan kode OTP 6-digit yang dikirim ke email:'
+            : 'Masukkan kode OTP yang telah dikirim ke alamat email:'}
         </p>
         <span className="text-xs font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800 mt-2">
           {email || 'email@anda.com'}
@@ -248,20 +305,32 @@ function VerifyOtpContent() {
         </button>
 
         <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-slate-400 mt-2">
-          <Link
-            href="/register"
-            className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-slate-200 transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Ganti Email</span>
-          </Link>
-          <span>•</span>
-          <Link
-            href="/login"
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
-          >
-            Sudah Verifikasi? Masuk di sini
-          </Link>
+          {typeParam === 'email' ? (
+            <Link
+              href="/login"
+              className="flex items-center gap-1 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200 transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Kembali ke Halaman Login</span>
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/register"
+                className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-slate-200 transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Ganti Email</span>
+              </Link>
+              <span>•</span>
+              <Link
+                href="/login"
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
+              >
+                Sudah Verifikasi? Masuk di sini
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -136,7 +136,7 @@ export default function RegisterPage() {
 
       // Jika pendaftaran berhasil dan membutuhkan konfirmasi OTP
       if (data?.user) {
-        router.push(`/verify-otp?email=${encodeURIComponent(cleanEmail)}`);
+        router.push(`/verify-otp?email=${encodeURIComponent(cleanEmail)}&type=signup`);
       } else {
         router.push('/login');
       }
