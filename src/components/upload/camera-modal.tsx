@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
-import { Camera, X, RefreshCw, Check } from 'lucide-react';
+import { Camera, X, RefreshCw, Check, SwitchCamera } from 'lucide-react';
 import { formatCameraTimestamp } from '@/lib/dates';
 
 interface CameraModalProps {
@@ -9,14 +9,23 @@ interface CameraModalProps {
   onClose: () => void;
   onCapture: (file: File) => void;
   userName?: string;
+  initialFacingMode?: 'user' | 'environment';
 }
 
-export function CameraModal({ isOpen, onClose, onCapture, userName }: CameraModalProps) {
+export function CameraModal({
+  isOpen,
+  onClose,
+  onCapture,
+  userName,
+  initialFacingMode = 'user',
+}: CameraModalProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mapTileRef = useRef<HTMLImageElement | null>(null);
   const logoRef = useRef<HTMLImageElement | null>(null);
 
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>(initialFacingMode);
+  const [isSwitching, setIsSwitching] = useState<boolean>(false);
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -136,35 +145,72 @@ export function CameraModal({ isOpen, onClose, onCapture, userName }: CameraModa
       return;
     }
 
-    startCamera();
+    const startMode = initialFacingMode || 'user';
+    setFacingMode(startMode);
+    startCamera(startMode);
 
     return () => {
       stopCamera();
     };
-  }, [isOpen]);
+  }, [isOpen, initialFacingMode]);
 
-  async function startCamera() {
+  async function startCamera(mode: 'user' | 'environment' = facingMode) {
     try {
+      setIsSwitching(true);
       setCameraError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      stopCamera();
+
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        setCameraError('Browser ini tidak mendukung akses kamera langsung.');
+        return;
       }
-    } catch {
+
+      let stream: MediaStream | null = null;
+
+      // 1. Coba dengan resolusi ideal dan facingMode terpilih
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: mode },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
+        });
+      } catch {
+        // 2. Coba constraint facingMode langsung tanpa constraint ukuran tinggi
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: mode },
+            audio: false,
+          });
+        } catch {
+          // 3. Fallback kamera dasar apa pun yang tersedia
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        }
+      }
+
+      if (stream) {
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
-      } catch {
-        setCameraError('Gagal mengakses kamera. Periksa izin kamera pada browser Anda.');
       }
+    } catch {
+      setCameraError('Gagal mengakses kamera. Periksa izin kamera pada browser Anda.');
+    } finally {
+      setIsSwitching(false);
     }
+  }
+
+  async function handleSwitchCamera() {
+    if (isSwitching || !isOpen || capturedPreview) return;
+    const nextMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(nextMode);
+    await startCamera(nextMode);
   }
 
   function stopCamera() {
@@ -269,7 +315,7 @@ export function CameraModal({ isOpen, onClose, onCapture, userName }: CameraModa
   function handleRetake() {
     setCapturedPreview(null);
     setCapturedBlob(null);
-    startCamera();
+    startCamera(facingMode);
   }
 
   function handleConfirm() {
@@ -288,17 +334,48 @@ export function CameraModal({ isOpen, onClose, onCapture, userName }: CameraModa
       <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl overflow-hidden max-w-2xl w-full flex flex-col shadow-2xl max-h-[95vh]">
         {/* Modal Header */}
         <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900 dark:text-slate-100 text-xs sm:text-sm flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <Camera className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            Ambil Foto dengan GPS Map Camera
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 rounded-lg min-h-[40px] min-w-[40px] flex items-center justify-center transition-colors"
-            aria-label="Tutup"
-          >
-            <X className="h-5 w-5" />
-          </button>
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-slate-100 text-xs sm:text-sm">
+                Ambil Foto dengan GPS Map Camera
+              </h3>
+              {!capturedPreview && (
+                <p className="text-[10px] text-gray-500 dark:text-slate-400">
+                  Kamera:{' '}
+                  <strong className="text-blue-600 dark:text-blue-400">
+                    {facingMode === 'user' ? 'Depan (Selfie)' : 'Belakang'}
+                  </strong>
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {!capturedPreview && (
+              <button
+                type="button"
+                onClick={handleSwitchCamera}
+                disabled={isSwitching}
+                className="px-2.5 py-1.5 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors border border-gray-200 dark:border-slate-700 min-h-[36px]"
+                title="Ganti Kamera Depan / Belakang"
+              >
+                <SwitchCamera
+                  className={`h-3.5 w-3.5 text-blue-600 dark:text-blue-400 ${
+                    isSwitching ? 'animate-spin' : ''
+                  }`}
+                />
+                <span className="hidden sm:inline">Ganti Kamera</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1 text-gray-400 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 rounded-lg min-h-[40px] min-w-[40px] flex items-center justify-center transition-colors"
+              aria-label="Tutup"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Viewport Kamera / Pratinjau */}
@@ -307,7 +384,7 @@ export function CameraModal({ isOpen, onClose, onCapture, userName }: CameraModa
             <div className="p-6 text-center text-white">
               <p className="text-sm text-red-400 mb-4">{cameraError}</p>
               <button
-                onClick={startCamera}
+                onClick={() => startCamera(facingMode)}
                 className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-medium"
               >
                 Coba Lagi
@@ -329,6 +406,18 @@ export function CameraModal({ isOpen, onClose, onCapture, userName }: CameraModa
                 muted
                 className="max-h-[68vh] w-full object-contain"
               />
+
+              {/* Tombol Cepat Ganti Kamera di Viewport */}
+              <button
+                type="button"
+                onClick={handleSwitchCamera}
+                disabled={isSwitching}
+                className="absolute top-3 left-16 z-20 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/30 text-white text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5 shadow-lg active:scale-95 transition-all"
+                aria-label="Ganti Kamera Depan / Belakang"
+              >
+                <SwitchCamera className={`h-3 w-3 sm:h-3.5 sm:w-3.5 text-sky-400 ${isSwitching ? 'animate-spin' : ''}`} />
+                <span>{facingMode === 'user' ? 'Kamera Belakang' : 'Kamera Depan'}</span>
+              </button>
 
               {/* LIVE OVERLAY HUD */}
               {/* 1. KANAN ATAS: Logo ICONNET */}
@@ -414,15 +503,37 @@ export function CameraModal({ isOpen, onClose, onCapture, userName }: CameraModa
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={takePhoto}
-              disabled={!!cameraError}
-              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-slate-700 text-white font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 min-h-[44px] transition-colors shadow-sm"
-            >
-              <Camera className="h-4 w-4" />
-              <span>Ambil Foto</span>
-            </button>
+            <div className="flex items-center gap-2 sm:gap-3 w-full">
+              <button
+                type="button"
+                onClick={handleSwitchCamera}
+                disabled={isSwitching || !!cameraError}
+                className="py-3 px-3.5 sm:px-4 bg-white dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-800 dark:text-slate-200 font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 min-h-[44px] transition-all border border-gray-300 dark:border-slate-700 shadow-xs active:scale-95 flex-shrink-0"
+                title="Ganti ke Kamera Depan / Belakang"
+              >
+                <SwitchCamera
+                  className={`h-4 w-4 text-blue-600 dark:text-blue-400 ${
+                    isSwitching ? 'animate-spin' : ''
+                  }`}
+                />
+                <span className="hidden sm:inline">
+                  {facingMode === 'user' ? 'Kamera Belakang' : 'Kamera Depan'}
+                </span>
+                <span className="sm:hidden">
+                  {facingMode === 'user' ? 'Belakang' : 'Depan'}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={takePhoto}
+                disabled={!!cameraError || isSwitching}
+                className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-slate-700 text-white font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 min-h-[44px] transition-all shadow-sm active:scale-95"
+              >
+                <Camera className="h-4 w-4" />
+                <span>Ambil Foto</span>
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -593,6 +593,7 @@ export function ActivityUpload({
           handleFileProcess([file]);
         }}
         userName={userName}
+        initialFacingMode="environment"
       />
 
       {/* Lightbox fallback jika tidak menggunakan shared lightbox */}

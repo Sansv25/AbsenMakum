@@ -303,6 +303,7 @@ export function SingleUpload({
         onClose={() => setCameraOpen(false)}
         onCapture={(file) => handleFileProcess(file)}
         userName={userName}
+        initialFacingMode="user"
       />
 
       {!onOpenLightbox && (
