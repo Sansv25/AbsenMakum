@@ -71,12 +71,12 @@ export function ExportForm({ defaultStartDate, defaultEndDate }: ExportFormProps
   }
 
   return (
-    <form onSubmit={handleExport} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-6">
+    <form onSubmit={handleExport} className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-gray-100 dark:border-slate-800 shadow-sm space-y-6 transition-colors">
       <div className="space-y-4">
-        <h2 className="font-semibold text-gray-900 text-sm">Rentang Tanggal</h2>
+        <h2 className="font-semibold text-gray-900 dark:text-slate-100 text-sm">Rentang Tanggal</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="start_date" className="block text-xs font-medium text-gray-700 mb-1">
+            <label htmlFor="start_date" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
               Dari Tanggal
             </label>
             <input
@@ -86,11 +86,11 @@ export function ExportForm({ defaultStartDate, defaultEndDate }: ExportFormProps
               onChange={(e) => setStartDate(e.target.value)}
               required
               disabled={generating}
-              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
             />
           </div>
           <div>
-            <label htmlFor="end_date" className="block text-xs font-medium text-gray-700 mb-1">
+            <label htmlFor="end_date" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
               Sampai Tanggal
             </label>
             <input
@@ -100,19 +100,19 @@ export function ExportForm({ defaultStartDate, defaultEndDate }: ExportFormProps
               onChange={(e) => setEndDate(e.target.value)}
               required
               disabled={generating}
-              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
             />
           </div>
         </div>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-gray-400 dark:text-slate-500">
           Maksimal rentang tanggal adalah 31 hari per ekspor demi kestabilan memori browser.
         </p>
       </div>
 
-      <div className="space-y-3 pt-2 border-t border-gray-100">
-        <h2 className="font-semibold text-gray-900 text-sm">Kriteria Absensi</h2>
+      <div className="space-y-3 pt-2 border-t border-gray-100 dark:border-slate-800">
+        <h2 className="font-semibold text-gray-900 dark:text-slate-100 text-sm">Kriteria Absensi</h2>
         <div className="space-y-2">
-          <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+          <label className="flex items-start gap-3 p-3 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-850/50 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
             <input
               type="radio"
               name="filter_mode"
@@ -123,14 +123,14 @@ export function ExportForm({ defaultStartDate, defaultEndDate }: ExportFormProps
               className="mt-0.5 text-blue-600 focus:ring-blue-500"
             />
             <div>
-              <p className="text-sm font-medium text-gray-900">Hanya shift yang lengkap</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Hanya menyertakan shift yang memiliki foto Mulai Kerja dan Selesai Kerja.
+              <p className="text-sm font-medium text-gray-900 dark:text-slate-100">Hanya shift yang lengkap</p>
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                Hanya menyertakan shift yang memiliki foto Mulai Kerja, Selesai Kerja, dan Aktivitas.
               </p>
             </div>
           </label>
 
-          <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+          <label className="flex items-start gap-3 p-3 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-850/50 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
             <input
               type="radio"
               name="filter_mode"
@@ -141,9 +141,9 @@ export function ExportForm({ defaultStartDate, defaultEndDate }: ExportFormProps
               className="mt-0.5 text-blue-600 focus:ring-blue-500"
             />
             <div>
-              <p className="text-sm font-medium text-gray-900">Semua shift yang memiliki foto</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Menyertakan semua shift yang memiliki setidaknya satu foto (baik Mulai, Selesai, atau Ticket).
+              <p className="text-sm font-medium text-gray-900 dark:text-slate-100">Semua shift yang memiliki foto</p>
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                Menyertakan semua shift yang memiliki setidaknya satu foto (Mulai, Selesai, Aktivitas, atau Ticket).
               </p>
             </div>
           </label>
@@ -151,17 +151,17 @@ export function ExportForm({ defaultStartDate, defaultEndDate }: ExportFormProps
       </div>
 
       {generating && (
-        <div className="space-y-2 bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <div className="flex items-center justify-between text-xs text-blue-700 font-medium">
+        <div className="space-y-2 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+          <div className="flex items-center justify-between text-xs text-blue-700 dark:text-blue-300 font-medium">
             <span className="flex items-center gap-1.5">
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
               {progressMsg}
             </span>
             <span>{progressPercent}%</span>
           </div>
-          <div className="w-full bg-blue-200 rounded-full h-2 overflow-hidden">
+          <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2 overflow-hidden">
             <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>

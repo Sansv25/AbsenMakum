@@ -5,18 +5,18 @@ export default function AppLoading() {
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6 animate-pulse">
       {/* Header skeleton */}
       <div className="space-y-2">
-        <div className="h-6 w-48 bg-gray-200 rounded-lg" />
-        <div className="h-4 w-72 bg-gray-100 rounded-lg" />
+        <div className="h-6 w-48 bg-gray-200 dark:bg-slate-800 rounded-lg" />
+        <div className="h-4 w-72 bg-gray-100 dark:bg-slate-800/60 rounded-lg" />
       </div>
 
       {/* Main card skeleton */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-gray-100 dark:border-slate-800 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
-          <div className="h-5 w-32 bg-gray-200 rounded-lg" />
-          <div className="h-5 w-20 bg-gray-100 rounded-full" />
+          <div className="h-5 w-32 bg-gray-200 dark:bg-slate-800 rounded-lg" />
+          <div className="h-5 w-20 bg-gray-100 dark:bg-slate-800/60 rounded-full" />
         </div>
-        <div className="h-28 bg-gray-50 border border-gray-100 rounded-xl flex items-center justify-center">
-          <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="h-28 bg-gray-50 dark:bg-slate-800/40 border border-gray-100 dark:border-slate-800 rounded-xl flex items-center justify-center">
+          <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-400">
             <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
             <span>Memuat data...</span>
           </div>
@@ -25,8 +25,8 @@ export default function AppLoading() {
 
       {/* Secondary cards skeleton */}
       <div className="space-y-3">
-        <div className="h-20 bg-white rounded-2xl border border-gray-100 shadow-sm" />
-        <div className="h-20 bg-white rounded-2xl border border-gray-100 shadow-sm" />
+        <div className="h-20 bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm" />
+        <div className="h-20 bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm" />
       </div>
     </div>
   );

@@ -230,16 +230,16 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
       {/* Banner Peringatan Akun Menunggu Review */}
       {pendingCount > 0 && (
-        <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
+        <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-100 text-amber-800">
+            <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300">
               <Clock className="h-5 w-5 animate-spin" style={{ animationDuration: '4s' }} />
             </div>
             <div>
-              <h3 className="font-bold text-amber-900 text-sm">
+              <h3 className="font-bold text-amber-900 dark:text-amber-300 text-sm">
                 {pendingCount} Akun Baru Menunggu Persetujuan
               </h3>
-              <p className="text-xs text-amber-700 mt-0.5">
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
                 Pendaftar baru belum dapat mengakses aplikasi sebelum Anda setujui atau edit datanya.
               </p>
             </div>
@@ -255,10 +255,10 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       )}
 
       {/* Header bar with Add Button */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
         <div>
-          <h2 className="font-bold text-gray-900 text-sm">Daftar Akun Pengguna</h2>
-          <p className="text-xs text-gray-500">
+          <h2 className="font-bold text-gray-900 dark:text-slate-100 text-sm">Daftar Akun Pengguna</h2>
+          <p className="text-xs text-gray-500 dark:text-slate-400">
             Total {initialUsers.length} akun terdaftar di sistem.
           </p>
         </div>
@@ -276,14 +276,14 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-1.5 bg-gray-100/80 p-1 rounded-xl w-fit">
+      <div className="flex items-center gap-1.5 bg-gray-100/80 dark:bg-slate-800/80 p-1 rounded-xl w-fit">
         <button
           type="button"
           onClick={() => setFilterTab('all')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
             filterTab === 'all'
-              ? 'bg-white text-gray-900 shadow-xs'
-              : 'text-gray-500 hover:text-gray-900'
+              ? 'bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 shadow-xs'
+              : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
           }`}
         >
           Semua ({initialUsers.length})
@@ -294,7 +294,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
             filterTab === 'pending'
               ? 'bg-amber-500 text-white shadow-xs'
-              : 'text-amber-700 hover:bg-amber-50'
+              : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
           }`}
         >
           <Clock className="h-3.5 w-3.5" />
@@ -302,7 +302,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
           {pendingCount > 0 && (
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                filterTab === 'pending' ? 'bg-amber-700 text-white' : 'bg-amber-200 text-amber-900'
+                filterTab === 'pending' ? 'bg-amber-700 text-white' : 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200'
               }`}
             >
               {pendingCount}
@@ -314,8 +314,8 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
           onClick={() => setFilterTab('approved')}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
             filterTab === 'approved'
-              ? 'bg-white text-gray-900 shadow-xs'
-              : 'text-gray-500 hover:text-gray-900'
+              ? 'bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 shadow-xs'
+              : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
           }`}
         >
           Disetujui ({approvedCount})
@@ -325,9 +325,9 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       {/* Users List */}
       <div className="space-y-3">
         {filteredUsers.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm text-center">
-            <p className="text-sm font-semibold text-gray-700">Tidak ada akun di kategori ini</p>
-            <p className="text-xs text-gray-400 mt-1">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 border border-gray-100 dark:border-slate-800 shadow-sm text-center">
+            <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">Tidak ada akun di kategori ini</p>
+            <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
               {filterTab === 'pending'
                 ? 'Semua akun pendaftar sudah disetujui.'
                 : 'Belum ada data akun.'}
@@ -342,24 +342,24 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
             return (
               <div
                 key={user.id}
-                className={`bg-white rounded-2xl p-4 border transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm ${
+                className={`bg-white dark:bg-slate-900 rounded-2xl p-4 border transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm ${
                   isPending
-                    ? 'border-amber-200 bg-amber-50/15 hover:border-amber-300'
-                    : 'border-gray-100 hover:border-gray-200'
+                    ? 'border-amber-200 dark:border-amber-800/60 bg-amber-50/15 dark:bg-amber-950/20 hover:border-amber-300 dark:hover:border-amber-700'
+                    : 'border-gray-100 dark:border-slate-800 hover:border-gray-200 dark:hover:border-slate-700'
                 }`}
               >
                 <div className="flex items-start gap-3 min-w-0">
                   <div
                     className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${
                       isPending
-                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                        ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
                         : isUserMaster
-                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                        : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
                     }`}
                   >
                     {isPending ? (
-                      <Clock className="h-5 w-5 text-amber-600" />
+                      <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                     ) : isUserMaster ? (
                       <Crown className="h-5 w-5" />
                     ) : (
@@ -369,46 +369,46 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-900 text-sm truncate">
+                      <span className="font-semibold text-gray-900 dark:text-slate-100 text-sm truncate">
                         {user.full_name ? user.full_name : user.email}
                       </span>
                       {isSelf && (
-                        <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">
+                        <span className="text-[10px] bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-medium">
                           Anda
                         </span>
                       )}
                       {isPending ? (
-                        <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300 animate-pulse">
+                        <span className="text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300 dark:border-amber-800 animate-pulse">
                           <Clock className="h-2.5 w-2.5" /> Menunggu Review
                         </span>
                       ) : isUserMaster ? (
-                        <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300">
+                        <span className="text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300 dark:border-amber-800">
                           <Crown className="h-2.5 w-2.5" /> Master
                         </span>
                       ) : (
-                        <span className="text-[10px] bg-emerald-50 text-emerald-700 font-medium px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                        <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-medium px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
                           <UserCheck className="h-2.5 w-2.5" /> Aktif
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap text-[11px] text-gray-500 mt-1">
+                    <div className="flex items-center gap-2 flex-wrap text-[11px] text-gray-500 dark:text-slate-400 mt-1">
                       <span>{user.email}</span>
                       {user.phone && (
                         <>
-                          <span className="text-gray-300">&bull;</span>
-                          <span className="text-emerald-700 font-semibold">{user.phone}</span>
+                          <span className="text-gray-300 dark:text-slate-600">&bull;</span>
+                          <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{user.phone}</span>
                         </>
                       )}
-                      <span className="text-gray-300">&bull;</span>
-                      <span className="text-gray-400">
+                      <span className="text-gray-300 dark:text-slate-600">&bull;</span>
+                      <span className="text-gray-400 dark:text-slate-500">
                         Daftar: {formatIndonesia(user.created_at.slice(0, 10))}
                       </span>
                     </div>
 
                     {user.description && (
-                      <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-2.5 py-1 mt-1.5 font-normal">
-                        <span className="font-semibold text-gray-700">Catatan/Rekening:</span> {user.description}
+                      <p className="text-[11px] text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700 rounded-lg px-2.5 py-1 mt-1.5 font-normal">
+                        <span className="font-semibold text-gray-700 dark:text-slate-200">Catatan/Rekening:</span> {user.description}
                       </p>
                     )}
                   </div>
@@ -437,9 +437,9 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                   <button
                     type="button"
                     onClick={() => handleOpenEditModal(user)}
-                    className="px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 min-h-[38px] border border-gray-200"
+                    className="px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1 min-h-[38px] border border-gray-200 dark:border-slate-700"
                   >
-                    <Edit3 className="h-3.5 w-3.5 text-gray-500" />
+                    <Edit3 className="h-3.5 w-3.5 text-gray-500 dark:text-slate-400" />
                     <span>{isPending ? 'Edit & Review' : 'Edit'}</span>
                   </button>
 
@@ -450,13 +450,13 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                       onClick={() => handleToggleRole(user)}
                       disabled={loadingAction === `role-${user.id}`}
                       title="Ubah Role"
-                      className="px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-40 rounded-lg transition-colors flex items-center gap-1 min-h-[38px]"
+                      className="px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-800 disabled:opacity-40 rounded-lg transition-colors flex items-center gap-1 min-h-[38px]"
                     >
                       {loadingAction === `role-${user.id}` ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
                         <>
-                          <ShieldAlert className="h-3.5 w-3.5 text-gray-500" />
+                          <ShieldAlert className="h-3.5 w-3.5 text-gray-500 dark:text-slate-400" />
                           <span>{isUserMaster ? 'Ke Petugas' : 'Ke Master'}</span>
                         </>
                       )}
@@ -501,17 +501,17 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
       {/* Modal Edit Pengguna */}
       {editModalUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
-                <Edit3 className="h-5 w-5 text-blue-600" />
+              <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base flex items-center gap-2">
+                <Edit3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 Edit Data Akun Pengguna
               </h3>
               <button
                 type="button"
                 onClick={() => setEditModalUser(null)}
-                className="text-gray-400 hover:text-gray-600 p-1"
+                className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 p-1"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -519,17 +519,17 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
             <form onSubmit={handleSaveEditUser} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Email</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Email</label>
                 <input
                   type="email"
                   disabled
                   value={editModalUser.email}
-                  className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 cursor-not-allowed"
+                  className="w-full px-3 py-2 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-sm text-gray-500 dark:text-slate-400 cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">
                   Nama
                 </label>
                 <input
@@ -538,12 +538,12 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                   value={editFullName}
                   onChange={(e) => setEditFullName(e.target.value)}
                   placeholder="Contoh: Budi Santoso"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">
                   Nomor Telepon / WhatsApp
                 </label>
                 <input
@@ -552,16 +552,16 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                   value={editPhone}
                   onChange={(e) => setEditPhone(e.target.value)}
                   placeholder="Contoh: 081234567890"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Role Akun</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Role Akun</label>
                 <select
                   value={editRole}
                   onChange={(e) => setEditRole(e.target.value as UserRole)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-h-[44px]"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 >
                   <option value="user">Petugas (Absen hari ini & Device lock)</option>
                   <option value="master">Master (Akses Penuh)</option>
@@ -569,18 +569,18 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
               </div>
 
               <div className="pt-1">
-                <label className="flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 bg-gray-50 cursor-pointer">
+                <label className="flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/60 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={editApproved}
                     onChange={(e) => setEditApproved(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
                   />
                   <div>
-                    <span className="text-xs font-semibold text-gray-900 block">
+                    <span className="text-xs font-semibold text-gray-900 dark:text-slate-100 block">
                       Status Akun: Disetujui (Approved)
                     </span>
-                    <span className="text-[11px] text-gray-500 block">
+                    <span className="text-[11px] text-gray-500 dark:text-slate-400 block">
                       Centang untuk mengizinkan pengguna masuk dan mengisi piket.
                     </span>
                   </div>
@@ -588,7 +588,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
               </div>
 
               {editError && (
-                <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-2.5 rounded-lg border border-red-200 dark:border-red-900/60">
                   {editError}
                 </p>
               )}
@@ -597,7 +597,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                 <button
                   type="button"
                   onClick={() => setEditModalUser(null)}
-                  className="flex-1 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl transition-colors min-h-[44px]"
+                  className="flex-1 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors min-h-[44px]"
                 >
                   Batal
                 </button>
@@ -622,17 +622,17 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
       {/* Modal Tambah User Manual */}
       {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
-                <UserPlus className="h-5 w-5 text-blue-600" />
+              <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 Tambah Akun Pengguna
               </h3>
               <button
                 type="button"
                 onClick={() => setCreateModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1"
+                className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 p-1"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -640,34 +640,34 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Email</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Email</label>
                 <input
                   type="email"
                   name="email"
                   required
                   placeholder="petugas@icnt.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Password</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Password</label>
                 <input
                   type="password"
                   name="password"
                   required
                   minLength={6}
                   placeholder="Minimal 6 karakter"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Role Akun</label>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Role Akun</label>
                 <select
                   name="role"
                   defaultValue="user"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-h-[44px]"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 >
                   <option value="user">Petugas (Hanya absen hari ini + Device lock)</option>
                   <option value="master">Master (Akses Penuh)</option>
@@ -675,7 +675,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
               </div>
 
               {createError && (
-                <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-2.5 rounded-lg border border-red-200 dark:border-red-900/60">
                   {createError}
                 </p>
               )}
@@ -684,7 +684,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(false)}
-                  className="flex-1 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl transition-colors min-h-[44px]"
+                  className="flex-1 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors min-h-[44px]"
                 >
                   Batal
                 </button>
@@ -707,29 +707,29 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
       {/* Modal Reset Password */}
       {resetModalUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
-                <KeyRound className="h-5 w-5 text-blue-600" />
+              <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 Reset Password
               </h3>
               <button
                 type="button"
                 onClick={() => setResetModalUser(null)}
-                className="text-gray-400 hover:text-gray-600 p-1"
+                className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 p-1"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-slate-400">
               Masukkan password baru untuk akun <strong>{resetModalUser.email}</strong>.
             </p>
 
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">
                   Password Baru
                 </label>
                 <input
@@ -738,12 +738,12 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                   required
                   minLength={6}
                   placeholder="Minimal 6 karakter"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 />
               </div>
 
               {resetError && (
-                <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-2.5 rounded-lg border border-red-200 dark:border-red-900/60">
                   {resetError}
                 </p>
               )}
@@ -752,7 +752,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                 <button
                   type="button"
                   onClick={() => setResetModalUser(null)}
-                  className="flex-1 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl transition-colors min-h-[44px]"
+                  className="flex-1 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors min-h-[44px]"
                 >
                   Batal
                 </button>

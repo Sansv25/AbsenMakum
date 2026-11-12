@@ -99,17 +99,17 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
   return (
     <div className="space-y-5">
       {/* 1. Month Navigator */}
-      <div className="flex items-center justify-between bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+      <div className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
         <Link
           href={`/riwayat?month=${prevMonth}`}
-          className="p-2 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-2 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Bulan sebelumnya"
         >
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <div className="text-center">
-          <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Bulan Riwayat</p>
-          <span className="font-bold text-gray-900 capitalize text-base">
+          <p className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-slate-500 font-bold">Bulan Riwayat</p>
+          <span className="font-bold text-gray-900 dark:text-slate-100 capitalize text-base">
             {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
               new Date(`${currentMonth}-01`)
             )}
@@ -117,7 +117,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
         </div>
         <Link
           href={`/riwayat?month=${nextMonth}`}
-          className="p-2 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="p-2 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Bulan berikutnya"
         >
           <ChevronRight className="h-5 w-5" />
@@ -125,19 +125,19 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
       </div>
 
       {/* 2. Filter & Pagination Sizer Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-3">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm space-y-3 transition-colors">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
             <Filter className="h-3.5 w-3.5" /> Filter & Pencarian
           </div>
-          <span className="text-[11px] text-gray-400 font-medium">
+          <span className="text-[11px] text-gray-400 dark:text-slate-500 font-medium">
             {totalItems} shift tercatat
           </span>
         </div>
 
         {/* Input Pencarian Berdasarkan Nama Petugas */}
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
           <input
             type="text"
             value={searchName}
@@ -146,7 +146,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
               setCurrentPage(1);
             }}
             placeholder="Cari berdasarkan nama petugas..."
-            className="w-full pl-10 pr-9 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
+            className="w-full pl-10 pr-9 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
           />
           {searchName && (
             <button
@@ -155,7 +155,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                 setSearchName('');
                 setCurrentPage(1);
               }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 p-1"
               aria-label="Hapus pencarian"
             >
               <X className="h-3.5 w-3.5" />
@@ -165,11 +165,11 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 mb-1">Shift</label>
+            <label className="block text-[11px] font-medium text-gray-600 dark:text-slate-300 mb-1">Shift</label>
             <select
               value={shiftFilter}
               onChange={(e) => handleFilterShift(e.target.value as 'all' | ShiftType)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
             >
               <option value="all">Semua Shift</option>
               <option value="pagi">Shift 1 (Pagi)</option>
@@ -178,11 +178,11 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 mb-1">Status Shift</label>
+            <label className="block text-[11px] font-medium text-gray-600 dark:text-slate-300 mb-1">Status Shift</label>
             <select
               value={statusFilter}
               onChange={(e) => handleFilterStatus(e.target.value as 'all' | ShiftStatus)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
             >
               <option value="all">Semua Status</option>
               <option value="lengkap">Lengkap</option>
@@ -192,11 +192,11 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-gray-600 mb-1">Per Halaman</label>
+            <label className="block text-[11px] font-medium text-gray-600 dark:text-slate-300 mb-1">Per Halaman</label>
             <select
               value={pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
             >
               <option value={5}>5 per halaman</option>
               <option value={10}>10 per halaman</option>
@@ -209,12 +209,12 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
       {/* 3. List Shift (Grouped per Date & Shift) */}
       <div className="space-y-3">
         {paginatedItems.length === 0 ? (
-          <div className="bg-white rounded-2xl p-10 border border-gray-100 text-center text-gray-400">
-            <FileText className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-            <p className="text-sm font-semibold text-gray-700">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-10 border border-gray-100 dark:border-slate-800 text-center text-gray-400 dark:text-slate-500">
+            <FileText className="h-10 w-10 mx-auto mb-2 text-gray-300 dark:text-slate-600" />
+            <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">
               {searchName ? 'Tidak ada petugas yang cocok' : 'Tidak ada riwayat absensi'}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
               {searchName
                 ? `Tidak ditemukan riwayat piket oleh petugas dengan nama "${searchName}".`
                 : 'Coba sesuaikan filter atau pilih bulan sebelumnya.'}
@@ -226,7 +226,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                   setSearchName('');
                   setCurrentPage(1);
                 }}
-                className="mt-3 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-semibold transition-colors"
+                className="mt-3 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-semibold transition-colors"
               >
                 Reset Pencarian Nama
               </button>
@@ -240,47 +240,47 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
               <div
                 key={dateShiftKey}
                 onClick={() => setDrawerShift(item)}
-                className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
+                className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-gray-100 dark:border-slate-800 shadow-sm hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-bold text-gray-900 text-sm sm:text-base">
+                      <span className="font-bold text-gray-900 dark:text-slate-100 text-sm sm:text-base">
                         {shiftLabel(item.shift_type)}
                       </span>
                       <span
                         className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${
                           item.overallStatus === 'lengkap'
-                            ? 'bg-green-100 text-green-700'
+                            ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
                             : item.overallStatus === 'sebagian'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : 'bg-gray-100 text-gray-600'
+                            ? 'bg-yellow-100 dark:bg-yellow-950/60 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
+                            : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
                         }`}
                       >
                         {item.overallStatus}
                       </span>
                       {item.isHoliday && (
-                        <span className="text-[10px] bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full font-medium">
+                        <span className="text-[10px] bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/60 px-2 py-0.5 rounded-full font-medium">
                           Libur: {item.holidayName}
                         </span>
                       )}
                     </div>
 
-                    <p className="text-xs text-gray-500 font-medium">
+                    <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
                       {formatIndonesia(item.work_date)}
                     </p>
 
                     {/* Petugas Piket */}
                     {item.userNames && item.userNames.length > 0 ? (
-                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-700">
+                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-700 dark:text-slate-300">
                         <User className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                         <span className="truncate">
-                          Petugas: <strong className="text-gray-900 font-semibold">{item.userNames.join(', ')}</strong>
+                          Petugas: <strong className="text-gray-900 dark:text-slate-100 font-semibold">{item.userNames.join(', ')}</strong>
                         </span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400">
-                        <User className="h-3.5 w-3.5 text-gray-300 flex-shrink-0" />
+                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400 dark:text-slate-500">
+                        <User className="h-3.5 w-3.5 text-gray-300 dark:text-slate-600 flex-shrink-0" />
                         <span className="italic">Belum ada yang mengisi</span>
                       </div>
                     )}
@@ -293,25 +293,25 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                         return (
                           <div
                             key={jt}
-                            className="bg-gray-50/80 border border-gray-100 rounded-xl p-2 flex flex-col items-center text-center group-hover:bg-blue-50/40 transition-colors"
+                            className="bg-gray-50/80 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700/60 rounded-xl p-2 flex flex-col items-center text-center group-hover:bg-blue-50/40 dark:group-hover:bg-blue-950/30 transition-colors"
                           >
-                            <span className="text-[11px] font-semibold text-gray-800">
+                            <span className="text-[11px] font-semibold text-gray-800 dark:text-slate-200">
                               {jobLabel(jt)}
                             </span>
                             <span
                               className={`text-[10px] font-medium capitalize mt-0.5 ${
                                 status === 'lengkap'
-                                  ? 'text-green-600'
+                                  ? 'text-green-600 dark:text-green-400'
                                   : status === 'sebagian'
-                                  ? 'text-yellow-600'
-                                  : 'text-gray-400'
+                                  ? 'text-yellow-600 dark:text-yellow-400'
+                                  : 'text-gray-400 dark:text-slate-500'
                               }`}
                             >
                               {status}
                             </span>
                             {job?.userName && (
                               <span
-                                className="text-[9px] text-gray-600 font-medium truncate max-w-full mt-1 px-1 bg-white rounded border border-gray-200/60"
+                                className="text-[9px] text-gray-600 dark:text-slate-300 font-medium truncate max-w-full mt-1 px-1 bg-white dark:bg-slate-800 rounded border border-gray-200/60 dark:border-slate-700"
                                 title={job.userName}
                               >
                                 {job.userName}
@@ -325,10 +325,10 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
 
                   {/* Icon drawer indicator */}
                   <div className="flex flex-col items-center justify-center pl-2 pt-1">
-                    <div className="p-2 rounded-xl bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                       <Layers className="h-4 w-4" />
                     </div>
-                    <span className="text-[10px] text-gray-400 group-hover:text-blue-600 font-semibold mt-1">
+                    <span className="text-[10px] text-gray-400 dark:text-slate-500 group-hover:text-blue-600 dark:group-hover:text-blue-400 font-semibold mt-1">
                       Detail
                     </span>
                   </div>
@@ -341,8 +341,8 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
 
       {/* 4. Pagination Controls */}
       {totalPages > 1 && (
-        <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <p className="text-gray-500">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs transition-colors">
+          <p className="text-gray-500 dark:text-slate-400">
             Menampilkan <strong>{totalItems === 0 ? 0 : startIndex + 1}</strong> &ndash;{' '}
             <strong>{endIndex}</strong> dari <strong>{totalItems}</strong> shift
           </p>
@@ -352,12 +352,12 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
               type="button"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={safeCurrentPage <= 1}
-              className="px-3 py-1.5 border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors min-h-[38px] flex items-center gap-1"
+              className="px-3 py-1.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors min-h-[38px] flex items-center gap-1"
             >
               <ChevronLeft className="h-4 w-4" /> Sebelumnya
             </button>
 
-            <span className="px-2 font-semibold text-gray-700">
+            <span className="px-2 font-semibold text-gray-700 dark:text-slate-300">
               {safeCurrentPage} / {totalPages}
             </span>
 
@@ -365,7 +365,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
               type="button"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={safeCurrentPage >= totalPages}
-              className="px-3 py-1.5 border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors min-h-[38px] flex items-center gap-1"
+              className="px-3 py-1.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors min-h-[38px] flex items-center gap-1"
             >
               Berikutnya <ChevronRight className="h-4 w-4" />
             </button>
@@ -380,32 +380,32 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
           onClick={() => setDrawerShift(null)}
         >
           <div
-            className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-200"
+            className="w-full max-w-lg bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col z-50 animate-in slide-in-from-right duration-200 border-l border-gray-100 dark:border-slate-800"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Header */}
-            <div className="p-5 border-b border-gray-100 flex items-start justify-between bg-gray-50/50">
+            <div className="p-5 border-b border-gray-100 dark:border-slate-800 flex items-start justify-between bg-gray-50/50 dark:bg-slate-800/40">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-900 text-lg">
+                  <span className="font-bold text-gray-900 dark:text-slate-100 text-lg">
                     {shiftLabel(drawerShift.shift_type)}
                   </span>
                   <span
                     className={`text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${
                       drawerShift.overallStatus === 'lengkap'
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
                         : drawerShift.overallStatus === 'sebagian'
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-yellow-100 dark:bg-yellow-950/60 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
+                        : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
                     }`}
                   >
                     {drawerShift.overallStatus}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
                   {formatIndonesia(drawerShift.work_date)}
                   {drawerShift.isHoliday && (
-                    <span className="text-red-600 font-semibold"> • {drawerShift.holidayName}</span>
+                    <span className="text-red-600 dark:text-red-400 font-semibold"> • {drawerShift.holidayName}</span>
                   )}
                 </p>
               </div>
@@ -413,7 +413,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
               <button
                 type="button"
                 onClick={() => setDrawerShift(null)}
-                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
                 aria-label="Tutup Drawer"
               >
                 <X className="h-5 w-5" />
@@ -422,7 +422,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
 
             {/* Drawer Body (3 Posisi Pekerjaan) */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                 Dokumentasi 3 Posisi Pekerjaan
               </p>
 
@@ -433,34 +433,34 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                 return (
                   <div
                     key={jt}
-                    className="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm space-y-3"
+                    className="border border-gray-200 dark:border-slate-800 rounded-2xl p-4 bg-white dark:bg-slate-900 shadow-sm space-y-3"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-gray-900 text-sm">
+                          <span className="font-bold text-gray-900 dark:text-slate-100 text-sm">
                             {jobLabel(jt)}
                           </span>
                           <span
                             className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${
                               status === 'lengkap'
-                                ? 'bg-green-100 text-green-700'
+                                ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
                                 : status === 'sebagian'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-gray-100 text-gray-600'
+                                ? 'bg-yellow-100 dark:bg-yellow-950/60 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
+                                : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
                             }`}
                           >
                             {status}
                           </span>
                         </div>
                         {job?.userName ? (
-                          <p className="text-xs text-gray-600 mt-1 flex items-center gap-1 font-medium">
+                          <p className="text-xs text-gray-600 dark:text-slate-400 mt-1 flex items-center gap-1 font-medium">
                             <User className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
-                            <span>Petugas: <strong className="text-gray-900 font-semibold">{job.userName}</strong></span>
+                            <span>Petugas: <strong className="text-gray-900 dark:text-slate-100 font-semibold">{job.userName}</strong></span>
                           </p>
                         ) : (
-                          <p className="text-xs text-gray-400 mt-1 italic flex items-center gap-1">
-                            <User className="h-3.5 w-3.5 text-gray-300 flex-shrink-0" />
+                          <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 italic flex items-center gap-1">
+                            <User className="h-3.5 w-3.5 text-gray-300 dark:text-slate-600 flex-shrink-0" />
                             <span>Belum ada petugas</span>
                           </p>
                         )}
@@ -468,7 +468,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
 
                       <Link
                         href={`/absen/${drawerShift.work_date}/${drawerShift.shift_type}?job=${jt}`}
-                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:underline flex-shrink-0 mt-0.5"
+                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 hover:underline flex-shrink-0 mt-0.5"
                       >
                         Buka Form <ExternalLink className="h-3 w-3" />
                       </Link>
@@ -477,58 +477,58 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                     {/* 2 Bukti Piket (Mulai & Selesai) */}
                     <div className="grid grid-cols-2 gap-3 pt-1">
                       {/* Bukti 1: Mulai Piket */}
-                      <div className="border border-gray-100 rounded-xl p-2.5 bg-gray-50 text-center">
+                      <div className="border border-gray-100 dark:border-slate-800 rounded-xl p-2.5 bg-gray-50 dark:bg-slate-800/40 text-center">
                         <div className="flex items-center justify-between mb-1.5 px-0.5">
-                          <span className="text-[11px] font-semibold text-gray-700">1. Bukti Mulai</span>
+                          <span className="text-[11px] font-semibold text-gray-700 dark:text-slate-300">1. Bukti Mulai</span>
                           {job?.hasMulai ? (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold">Ada</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 font-semibold border border-green-200 dark:border-green-800">Ada</span>
                           ) : (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-semibold">Kosong</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-slate-400 font-semibold">Kosong</span>
                           )}
                         </div>
                         {job?.hasMulai ? (
                           job?.mulaiThumbnail ? (
-                            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 shadow-sm">
+                            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={job.mulaiThumbnail} alt="Bukti Mulai" className="w-full h-full object-cover" />
                             </div>
                           ) : (
-                            <div className="w-full aspect-video rounded-lg bg-green-50/70 border border-green-200 flex flex-col items-center justify-center text-xs text-green-700 font-medium p-2">
-                              <CheckCircle2 className="h-5 w-5 text-green-600 mb-1" />
+                            <div className="w-full aspect-video rounded-lg bg-green-50/70 dark:bg-green-950/40 border border-green-200 dark:border-green-800 flex flex-col items-center justify-center text-xs text-green-700 dark:text-green-400 font-medium p-2">
+                              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mb-1" />
                               <span>Foto Ada</span>
                             </div>
                           )
                         ) : (
-                          <div className="w-full aspect-video rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
+                          <div className="w-full aspect-video rounded-lg bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-xs text-gray-400 dark:text-slate-500">
                             Kosong
                           </div>
                         )}
                       </div>
 
                       {/* Bukti 2: Selesai Piket */}
-                      <div className="border border-gray-100 rounded-xl p-2.5 bg-gray-50 text-center">
+                      <div className="border border-gray-100 dark:border-slate-800 rounded-xl p-2.5 bg-gray-50 dark:bg-slate-800/40 text-center">
                         <div className="flex items-center justify-between mb-1.5 px-0.5">
-                          <span className="text-[11px] font-semibold text-gray-700">2. Bukti Selesai</span>
+                          <span className="text-[11px] font-semibold text-gray-700 dark:text-slate-300">2. Bukti Selesai</span>
                           {job?.hasSelesai ? (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold">Ada</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 font-semibold border border-green-200 dark:border-green-800">Ada</span>
                           ) : (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-semibold">Kosong</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-slate-400 font-semibold">Kosong</span>
                           )}
                         </div>
                         {job?.hasSelesai ? (
                           job?.selesaiThumbnail ? (
-                            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 shadow-sm">
+                            <div className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={job.selesaiThumbnail} alt="Bukti Selesai" className="w-full h-full object-cover" />
                             </div>
                           ) : (
-                            <div className="w-full aspect-video rounded-lg bg-green-50/70 border border-green-200 flex flex-col items-center justify-center text-xs text-green-700 font-medium p-2">
-                              <CheckCircle2 className="h-5 w-5 text-green-600 mb-1" />
+                            <div className="w-full aspect-video rounded-lg bg-green-50/70 dark:bg-green-950/40 border border-green-200 dark:border-green-800 flex flex-col items-center justify-center text-xs text-green-700 dark:text-green-400 font-medium p-2">
+                              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mb-1" />
                               <span>Foto Ada</span>
                             </div>
                           )
                         ) : (
-                          <div className="w-full aspect-video rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
+                          <div className="w-full aspect-video rounded-lg bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-xs text-gray-400 dark:text-slate-500">
                             Kosong
                           </div>
                         )}
@@ -536,21 +536,21 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                     </div>
 
                     {/* Bukti 3: Aktivitas Piket (Minimal 2) */}
-                    <div className="border border-gray-100 rounded-xl p-2.5 bg-gray-50">
+                    <div className="border border-gray-100 dark:border-slate-800 rounded-xl p-2.5 bg-gray-50 dark:bg-slate-800/40">
                       <div className="flex items-center justify-between mb-2 px-0.5">
-                        <span className="text-[11px] font-semibold text-gray-700">
+                        <span className="text-[11px] font-semibold text-gray-700 dark:text-slate-300">
                           3. Bukti Aktivitas Piket
                         </span>
                         {(job?.aktivitasCount ?? 0) >= 2 ? (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-semibold flex items-center gap-1">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 font-semibold flex items-center gap-1 border border-green-200 dark:border-green-800">
                             <CheckCircle2 className="h-3 w-3" /> {job?.aktivitasCount} Foto (Lengkap)
                           </span>
                         ) : (job?.aktivitasCount ?? 0) === 1 ? (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 font-semibold border border-amber-200 dark:border-amber-800">
                             1 / 2 Foto (Kurang 1)
                           </span>
                         ) : (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 font-semibold">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-slate-400 font-semibold">
                             Kosong (Min 2)
                           </span>
                         )}
@@ -559,7 +559,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                       {job?.aktivitasThumbnails && job.aktivitasThumbnails.length > 0 ? (
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {job.aktivitasThumbnails.map((url, aIdx) => (
-                            <div key={aIdx} className="relative aspect-video rounded-lg overflow-hidden bg-black/10 shadow-xs">
+                            <div key={aIdx} className="relative aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-xs border border-gray-200 dark:border-slate-700">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={url} alt={`Aktivitas ${aIdx + 1}`} className="w-full h-full object-cover" />
                               <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] text-white font-medium">
@@ -569,7 +569,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
                           ))}
                         </div>
                       ) : (
-                        <div className="w-full py-3 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400">
+                        <div className="w-full py-3 rounded-lg bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-xs text-gray-400 dark:text-slate-500">
                           Belum ada foto aktivitas
                         </div>
                       )}
@@ -577,7 +577,7 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
 
                     {/* Catatan jika ada */}
                     {job?.note && (
-                      <p className="text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100 italic">
+                      <p className="text-xs text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-slate-700 italic">
                         &quot;{job.note}&quot;
                       </p>
                     )}
@@ -587,11 +587,11 @@ export function RiwayatView({ items, currentMonth, prevMonth, nextMonth }: Riway
             </div>
 
             {/* Drawer Footer */}
-            <div className="p-4 border-t border-gray-100 bg-white">
+            <div className="p-4 border-t border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900">
               <button
                 type="button"
                 onClick={() => setDrawerShift(null)}
-                className="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl text-xs font-semibold transition-colors min-h-[44px]"
+                className="w-full py-2.5 px-4 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-800 dark:text-slate-200 rounded-xl text-xs font-semibold transition-colors min-h-[44px]"
               >
                 Tutup Drawer
               </button>

@@ -50,23 +50,23 @@ export function CompleteProfileForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="flex items-start gap-2 text-red-600 text-xs bg-red-50 border border-red-200 rounded-xl p-3">
+        <div className="flex items-start gap-2 text-red-600 dark:text-red-400 text-xs bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl p-3">
           <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
       <div>
-        <label className="block text-xs font-semibold text-gray-700 mb-1">
+        <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">
           Email Terhubung
         </label>
         <div className="relative">
-          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
           <input
             type="email"
             disabled
             value={email}
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 text-sm cursor-not-allowed"
+            className="w-full pl-10 pr-4 py-2.5 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-500 dark:text-slate-400 text-sm cursor-not-allowed"
           />
         </div>
       </div>
@@ -74,12 +74,12 @@ export function CompleteProfileForm({
       <div>
         <label
           htmlFor="fullName"
-          className="block text-xs font-semibold text-gray-700 mb-1"
+          className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
         >
           Nama <span className="text-red-500">*</span>
         </label>
         <div className="relative">
-          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
           <input
             id="fullName"
             name="fullName"
@@ -88,7 +88,7 @@ export function CompleteProfileForm({
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             placeholder="Contoh: Budi Santoso"
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
         </div>
       </div>
@@ -96,12 +96,12 @@ export function CompleteProfileForm({
       <div>
         <label
           htmlFor="phone"
-          className="block text-xs font-semibold text-gray-700 mb-1"
+          className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
         >
           Nomor Telepon / WhatsApp <span className="text-red-500">*</span>
         </label>
         <div className="relative">
-          <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
           <input
             id="phone"
             name="phone"
@@ -110,7 +110,7 @@ export function CompleteProfileForm({
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="Contoh: 081234567890"
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
         </div>
       </div>
@@ -118,7 +118,7 @@ export function CompleteProfileForm({
       <button
         type="submit"
         disabled={loading}
-        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold text-sm rounded-xl transition-colors min-h-[44px] shadow-sm mt-2"
+        className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-900 text-white font-semibold text-sm rounded-xl transition-colors min-h-[44px] shadow-sm mt-2"
       >
         {loading ? (
           <>

@@ -174,21 +174,21 @@ export function TicketUpload({
   }
 
   return (
-    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-4">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+          <h3 className="font-semibold text-gray-900 dark:text-slate-100 text-sm flex items-center gap-2">
             Picket Ticket
-            <span className="text-xs text-gray-400 font-normal">
+            <span className="text-xs text-gray-400 dark:text-slate-500 font-normal">
               ({tickets.length} screenshot)
             </span>
           </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
             Screenshot tiket piket (opsional). Anda bisa paste langsung dengan <strong>Ctrl+V</strong>.
           </p>
         </div>
         {statusMsg && (
-          <span className="text-xs text-blue-600 font-medium flex items-center gap-1">
+          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
             {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
             {statusMsg}
           </span>
@@ -196,7 +196,7 @@ export function TicketUpload({
       </div>
 
       {tickets.length === 0 && (
-        <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs">
+        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-xs">
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
           <span>Belum ada screenshot tiket piket. (Shift tetap dapat berstatus lengkap jika Mulai & Selesai ada).</span>
         </div>
@@ -217,19 +217,21 @@ export function TicketUpload({
             handleUploadFiles(files);
           }}
           className={`border-2 border-dashed rounded-2xl p-6 text-center transition-colors ${
-            isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-400'
+            isDragOver
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
+              : 'border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500'
           }`}
         >
           <div className="flex flex-col items-center gap-2">
-            <Clipboard className="h-8 w-8 text-blue-500" />
-            <p className="text-xs font-medium text-gray-800">
-              Tarik & lepas file di sini, atau tekan <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-xs font-mono">Ctrl+V</kbd> untuk paste screenshot
+            <Clipboard className="h-8 w-8 text-blue-500 dark:text-blue-400" />
+            <p className="text-xs font-medium text-gray-800 dark:text-slate-200">
+              Tarik & lepas file di sini, atau tekan <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded text-xs font-mono">Ctrl+V</kbd> untuk paste screenshot
             </p>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="mt-2 py-2 px-4 border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-medium rounded-xl transition-colors min-h-[44px] flex items-center gap-2"
+              className="mt-2 py-2 px-4 border border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800 text-gray-700 dark:text-slate-200 text-xs font-medium rounded-xl transition-colors min-h-[44px] flex items-center gap-2"
             >
               <Upload className="h-4 w-4" />
               Pilih File Gambar
@@ -260,13 +262,13 @@ export function TicketUpload({
           {tickets.map((ticket, index) => (
             <div
               key={ticket.id}
-              className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50"
+              className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/60"
             >
-              <span className="text-xs font-bold text-gray-400 w-5 text-center">
+              <span className="text-xs font-bold text-gray-400 dark:text-slate-500 w-5 text-center">
                 #{index + 1}
               </span>
 
-              <div className="w-16 h-12 rounded-lg overflow-hidden bg-black/10 flex-shrink-0 relative">
+              <div className="w-16 h-12 rounded-lg overflow-hidden bg-black/10 dark:bg-black/40 flex-shrink-0 relative">
                 {ticket.signedUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -275,17 +277,17 @@ export function TicketUpload({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-slate-500">
                     Foto
                   </div>
                 )}
               </div>
 
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-gray-800 truncate">
+                <p className="text-xs font-medium text-gray-800 dark:text-slate-200 truncate">
                   Ticket #{index + 1}
                 </p>
-                <p className="text-[10px] text-gray-400">
+                <p className="text-[10px] text-gray-400 dark:text-slate-500">
                   {new Date(ticket.created_at).toLocaleTimeString('id-ID')} WITA
                 </p>
               </div>
@@ -296,7 +298,7 @@ export function TicketUpload({
                     type="button"
                     onClick={() => handleMove(index, 'up')}
                     disabled={index === 0}
-                    className="p-1.5 text-gray-500 hover:text-gray-800 disabled:opacity-30 rounded-lg min-h-[44px] min-w-[36px] flex items-center justify-center"
+                    className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 disabled:opacity-30 rounded-lg min-h-[44px] min-w-[36px] flex items-center justify-center"
                     aria-label="Pindah ke Atas"
                   >
                     <ArrowUp className="h-4 w-4" />
@@ -305,7 +307,7 @@ export function TicketUpload({
                     type="button"
                     onClick={() => handleMove(index, 'down')}
                     disabled={index === tickets.length - 1}
-                    className="p-1.5 text-gray-500 hover:text-gray-800 disabled:opacity-30 rounded-lg min-h-[44px] min-w-[36px] flex items-center justify-center"
+                    className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200 disabled:opacity-30 rounded-lg min-h-[44px] min-w-[36px] flex items-center justify-center"
                     aria-label="Pindah ke Bawah"
                   >
                     <ArrowDown className="h-4 w-4" />
@@ -313,7 +315,7 @@ export function TicketUpload({
                   <button
                     type="button"
                     onClick={() => handleDelete(ticket)}
-                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg min-h-[44px] min-w-[36px] flex items-center justify-center"
+                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg min-h-[44px] min-w-[36px] flex items-center justify-center"
                     aria-label="Hapus Tiket"
                   >
                     <Trash2 className="h-4 w-4" />

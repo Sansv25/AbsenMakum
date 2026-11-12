@@ -10,3 +10,21 @@
     @apply bg-slate-950 text-slate-100;
   }
 }
+
+/* SweetAlert2 Dark Mode Enhancements */
+.dark .swal2-popup {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #1e293b !important;
+}
+.dark .swal2-title {
+  color: #f1f5f9 !important;
+}
+.dark .swal2-html-container {
+  color: #cbd5e1 !important;
+}
+.dark .swal2-toast {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #1e293b !important;
+}

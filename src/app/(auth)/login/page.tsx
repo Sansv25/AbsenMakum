@@ -70,10 +70,10 @@ function LoginContent() {
   }
 
   return (
-    <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-6 sm:p-8">
+    <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-md p-6 sm:p-8">
       {/* Header */}
       <div className="flex flex-col items-center mb-6">
-        <div className="p-3.5 rounded-2xl bg-sky-50/80 border border-sky-100 shadow-sm mb-3 flex items-center justify-center">
+        <div className="p-3.5 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900 shadow-sm mb-3 flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/images/iconnet-colored.svg"
@@ -87,13 +87,13 @@ function LoginContent() {
             }}
           />
         </div>
-        <h1 className="text-2xl font-bold text-center text-gray-900">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-slate-100">
           Absensi Piket
         </h1>
-        <p className="text-center text-sky-700 text-xs font-semibold mt-0.5">
+        <p className="text-center text-sky-700 dark:text-sky-400 text-xs font-semibold mt-0.5">
           ICONNET &bull; Macan Kumbang
         </p>
-        <p className="text-center text-gray-500 text-xs mt-1">
+        <p className="text-center text-gray-500 dark:text-slate-400 text-xs mt-1">
           Masuk untuk melanjutkan
         </p>
       </div>
@@ -104,10 +104,10 @@ function LoginContent() {
           type="button"
           onClick={handleGoogleLogin}
           disabled={googleLoading || loading}
-          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm rounded-xl border border-gray-300 shadow-xs transition-colors disabled:opacity-50 min-h-[44px]"
+          className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 font-medium text-sm rounded-xl border border-gray-300 dark:border-slate-700 shadow-xs transition-colors disabled:opacity-50 min-h-[44px]"
         >
           {googleLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+            <Loader2 className="h-5 w-5 animate-spin text-gray-500 dark:text-slate-400" />
           ) : (
             <GoogleIcon className="h-5 w-5" />
           )}
@@ -115,8 +115,8 @@ function LoginContent() {
         </button>
 
         <div className="relative flex items-center justify-center">
-          <div className="border-t border-gray-200 w-full" />
-          <span className="bg-white px-3 text-xs text-gray-400 font-medium absolute">
+          <div className="border-t border-gray-200 dark:border-slate-800 w-full" />
+          <span className="bg-white dark:bg-slate-900 px-3 text-xs text-gray-400 dark:text-slate-500 font-medium absolute">
             atau masuk dengan email
           </span>
         </div>
@@ -126,7 +126,7 @@ function LoginContent() {
       <form onSubmit={handleSubmit} className="space-y-4" suppressHydrationWarning>
         {error && (
           <div className="space-y-2">
-            <div className="flex items-start gap-2 text-red-600 text-xs bg-red-50 border border-red-200 rounded-xl p-3">
+            <div className="flex items-start gap-2 text-red-600 dark:text-red-400 text-xs bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl p-3">
               <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -136,7 +136,7 @@ function LoginContent() {
                 onClick={() =>
                   router.push(`/verify-otp?email=${encodeURIComponent(needsOtpEmail)}`)
                 }
-                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-semibold transition-colors"
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 rounded-xl text-xs font-semibold transition-colors"
               >
                 <span>Masukkan Kode OTP Sekarang</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -148,12 +148,12 @@ function LoginContent() {
         <div>
           <label
             htmlFor="email"
-            className="block text-xs font-semibold text-gray-700 mb-1"
+            className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
           >
             Email
           </label>
           <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
             <input
               id="email"
               name="email"
@@ -161,7 +161,7 @@ function LoginContent() {
               required
               autoComplete="email"
               suppressHydrationWarning
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               placeholder="email@contoh.com"
             />
           </div>
@@ -170,12 +170,12 @@ function LoginContent() {
         <div>
           <label
             htmlFor="password"
-            className="block text-xs font-semibold text-gray-700 mb-1"
+            className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
           >
             Password
           </label>
           <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
             <input
               id="password"
               name="password"
@@ -183,7 +183,7 @@ function LoginContent() {
               required
               autoComplete="current-password"
               suppressHydrationWarning
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               placeholder="••••••••"
             />
           </div>
@@ -193,7 +193,7 @@ function LoginContent() {
           type="submit"
           disabled={loading || googleLoading}
           suppressHydrationWarning
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold text-sm rounded-xl transition-colors min-h-[44px] shadow-sm mt-2"
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-900 text-white font-semibold text-sm rounded-xl transition-colors min-h-[44px] shadow-sm mt-2"
         >
           {loading ? (
             <>
@@ -207,12 +207,12 @@ function LoginContent() {
       </form>
 
       {/* Footer Registrasi */}
-      <div className="mt-6 pt-5 border-t border-gray-100 flex flex-col items-center gap-2">
-        <p className="text-xs text-gray-500 text-center">
+      <div className="mt-6 pt-5 border-t border-gray-100 dark:border-slate-800 flex flex-col items-center gap-2">
+        <p className="text-xs text-gray-500 dark:text-slate-400 text-center">
           Belum memiliki akun?{' '}
           <Link
             href="/register"
-            className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+            className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline"
           >
             Daftar Akun Baru
           </Link>
@@ -224,11 +224,11 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50 py-10">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-slate-950 py-10 transition-colors">
       <Suspense
         fallback={
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-md p-8 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-md p-8 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
           </div>
         }
       >

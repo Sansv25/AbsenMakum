@@ -146,11 +146,11 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50 py-10">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6 sm:p-8">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-slate-950 py-10 transition-colors">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-md p-6 sm:p-8">
         {/* Header */}
         <div className="flex flex-col items-center mb-6">
-          <div className="p-3 rounded-2xl bg-sky-50/80 border border-sky-100 shadow-sm mb-3 flex items-center justify-center">
+          <div className="p-3 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900 shadow-sm mb-3 flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/iconnet-colored.svg"
@@ -164,13 +164,13 @@ export default function RegisterPage() {
               }}
             />
           </div>
-          <h1 className="text-2xl font-bold text-center text-gray-900">
+          <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-slate-100">
             Daftar Akun Piket
           </h1>
-          <p className="text-center text-sky-700 text-xs font-semibold mt-0.5">
+          <p className="text-center text-sky-700 dark:text-sky-400 text-xs font-semibold mt-0.5">
             ICONNET &bull; Macan Kumbang
           </p>
-          <p className="text-center text-gray-500 text-xs mt-1">
+          <p className="text-center text-gray-500 dark:text-slate-400 text-xs mt-1">
             Pilih metode registrasi di bawah ini
           </p>
         </div>
@@ -181,10 +181,10 @@ export default function RegisterPage() {
             type="button"
             onClick={handleGoogleSignUp}
             disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm rounded-xl border border-gray-300 shadow-xs transition-colors disabled:opacity-50 min-h-[44px]"
+            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 font-medium text-sm rounded-xl border border-gray-300 dark:border-slate-700 shadow-xs transition-colors disabled:opacity-50 min-h-[44px]"
           >
             {googleLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+              <Loader2 className="h-5 w-5 animate-spin text-gray-500 dark:text-slate-400" />
             ) : (
               <GoogleIcon className="h-5 w-5" />
             )}
@@ -192,8 +192,8 @@ export default function RegisterPage() {
           </button>
 
           <div className="relative flex items-center justify-center">
-            <div className="border-t border-gray-200 w-full" />
-            <span className="bg-white px-3 text-xs text-gray-400 font-medium absolute">
+            <div className="border-t border-gray-200 dark:border-slate-800 w-full" />
+            <span className="bg-white dark:bg-slate-900 px-3 text-xs text-gray-400 dark:text-slate-500 font-medium absolute">
               atau daftar manual dengan email
             </span>
           </div>
@@ -203,14 +203,14 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="space-y-2">
-              <div className="flex items-start gap-2 text-red-600 text-xs bg-red-50 border border-red-200 rounded-xl p-3">
+              <div className="flex items-start gap-2 text-red-600 dark:text-red-400 text-xs bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl p-3">
                 <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                 <span className="leading-relaxed">{error}</span>
               </div>
               {error.includes('sudah terdaftar') && (
                 <Link
                   href="/login"
-                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-semibold transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 rounded-xl text-xs font-semibold transition-colors"
                 >
                   <span>Masuk ke Halaman Login</span>
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -222,12 +222,12 @@ export default function RegisterPage() {
           <div>
             <label
               htmlFor="fullName"
-              className="block text-xs font-semibold text-gray-700 mb-1"
+              className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
             >
               Nama <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
               <input
                 id="fullName"
                 name="fullName"
@@ -236,7 +236,7 @@ export default function RegisterPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Contoh: Budi Santoso"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
           </div>
@@ -244,12 +244,12 @@ export default function RegisterPage() {
           <div>
             <label
               htmlFor="phone"
-              className="block text-xs font-semibold text-gray-700 mb-1"
+              className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
             >
               Nomor Telepon / WhatsApp <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
               <input
                 id="phone"
                 name="phone"
@@ -258,7 +258,7 @@ export default function RegisterPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Contoh: 081234567890"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
           </div>
@@ -266,12 +266,12 @@ export default function RegisterPage() {
           <div>
             <label
               htmlFor="email"
-              className="block text-xs font-semibold text-gray-700 mb-1"
+              className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
             >
               Email <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
               <input
                 id="email"
                 name="email"
@@ -280,7 +280,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="email@contoh.com"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
           </div>
@@ -288,12 +288,12 @@ export default function RegisterPage() {
           <div>
             <label
               htmlFor="password"
-              className="block text-xs font-semibold text-gray-700 mb-1"
+              className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
             >
               Password <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
               <input
                 id="password"
                 name="password"
@@ -302,7 +302,7 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Minimal 6 karakter"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
           </div>
@@ -310,12 +310,12 @@ export default function RegisterPage() {
           <div>
             <label
               htmlFor="confirmPassword"
-              className="block text-xs font-semibold text-gray-700 mb-1"
+              className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1"
             >
               Konfirmasi Password <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
               <input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -324,7 +324,7 @@ export default function RegisterPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Ulangi password"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
           </div>
@@ -332,7 +332,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading || googleLoading}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold text-sm rounded-xl transition-colors min-h-[44px] shadow-sm mt-2"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-900 text-white font-semibold text-sm rounded-xl transition-colors min-h-[44px] shadow-sm mt-2"
           >
             {loading ? (
               <>
@@ -345,12 +345,12 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        <div className="mt-6 pt-5 border-t border-gray-100 flex flex-col items-center gap-2">
-          <p className="text-xs text-gray-500">
+        <div className="mt-6 pt-5 border-t border-gray-100 dark:border-slate-800 flex flex-col items-center gap-2">
+          <p className="text-xs text-gray-500 dark:text-slate-400">
             Sudah memiliki akun?{' '}
             <Link
               href="/login"
-              className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+              className="font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline"
             >
               Masuk di sini
             </Link>

@@ -146,32 +146,32 @@ function VerifyOtpContent() {
   }
 
   return (
-    <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6 sm:p-8">
+    <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-md p-6 sm:p-8">
       {/* Icon & Title */}
       <div className="flex flex-col items-center mb-6">
-        <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-100 shadow-xs mb-3 text-sky-600 flex items-center justify-center">
+        <div className="p-3.5 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900 shadow-xs mb-3 text-sky-600 dark:text-sky-400 flex items-center justify-center">
           <MailCheck className="h-8 w-8" />
         </div>
-        <h1 className="text-2xl font-bold text-center text-gray-900">
+        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-slate-100">
           Verifikasi Email OTP
         </h1>
-        <p className="text-center text-gray-500 text-xs mt-1.5 max-w-xs">
+        <p className="text-center text-gray-500 dark:text-slate-400 text-xs mt-1.5 max-w-xs">
           Masukkan kode OTP yang telah dikirim ke alamat email:
         </p>
-        <span className="text-xs font-semibold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-200 mt-2">
+        <span className="text-xs font-semibold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-800 mt-2">
           {email || 'email@anda.com'}
         </span>
       </div>
 
       {error && (
-        <div className="mb-4 flex items-start gap-2 text-red-600 text-xs bg-red-50 border border-red-200 rounded-xl p-3">
+        <div className="mb-4 flex items-start gap-2 text-red-600 dark:text-red-400 text-xs bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl p-3">
           <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
       )}
 
       {infoMessage && (
-        <div className="mb-4 text-emerald-700 text-xs bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+        <div className="mb-4 text-emerald-700 dark:text-emerald-400 text-xs bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-3">
           {infoMessage}
         </div>
       )}
@@ -180,7 +180,7 @@ function VerifyOtpContent() {
         <div>
           <label
             htmlFor="otp"
-            className="block text-xs font-semibold text-gray-700 mb-2 text-center"
+            className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-2 text-center"
           >
             Kode Verifikasi OTP (6 atau 8 Digit)
           </label>
@@ -204,14 +204,14 @@ function VerifyOtpContent() {
               }
             }}
             placeholder="••••••••"
-            className="w-full text-center text-xl sm:text-2xl font-mono tracking-[0.3em] sm:tracking-[0.5em] py-3.5 px-4 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full text-center text-xl sm:text-2xl font-mono tracking-[0.3em] sm:tracking-[0.5em] py-3.5 px-4 border-2 border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
         <button
           type="submit"
           disabled={loading || token.length < 6}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold text-sm rounded-xl transition-colors min-h-[44px] shadow-sm"
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-900 text-white font-semibold text-sm rounded-xl transition-colors min-h-[44px] shadow-sm"
         >
           {loading ? (
             <>
@@ -225,15 +225,15 @@ function VerifyOtpContent() {
       </form>
 
       {/* Kirim Ulang OTP */}
-      <div className="mt-6 pt-5 border-t border-gray-100 flex flex-col items-center gap-3">
-        <p className="text-xs text-gray-500 text-center">
+      <div className="mt-6 pt-5 border-t border-gray-100 dark:border-slate-800 flex flex-col items-center gap-3">
+        <p className="text-xs text-gray-500 dark:text-slate-400 text-center">
           Belum menerima kode OTP di inbox atau folder spam?
         </p>
         <button
           type="button"
           onClick={handleResendOtp}
           disabled={cooldown > 0 || resending}
-          className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 disabled:text-gray-400 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:text-gray-400 dark:disabled:text-slate-600 transition-colors"
         >
           {resending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -247,10 +247,10 @@ function VerifyOtpContent() {
           )}
         </button>
 
-        <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+        <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-slate-400 mt-2">
           <Link
             href="/register"
-            className="flex items-center gap-1 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-slate-200 transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>Ganti Email</span>
@@ -258,7 +258,7 @@ function VerifyOtpContent() {
           <span>•</span>
           <Link
             href="/login"
-            className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
           >
             Sudah Verifikasi? Masuk di sini
           </Link>
@@ -270,11 +270,11 @@ function VerifyOtpContent() {
 
 export default function VerifyOtpPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50 py-10">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50 dark:bg-slate-950 py-10 transition-colors">
       <Suspense
         fallback={
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-8 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl shadow-md p-8 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
           </div>
         }
       >

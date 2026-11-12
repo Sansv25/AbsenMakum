@@ -85,11 +85,11 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
   if (!isRequired && !hasExistingData) {
     return (
       <div className="max-w-2xl mx-auto p-4 md:p-6">
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center space-y-4 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl p-8 text-center space-y-4 shadow-sm">
           <ShieldAlert className="h-12 w-12 mx-auto text-amber-500" />
           <div>
-            <h2 className="font-bold text-gray-900 text-lg">Shift Tidak Diwajibkan</h2>
-            <p className="text-gray-500 text-xs mt-1 max-w-sm mx-auto">
+            <h2 className="font-bold text-gray-900 dark:text-slate-100 text-lg">Shift Tidak Diwajibkan</h2>
+            <p className="text-gray-500 dark:text-slate-400 text-xs mt-1 max-w-sm mx-auto">
               Pada tanggal <strong>{formatIndonesia(date)}</strong>, shift yang diwajibkan hanya{' '}
               <strong>{requiredShifts.map(shiftLabel).join(', ')}</strong>.
             </p>

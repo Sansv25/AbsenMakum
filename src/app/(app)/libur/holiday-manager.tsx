@@ -63,15 +63,15 @@ export function HolidayManager({ initialHolidays, currentYear }: HolidayManagerP
   return (
     <div className="space-y-6">
       {/* Form Tambah Tanggal Merah */}
-      <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <Plus className="h-5 w-5 text-blue-600" />
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 shadow-sm">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+          <Plus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           Tambah Tanggal Merah
         </h2>
         <form onSubmit={handleAdd} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label htmlFor="holiday_date" className="block text-xs font-medium text-gray-700 mb-1">
+              <label htmlFor="holiday_date" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
                 Tanggal
               </label>
               <input
@@ -79,11 +79,11 @@ export function HolidayManager({ initialHolidays, currentYear }: HolidayManagerP
                 name="holiday_date"
                 type="date"
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
               />
             </div>
             <div>
-              <label htmlFor="name" className="block text-xs font-medium text-gray-700 mb-1">
+              <label htmlFor="name" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
                 Keterangan / Nama Libur
               </label>
               <input
@@ -92,13 +92,13 @@ export function HolidayManager({ initialHolidays, currentYear }: HolidayManagerP
                 type="text"
                 placeholder="Contoh: Hari Kemerdekaan RI"
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
               />
             </div>
           </div>
 
           {error && (
-            <p className="text-red-600 text-xs bg-red-50 p-2 rounded-lg border border-red-200">
+            <p className="text-red-600 dark:text-red-400 text-xs bg-red-50 dark:bg-red-950/40 p-2 rounded-lg border border-red-200 dark:border-red-900/60">
               {error}
             </p>
           )}
@@ -116,16 +116,16 @@ export function HolidayManager({ initialHolidays, currentYear }: HolidayManagerP
 
       {/* Filter Tahun */}
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900">Daftar Tanggal Merah</h2>
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100">Daftar Tanggal Merah</h2>
+        <div className="flex gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl">
           {years.map((y) => (
             <button
               key={y}
               onClick={() => setSelectedYear(y)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[36px] ${
                 selectedYear === y
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-900'
+                  ? 'bg-white dark:bg-slate-900 text-gray-900 dark:text-slate-100 shadow-sm'
+                  : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200'
               }`}
             >
               {y}
@@ -135,12 +135,12 @@ export function HolidayManager({ initialHolidays, currentYear }: HolidayManagerP
       </div>
 
       {/* Daftar Tanggal Merah */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm divide-y divide-gray-100 dark:divide-slate-800 overflow-hidden">
         {filteredHolidays.length === 0 ? (
           <div className="p-8 text-center">
-            <CalendarOff className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm font-medium text-gray-900">Belum ada tanggal merah</p>
-            <p className="text-xs text-gray-400 mt-1">
+            <CalendarOff className="h-10 w-10 text-gray-300 dark:text-slate-600 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-200">Belum ada tanggal merah</p>
+            <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
               Tambahkan tanggal merah tahun {selectedYear} melalui formulir di atas.
             </p>
           </div>
@@ -148,11 +148,11 @@ export function HolidayManager({ initialHolidays, currentYear }: HolidayManagerP
           filteredHolidays.map((holiday) => (
             <div
               key={holiday.id}
-              className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-slate-800/60 transition-colors"
             >
               <div>
-                <p className="font-semibold text-gray-900 text-sm">{holiday.name}</p>
-                <p className="text-xs text-red-600 font-medium mt-0.5">
+                <p className="font-semibold text-gray-900 dark:text-slate-100 text-sm">{holiday.name}</p>
+                <p className="text-xs text-red-600 dark:text-red-400 font-medium mt-0.5">
                   {formatIndonesia(holiday.holiday_date)}
                 </p>
               </div>
@@ -160,7 +160,7 @@ export function HolidayManager({ initialHolidays, currentYear }: HolidayManagerP
                 type="button"
                 onClick={() => handleDelete(holiday.id, holiday.name)}
                 disabled={deletingId === holiday.id}
-                className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="p-2 text-gray-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                 aria-label="Hapus"
               >
                 {deletingId === holiday.id ? (
