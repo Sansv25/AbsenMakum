@@ -36,7 +36,7 @@ export async function fetchAttendancesForRangeAction(startDate: string, endDate:
     if (attendanceIds.length > 0) {
       const { data: attachData, error: attachError } = await supabase
         .from('attachments')
-        .select('id, attendance_id, kind')
+        .select('id, attendance_id, kind, user_id')
         .in('attendance_id', attendanceIds);
 
       if (!attachError && attachData) {

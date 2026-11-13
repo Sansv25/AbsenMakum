@@ -50,8 +50,25 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
   const attendances = (attendancesData ?? []) as Attendance[];
   const attendanceIds = attendances.map((a) => a.id);
 
+  // Attachments
+  const { data: attachmentsData } = attendanceIds.length > 0
+    ? await supabase
+        .from('attachments')
+        .select('*')
+        .in('attendance_id', attendanceIds)
+    : { data: [] };
+
+  const attachments = (attachmentsData ?? []) as Attachment[];
+
   // Ambil profil user untuk menampilkan nama petugas pada riwayat & pencarian
-  const userIds = Array.from(new Set([...attendances.map((a) => a.user_id), user.id].filter(Boolean) as string[]));
+  // Sertakan user_id dari attendances maupun pengunggah attachments sebenarnya
+  const allUserIds = [
+    ...attendances.map((a) => a.user_id),
+    ...attachments.map((att) => att.user_id),
+    user.id,
+  ].filter(Boolean) as string[];
+  const userIds = Array.from(new Set(allUserIds));
+
   const { data: profilesData } = userIds.length > 0
     ? await supabase
         .from('profiles')
@@ -64,16 +81,6 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
     const displayName = p.full_name?.trim() || p.email || 'Petugas';
     profileMap.set(p.id, displayName);
   }
-
-  // Attachments
-  const { data: attachmentsData } = attendanceIds.length > 0
-    ? await supabase
-        .from('attachments')
-        .select('*')
-        .in('attendance_id', attendanceIds)
-    : { data: [] };
-
-  const attachments = (attachmentsData ?? []) as Attachment[];
 
   // Group attachments by attendance_id
   const attachByAttendance = new Map<string, Attachment[]>();
@@ -149,8 +156,13 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
           partiallyFilled = true;
         }
 
+        // Prioritaskan user_id dari pengunggah foto sebenarnya jika ada
+        const actualOfficerUserId = attList.length > 0
+          ? (attList.find((a) => a.user_id)?.user_id || att?.user_id)
+          : att?.user_id;
+
         // Nama petugas HANYA diambil jika shift pekerjaan ini tidak kosong (sudah ada yang mengisi)
-        const userName = (status !== 'kosong' && att?.user_id) ? (profileMap.get(att.user_id) ?? null) : null;
+        const userName = (status !== 'kosong' && actualOfficerUserId) ? (profileMap.get(actualOfficerUserId) ?? null) : null;
         const aktivitasThumbnails = aktivitas
           .map((a) => signedUrlMap.get(a.storage_path) ?? null)
           .filter((url): url is string => !!url);

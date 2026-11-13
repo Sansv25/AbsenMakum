@@ -109,7 +109,7 @@ export function AttendanceOfficerCard({
     }
   }
 
-  const isOfficerAssigned = Boolean(currentUserId && authorName && authorName !== 'Belum Ada yang Mengisi');
+  const isOfficerAssigned = Boolean(hasFilledData && currentUserId && authorName && authorName !== 'Belum Ada yang Mengisi');
 
   return (
     <>
@@ -152,7 +152,7 @@ export function AttendanceOfficerCard({
                   title="Atur petugas piket untuk shift ini (Khusus Akun Master)"
                 >
                   <UserCheck className="h-3.5 w-3.5" />
-                  <span>{currentUserId ? 'Ubah' : 'Pilih Petugas'}</span>
+                  <span>{isOfficerAssigned ? 'Ubah' : 'Pilih Petugas'}</span>
                 </button>
               )}
             </div>

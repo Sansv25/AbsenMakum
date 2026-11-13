@@ -108,12 +108,22 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
 
   // Data pengisi piket & status kelengkapan
   const hasFilledData = attendance.attachments.length > 0 || Boolean(attendance.note && attendance.note.trim().length > 0);
+
+  // Validasi petugas pengisi:
+  // 1. Jika form piket kosong: Petugas belum ada yang mengisi (effectiveOfficerId = null)
+  // 2. Jika form terisi: Prioritaskan akun yang mengunggah foto lampiran
+  const actualUploaderId = attendance.attachments.length > 0
+    ? (attendance.attachments.find((att) => att.user_id)?.user_id ?? attendance.user_id)
+    : attendance.user_id;
+
+  const effectiveOfficerId = hasFilledData ? actualUploaderId : null;
+
   let authorName = 'Belum Ada yang Mengisi';
-  if (hasFilledData && attendance.user_id) {
+  if (effectiveOfficerId) {
     const { data: authorProfile } = await supabase
       .from('profiles')
       .select('id, full_name, email')
-      .eq('id', attendance.user_id)
+      .eq('id', effectiveOfficerId)
       .maybeSingle();
     authorName = authorProfile?.full_name?.trim() || authorProfile?.email || 'Petugas';
   }
@@ -319,8 +329,8 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
       {/* Status & Petugas Pengisi Piket (Interactive with Master Change Officer option) */}
       <AttendanceOfficerCard
         attendanceId={attendance.id}
-        currentUserId={attendance.user_id}
-        authorName={hasFilledData ? authorName : 'Belum Ada yang Mengisi'}
+        currentUserId={effectiveOfficerId}
+        authorName={authorName}
         hasFilledData={hasFilledData}
         updatedAt={attendance.updated_at}
         jobStatus={jobStatus}
@@ -333,7 +343,10 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
       {/* Main interactive form */}
       <AttendanceFormClient
         key={`${attendance.id}-${jobType}`}
-        attendance={attendance}
+        attendance={{
+          ...attendance,
+          user_id: effectiveOfficerId as unknown as string,
+        }}
         userId={user.id}
         userName={fullName || email || 'Petugas'}
         workDate={date}

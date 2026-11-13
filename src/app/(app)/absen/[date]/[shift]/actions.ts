@@ -22,9 +22,16 @@ export async function saveNoteAction(
 }
 
 export async function claimDeviceAction(
-  attendanceId: string
+  attendanceId: string,
+  date?: string,
+  shift?: string
 ) {
   const result = await claimDeviceForAttendance(attendanceId);
+  if (date && shift) {
+    revalidatePath(`/absen/${date}/${shift}`);
+    revalidatePath('/');
+    revalidatePath('/riwayat');
+  }
   return result;
 }
 

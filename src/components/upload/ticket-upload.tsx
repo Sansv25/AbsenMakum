@@ -127,7 +127,7 @@ export function TicketUpload({
 
       // Pastikan attendance tercatat atas nama akun user yang mengunggah tiket
       try {
-        await claimDeviceAction(attendanceId);
+        await claimDeviceAction(attendanceId, workDate, shiftType);
       } catch {
         // non-blocking
       }

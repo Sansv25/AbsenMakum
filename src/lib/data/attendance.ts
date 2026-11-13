@@ -67,6 +67,31 @@ export async function getAttendanceWithAttachments(
 
   const rawAttachments = (attachmentsData ?? []) as Attachment[];
 
+  // AUDIT & VALIDASI PETUGAS YANG MENGISI:
+  // 1. Cari uploader pertama/utama dari attachments yang ada
+  const actualUploader = rawAttachments.find((a) => a.user_id)?.user_id;
+  const hasFilledData = rawAttachments.length > 0 || Boolean(attendance.note && attendance.note.trim().length > 0);
+
+  // 2. Jika ada foto dari uploader dan user_id di attendances berbeda (dan belum terkunci), sinkronkan ke uploader sebenarnya!
+  if (actualUploader && attendance.user_id !== actualUploader && !attendance.is_locked) {
+    try {
+      await supabase
+        .from('attendances')
+        .update({ user_id: actualUploader, updated_at: new Date().toISOString() })
+        .eq('id', attendance.id);
+    } catch {
+      // non-blocking
+    }
+    attendance.user_id = actualUploader;
+  } else if (!hasFilledData) {
+    // 3. JIKA FORM KOSONG: Petugas belum ada yang mengisi
+    // Di level aplikasi, form kosong memiliki user_id = null agar tidak tercatat atas nama akun siapapun sebelum mengunggah
+    attendance = {
+      ...attendance,
+      user_id: null as unknown as string,
+    };
+  }
+
   // Generate signed URLs in parallel (valid 1 hour)
   const attachmentsWithUrls: AttachmentWithUrl[] = await Promise.all(
     rawAttachments.map(async (att) => {
@@ -246,26 +271,44 @@ export async function claimDeviceForAttendance(
     .eq('id', attendanceId)
     .maybeSingle();
 
-  if (current && !current.is_locked) {
-    // Cek apakah ada bukti lampiran dari user lain
-    const { count: otherAttachCount } = await supabase
-      .from('attachments')
-      .select('*', { count: 'exact', head: true })
-      .eq('attendance_id', attendanceId)
-      .neq('user_id', user.id);
+  if (!current) {
+    return { success: false, error: 'Data absensi tidak ditemukan' };
+  }
 
-    // Jika tidak ada data dari user lain (atau Akun Master),
-    // kunci kepemilikan absensi ke user yang saat ini sedang mengunggah/mengedit!
-    if (isMaster || (otherAttachCount ?? 0) === 0) {
-      if (current.user_id !== user.id) {
-        await supabase
-          .from('attendances')
-          .update({
-            user_id: user.id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', attendanceId);
-      }
+  if (current.is_locked && !isMaster) {
+    return { success: false, error: 'Absensi telah dikunci' };
+  }
+
+  // 1. Coba panggil fungsi RPC claim_attendance_officer jika sudah ada di DB
+  try {
+    const { data: rpcRes, error: rpcErr } = await supabase.rpc('claim_attendance_officer', {
+      target_attendance_id: attendanceId,
+    });
+    if (!rpcErr && rpcRes && rpcRes.success) {
+      return { success: true };
+    }
+  } catch {
+    // fallback ke query langsung
+  }
+
+  // 2. Fallback query langsung jika RPC belum dipasang
+  const { count: otherAttachCount } = await supabase
+    .from('attachments')
+    .select('*', { count: 'exact', head: true })
+    .eq('attendance_id', attendanceId)
+    .neq('user_id', user.id);
+
+  if (isMaster || (otherAttachCount ?? 0) === 0) {
+    const { error: updateErr } = await supabase
+      .from('attendances')
+      .update({
+        user_id: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', attendanceId);
+
+    if (updateErr) {
+      console.warn('Gagal update attendances user_id:', updateErr.message);
     }
   }
 

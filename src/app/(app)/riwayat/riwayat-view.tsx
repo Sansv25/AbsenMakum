@@ -585,7 +585,7 @@ export function RiwayatView({
                         ) : (
                           <p className="text-xs text-gray-400 dark:text-slate-500 mt-1 italic flex items-center gap-1">
                             <User className="h-3.5 w-3.5 text-gray-300 dark:text-slate-600 flex-shrink-0" />
-                            <span>Belum ada petugas</span>
+                            <span>Belum ada yang mengisi</span>
                           </p>
                         )}
                       </div>

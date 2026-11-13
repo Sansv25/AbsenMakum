@@ -263,7 +263,12 @@ export function RekapPiketSection({
       const holidayShifts = new Set<string>();
 
       for (const a of inRangeAttendances) {
-        if (a.user_id !== p.id) continue;
+        const list = attachByAttendance.get(a.id) ?? [];
+        const actualOfficerId = list.length > 0
+          ? (list.find((att) => att.user_id)?.user_id ?? a.user_id)
+          : a.user_id;
+
+        if (actualOfficerId !== p.id) continue;
         if (!isAttendanceDone(a)) continue;
 
         const [y, m, d] = a.work_date.split('-').map(Number);
@@ -309,7 +314,7 @@ export function RekapPiketSection({
     }
 
     return items;
-  }, [activeProfiles, attendances, startDate, endDate, holidaySet, searchQuery, isAttendanceDone]);
+  }, [activeProfiles, attendances, attachByAttendance, startDate, endDate, holidaySet, searchQuery, isAttendanceDone]);
 
   // Total shift akumulasi
   const totalAllWeekdayShifts = useMemo(

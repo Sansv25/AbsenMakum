@@ -65,7 +65,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { data: attachmentsData } = attendanceIds.length > 0
     ? await supabase
         .from('attachments')
-        .select('id, attendance_id, kind')
+        .select('id, attendance_id, kind, user_id')
         .in('attendance_id', attendanceIds)
     : { data: [] };
 
@@ -133,12 +133,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       status = 'sebagian';
     }
 
-    // Nama petugas HANYA diambil jika shift pekerjaan ini tidak kosong
-    const authorName = (status !== 'kosong' && a.user_id) ? (profileMap.get(a.user_id) ?? null) : null;
+    // Tentukan petugas sebenarnya: jika ada foto, utamakan akun yang mengunggah foto
+    const actualOfficerId = list.length > 0
+      ? (list.find((att) => att.user_id)?.user_id ?? a.user_id)
+      : a.user_id;
+
+    // Nama petugas HANYA diambil jika shift pekerjaan ini tidak kosong (form piket terisi)
+    const authorName = (status !== 'kosong' && actualOfficerId) ? (profileMap.get(actualOfficerId) ?? null) : null;
     attendanceMap.set(`${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`, {
       status,
       id: a.id,
-      userId: a.user_id,
+      userId: status !== 'kosong' ? actualOfficerId : null,
       authorName,
     });
   }
@@ -146,7 +151,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // Filter piket akun yang sedang login di bulan ini (HANYA yang benar-benar pernah diisi / status !== 'kosong')
   const myAttendances = attendances
     .filter((a) => {
-      if (a.user_id !== user.id) return false;
+      const list = attachByAttendance.get(a.id) ?? [];
+      const actualOfficerId = list.length > 0
+        ? (list.find((att) => att.user_id)?.user_id ?? a.user_id)
+        : a.user_id;
+      if (actualOfficerId !== user.id) return false;
       const key = `${a.work_date}-${a.shift_type}-${a.job_type || 'marketer'}`;
       const itemStatus = attendanceMap.get(key)?.status ?? 'kosong';
       return itemStatus !== 'kosong';

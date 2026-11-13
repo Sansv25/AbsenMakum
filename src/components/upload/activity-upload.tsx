@@ -128,7 +128,7 @@ export function ActivityUpload({
 
         // Pastikan attendance tercatat atas nama akun user yang mengunggah
         try {
-          await claimDeviceAction(attendanceId);
+          await claimDeviceAction(attendanceId, workDate, shiftType);
         } catch {
           // ignore
         }
