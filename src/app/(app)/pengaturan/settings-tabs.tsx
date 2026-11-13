@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { SlidersHorizontal, Users, HardDrive } from 'lucide-react';
+import { SlidersHorizontal, Users, HardDrive, Mail } from 'lucide-react';
 
 interface SettingsTabsProps {
-  activeTab: 'shifts' | 'users' | 'monitoring';
+  activeTab: 'shifts' | 'users' | 'monitoring' | 'rekapan';
 }
 
 export function SettingsTabs({ activeTab }: SettingsTabsProps) {
@@ -24,6 +24,12 @@ export function SettingsTabs({ activeTab }: SettingsTabsProps) {
       label: 'Monitoring Supabase',
       href: '/pengaturan/monitoring',
       icon: HardDrive,
+    },
+    {
+      id: 'rekapan',
+      label: 'Rekapan Email',
+      href: '/pengaturan/rekapan',
+      icon: Mail,
     },
   ] as const;
 

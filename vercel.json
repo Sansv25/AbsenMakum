@@ -1,0 +1,9 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/send-recap",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
+
