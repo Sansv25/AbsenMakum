@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Clipboard,
   ZoomIn,
+  Eye,
 } from 'lucide-react';
 import { CameraModal } from './camera-modal';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
@@ -30,6 +31,7 @@ interface ActivityUploadProps {
   onSaved: (items?: AttachmentWithUrl[]) => void;
   canEdit?: boolean;
   onOpenLightbox?: (url: string) => void;
+  isPhotoRestricted?: boolean;
 }
 
 export function ActivityUpload({
@@ -42,6 +44,7 @@ export function ActivityUpload({
   onSaved,
   canEdit = true,
   onOpenLightbox,
+  isPhotoRestricted = false,
 }: ActivityUploadProps) {
   const [items, setItems] = useState<AttachmentWithUrl[]>(
     initialAttachments.filter((a) => a.kind === 'aktivitas')
@@ -370,6 +373,7 @@ export function ActivityUpload({
           <div
             key={item.id}
             onClick={() => {
+              if (isPhotoRestricted) return;
               if (item.signedUrl) {
                 if (onOpenLightbox) {
                   onOpenLightbox(item.signedUrl);
@@ -379,15 +383,28 @@ export function ActivityUpload({
                 }
               }
             }}
-            className="group relative aspect-video sm:aspect-square bg-gray-100 dark:bg-slate-800 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-xs cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-all"
-            title="Klik untuk perbesar / Fullscreen (bisa di-zoom)"
+            className={`group relative aspect-video sm:aspect-square bg-gray-100 dark:bg-slate-800 rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-xs transition-all ${
+              isPhotoRestricted
+                ? 'cursor-not-allowed select-none'
+                : 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-500'
+            }`}
+            title={
+              isPhotoRestricted
+                ? 'Petugas hanya bisa lihat absensi di hari itu'
+                : 'Klik untuk perbesar / Fullscreen (bisa di-zoom)'
+            }
           >
             {item.signedUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={item.signedUrl}
                 alt={`Aktivitas ${idx + 1}`}
-                className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
+                style={isPhotoRestricted ? { filter: 'blur(14px)' } : undefined}
+                className={`w-full h-full object-cover ${
+                  isPhotoRestricted
+                    ? 'scale-110 pointer-events-none'
+                    : 'group-hover:scale-[1.02] transition-transform duration-200'
+                }`}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
@@ -395,34 +412,45 @@ export function ActivityUpload({
               </div>
             )}
 
-            {/* Badge urutan foto */}
-            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-white text-[10px] font-semibold z-10">
-              Aktivitas #{idx + 1}
-            </span>
+            {isPhotoRestricted ? (
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center p-2 text-center text-white select-none z-10">
+                <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center mb-1 text-white shadow-sm ring-1 ring-white/30">
+                  <Eye className="h-4 w-4" />
+                </div>
+                <p className="text-[10px] sm:text-[11px] font-semibold text-white drop-shadow leading-tight max-w-[90%]">
+                  Petugas hanya bisa lihat absensi di hari itu
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Badge urutan foto */}
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-white text-[10px] font-semibold z-10">
+                  Aktivitas #{idx + 1}
+                </span>
 
-            {/* Quick action buttons */}
-            <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-              {item.signedUrl && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onOpenLightbox) {
-                      onOpenLightbox(item.signedUrl!);
-                    } else {
-                      setLightboxIndex(idx);
-                      setLightboxOpen(true);
-                    }
-                  }}
-                  className="p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-white transition-colors"
-                  title="Perbesar / Fullscreen"
-                  aria-label="Perbesar / Fullscreen"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </button>
-              )}
+                {/* Quick action buttons */}
+                <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                  {item.signedUrl && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenLightbox) {
+                          onOpenLightbox(item.signedUrl!);
+                        } else {
+                          setLightboxIndex(idx);
+                          setLightboxOpen(true);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg bg-black/60 hover:bg-black/90 text-white transition-colors"
+                      title="Perbesar / Fullscreen"
+                      aria-label="Perbesar / Fullscreen"
+                    >
+                      <ZoomIn className="h-3.5 w-3.5" />
+                    </button>
+                  )}
 
-              {canEdit && (
+                  {canEdit && (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -450,7 +478,9 @@ export function ActivityUpload({
                 <span>Klik untuk Zoom</span>
               </span>
             </div>
-          </div>
+          </>
+        )}
+      </div>
         ))}
 
         {/* Placeholders for unfilled required slots (Slot 1 & Slot 2) */}

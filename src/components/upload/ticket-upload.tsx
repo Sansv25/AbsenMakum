@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Upload, Trash2, ArrowUp, ArrowDown, Clipboard, Loader2, CheckCircle2, AlertTriangle, ZoomIn } from 'lucide-react';
+import { Upload, Trash2, ArrowUp, ArrowDown, Clipboard, Loader2, CheckCircle2, AlertTriangle, ZoomIn, Eye } from 'lucide-react';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { compressImage, isImageFile } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
@@ -18,6 +18,7 @@ interface TicketUploadProps {
   initialAttachments: AttachmentWithUrl[];
   onSaved: () => void;
   canEdit?: boolean;
+  isPhotoRestricted?: boolean;
 }
 
 export function TicketUpload({
@@ -28,6 +29,7 @@ export function TicketUpload({
   initialAttachments,
   onSaved,
   canEdit = true,
+  isPhotoRestricted = false,
 }: TicketUploadProps) {
   const [tickets, setTickets] = useState<AttachmentWithUrl[]>(
     initialAttachments.sort((a, b) => a.sort_order - b.sort_order)
@@ -291,40 +293,63 @@ export function TicketUpload({
 
               <div
                 onClick={() => {
+                  if (isPhotoRestricted) return;
                   if (ticket.signedUrl) {
                     setLightboxIndex(index);
                     setLightboxOpen(true);
                   }
                 }}
-                className="w-16 h-12 rounded-lg overflow-hidden bg-black/10 dark:bg-black/40 flex-shrink-0 relative cursor-pointer group hover:ring-2 hover:ring-blue-500 transition-all"
-                title="Klik untuk Zoom / Fullscreen"
+                className={`w-16 h-12 rounded-lg overflow-hidden bg-black/10 dark:bg-black/40 flex-shrink-0 relative transition-all ${
+                  isPhotoRestricted
+                    ? 'cursor-not-allowed select-none'
+                    : 'cursor-pointer group hover:ring-2 hover:ring-blue-500'
+                }`}
+                title={
+                  isPhotoRestricted
+                    ? 'Petugas hanya bisa lihat absensi di hari itu'
+                    : 'Klik untuk Zoom / Fullscreen'
+                }
               >
                 {ticket.signedUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={ticket.signedUrl}
                     alt={`Tiket #${index + 1}`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    style={isPhotoRestricted ? { filter: 'blur(10px)' } : undefined}
+                    className={`w-full h-full object-cover ${
+                      isPhotoRestricted ? 'scale-110 pointer-events-none' : 'group-hover:scale-105 transition-transform'
+                    }`}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 dark:text-slate-500">
                     Foto
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
-                  <ZoomIn className="h-4 w-4" />
-                </div>
+                {isPhotoRestricted ? (
+                  <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center text-white">
+                    <Eye className="h-4 w-4" />
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                    <ZoomIn className="h-4 w-4" />
+                  </div>
+                )}
               </div>
 
               <div
                 onClick={() => {
+                  if (isPhotoRestricted) return;
                   if (ticket.signedUrl) {
                     setLightboxIndex(index);
                     setLightboxOpen(true);
                   }
                 }}
-                className="flex-1 min-w-0 cursor-pointer"
-                title="Klik untuk Zoom / Fullscreen"
+                className={`flex-1 min-w-0 ${isPhotoRestricted ? 'cursor-default' : 'cursor-pointer'}`}
+                title={
+                  isPhotoRestricted
+                    ? 'Petugas hanya bisa lihat absensi di hari itu'
+                    : 'Klik untuk Zoom / Fullscreen'
+                }
               >
                 <p className="text-xs font-medium text-gray-800 dark:text-slate-200 truncate hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                   Ticket #{index + 1}

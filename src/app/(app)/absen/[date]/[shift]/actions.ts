@@ -10,6 +10,7 @@ import {
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserProfile } from '@/lib/data/profile';
+import { todayWITA } from '@/lib/dates';
 import type { PdfAttendanceItem } from '@/lib/pdf';
 import type { ShiftType, JobType } from '@/lib/supabase/types';
 
@@ -80,6 +81,15 @@ export async function getSingleFormExportData(attendanceId: string): Promise<{
 
   if (attError || !att) {
     return { error: attError?.message || 'Data absensi tidak ditemukan.' };
+  }
+
+  // Security check: Petugas hanya bisa lihat absensi di hari itu
+  const { isMaster } = await getCurrentUserProfile();
+  const today = todayWITA();
+  if (!isMaster && att.work_date < today) {
+    return {
+      error: 'Petugas hanya bisa lihat absensi di hari itu. Foto absen kemarin tidak dapat diekspor.',
+    };
   }
 
   // Fetch author profile

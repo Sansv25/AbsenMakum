@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserProfile } from '@/lib/data/profile';
 import { todayWITA, getDatesInMonth, toYearMonth } from '@/lib/dates';
 import { getRequiredShifts, JOB_TYPES, type JobType } from '@/lib/shifts';
 import { RiwayatView, type RiwayatShiftGroup, type RiwayatJobDetail } from './riwayat-view';
@@ -14,6 +15,9 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
+
+  const profile = await getCurrentUserProfile();
+  const isMaster = profile.isMaster;
 
   const today = todayWITA();
   const params = await searchParams;
@@ -212,6 +216,8 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
         prevMonth={prevMonthStr}
         nextMonth={nextMonthStr}
         currentUserName={profileMap.get(user.id) ?? user.email ?? ''}
+        isMaster={isMaster}
+        today={today}
       />
     </div>
   );

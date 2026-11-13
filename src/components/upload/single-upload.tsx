@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { Camera, Upload, Trash2, Loader2, CheckCircle2, Lock, ZoomIn, HardDrive } from 'lucide-react';
+import { Camera, Upload, Trash2, Loader2, CheckCircle2, Lock, ZoomIn, HardDrive, Eye } from 'lucide-react';
 import { CameraModal } from './camera-modal';
 import { ImageLightbox, formatFileSize, fetchImageMeta } from '@/components/ui/image-lightbox';
 import { compressImage, isImageFile } from '@/lib/image';
@@ -23,6 +23,7 @@ interface SingleUploadProps {
   onSaved: (attachment?: AttachmentWithUrl | null) => void;
   canEdit?: boolean;
   onOpenLightbox?: (url: string) => void;
+  isPhotoRestricted?: boolean;
 }
 
 export function SingleUpload({
@@ -37,6 +38,7 @@ export function SingleUpload({
   onSaved,
   canEdit = true,
   onOpenLightbox,
+  isPhotoRestricted = false,
 }: SingleUploadProps) {
   const [attachment, setAttachment] = useState<AttachmentWithUrl | null>(
     initialAttachment ?? null
@@ -221,6 +223,7 @@ export function SingleUpload({
         <div className="space-y-3">
           <div
             onClick={() => {
+              if (isPhotoRestricted) return;
               if (attachment?.signedUrl) {
                 if (onOpenLightbox) {
                   onOpenLightbox(attachment.signedUrl);
@@ -229,30 +232,56 @@ export function SingleUpload({
                 }
               }
             }}
-            className="group relative rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-black/5 dark:bg-black/30 aspect-[4/3] flex items-center justify-center cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-xs"
-            title="Klik untuk memperbesar / Fullscreen (bisa di-zoom)"
+            className={`group relative rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-black/5 dark:bg-black/30 aspect-[4/3] flex items-center justify-center transition-all shadow-xs ${
+              isPhotoRestricted
+                ? 'cursor-not-allowed select-none'
+                : 'cursor-pointer hover:border-blue-400 dark:hover:border-blue-500'
+            }`}
+            title={
+              isPhotoRestricted
+                ? 'Petugas hanya bisa lihat absensi di hari itu'
+                : 'Klik untuk memperbesar / Fullscreen (bisa di-zoom)'
+            }
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={attachment.signedUrl}
               alt={title}
-              className="w-full h-full object-contain group-hover:scale-[1.01] transition-transform duration-200"
+              style={isPhotoRestricted ? { filter: 'blur(14px)' } : undefined}
+              className={`w-full h-full object-contain ${
+                isPhotoRestricted
+                  ? 'scale-110 pointer-events-none'
+                  : 'group-hover:scale-[1.01] transition-transform duration-200'
+              }`}
             />
-            {/* Size pill indicator */}
-            {resolvedSize && (
-              <div className="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur-xs text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-md pointer-events-none">
-                <HardDrive className="h-3 w-3" />
-                <span>{resolvedSize}</span>
+            {isPhotoRestricted ? (
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center p-3 text-center text-white select-none z-10">
+                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center mb-1.5 text-white shadow-sm ring-1 ring-white/30">
+                  <Eye className="h-5 w-5" />
+                </div>
+                <p className="text-xs sm:text-sm font-semibold text-white drop-shadow max-w-[85%] leading-snug">
+                  Petugas hanya bisa lihat absensi di hari itu
+                </p>
               </div>
+            ) : (
+              <>
+                {/* Size pill indicator */}
+                {resolvedSize && (
+                  <div className="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur-xs text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-md pointer-events-none">
+                    <HardDrive className="h-3 w-3" />
+                    <span>{resolvedSize}</span>
+                  </div>
+                )}
+                {/* Zoom pill indicator */}
+                <div className="absolute bottom-2.5 right-2.5 bg-black/65 hover:bg-black/85 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-md pointer-events-none transition-colors">
+                  <ZoomIn className="h-3.5 w-3.5" />
+                  <span>Perbesar / Fullscreen</span>
+                </div>
+              </>
             )}
-            {/* Zoom pill indicator */}
-            <div className="absolute bottom-2.5 right-2.5 bg-black/65 hover:bg-black/85 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-md pointer-events-none transition-colors">
-              <ZoomIn className="h-3.5 w-3.5" />
-              <span>Perbesar / Fullscreen</span>
-            </div>
           </div>
 
-          {canEdit ? (
+          {canEdit && !isPhotoRestricted ? (
             <div className="flex items-center gap-2">
               <button
                 type="button"

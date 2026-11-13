@@ -17,6 +17,7 @@ import {
   Search,
   User,
   ZoomIn,
+  Eye,
 } from 'lucide-react';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
@@ -52,6 +53,8 @@ interface RiwayatViewProps {
   prevMonth: string;
   nextMonth: string;
   currentUserName?: string;
+  isMaster?: boolean;
+  today: string;
 }
 
 export function RiwayatView({
@@ -60,6 +63,8 @@ export function RiwayatView({
   prevMonth,
   nextMonth,
   currentUserName,
+  isMaster = false,
+  today,
 }: RiwayatViewProps) {
   const [shiftFilter, setShiftFilter] = useState<'all' | ShiftType>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ShiftStatus>('all');
@@ -81,7 +86,13 @@ export function RiwayatView({
     };
   }, [drawerShift]);
 
+  // Aturan akses foto: Petugas hanya bisa melihat foto absensi di hari itu (hari ini).
+  // Foto absen kemarin / hari-hari sebelumnya diburamkan 70% dengan ikon mata.
+  const isPastShift = drawerShift ? drawerShift.work_date < today : false;
+  const isPhotoRestricted = !isMaster && isPastShift;
+
   function openJobLightbox(job: RiwayatJobDetail, targetUrl: string) {
+    if (isPhotoRestricted) return;
     const slides: { src: string; title: string }[] = [];
     if (job.mulaiThumbnail) {
       slides.push({
@@ -521,6 +532,20 @@ export function RiwayatView({
 
             {/* Drawer Body (3 Posisi Pekerjaan) */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {isPhotoRestricted && (
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-300 text-xs shadow-xs">
+                  <div className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5">
+                    <Eye className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="font-semibold block text-amber-900 dark:text-amber-200">Aturan Akses Foto Petugas</span>
+                    <span className="text-[11px] text-amber-800 dark:text-amber-400 leading-snug">
+                      Petugas hanya bisa lihat absensi di hari itu. Foto absen kemarin atau sebelumnya diburamkan 70%.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <p className="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                 Dokumentasi 3 Posisi Pekerjaan
               </p>
@@ -588,15 +613,40 @@ export function RiwayatView({
                         {job?.hasMulai ? (
                           job?.mulaiThumbnail ? (
                             <div
-                              onClick={() => openJobLightbox(job, job.mulaiThumbnail!)}
-                              className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700 cursor-pointer group hover:border-blue-400 relative"
-                              title="Klik untuk Zoom / Fullscreen"
+                              onClick={isPhotoRestricted ? undefined : () => openJobLightbox(job, job.mulaiThumbnail!)}
+                              className={`w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700 relative ${
+                                isPhotoRestricted ? 'cursor-not-allowed select-none' : 'cursor-pointer group hover:border-blue-400'
+                              }`}
+                              title={isPhotoRestricted ? 'Petugas hanya bisa lihat absensi di hari itu' : 'Klik untuk Zoom / Fullscreen'}
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={job.mulaiThumbnail} alt="Bukti Mulai" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
-                                <ZoomIn className="h-4 w-4" />
-                              </div>
+                              <img
+                                src={job.mulaiThumbnail}
+                                alt="Bukti Mulai"
+                                style={isPhotoRestricted ? { filter: 'blur(14px)' } : undefined}
+                                className={`w-full h-full object-cover ${
+                                  isPhotoRestricted ? 'scale-110 pointer-events-none' : 'group-hover:scale-105 transition-transform'
+                                }`}
+                              />
+                              {isPhotoRestricted ? (
+                                <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center p-2 text-center text-white select-none">
+                                  <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center mb-1 text-white shadow-sm ring-1 ring-white/30">
+                                    <Eye className="h-4 w-4" />
+                                  </div>
+                                  <p className="text-[10px] sm:text-[11px] font-semibold text-white leading-tight drop-shadow max-w-[90%]">
+                                    Petugas hanya bisa lihat absensi di hari itu
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                  <ZoomIn className="h-4 w-4" />
+                                </div>
+                              )}
+                            </div>
+                          ) : isPhotoRestricted ? (
+                            <div className="w-full aspect-video rounded-lg bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 flex flex-col items-center justify-center text-xs text-gray-500 dark:text-slate-400 p-2 text-center select-none">
+                              <Eye className="h-5 w-5 mb-1 text-gray-400 dark:text-slate-500" />
+                              <span className="text-[10px] font-semibold leading-tight max-w-[90%]">Petugas hanya bisa lihat absensi di hari itu</span>
                             </div>
                           ) : (
                             <div className="w-full aspect-video rounded-lg bg-green-50/70 dark:bg-green-950/40 border border-green-200 dark:border-green-800 flex flex-col items-center justify-center text-xs text-green-700 dark:text-green-400 font-medium p-2">
@@ -624,15 +674,40 @@ export function RiwayatView({
                         {job?.hasSelesai ? (
                           job?.selesaiThumbnail ? (
                             <div
-                              onClick={() => openJobLightbox(job, job.selesaiThumbnail!)}
-                              className="w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700 cursor-pointer group hover:border-blue-400 relative"
-                              title="Klik untuk Zoom / Fullscreen"
+                              onClick={isPhotoRestricted ? undefined : () => openJobLightbox(job, job.selesaiThumbnail!)}
+                              className={`w-full aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-sm border border-gray-200 dark:border-slate-700 relative ${
+                                isPhotoRestricted ? 'cursor-not-allowed select-none' : 'cursor-pointer group hover:border-blue-400'
+                              }`}
+                              title={isPhotoRestricted ? 'Petugas hanya bisa lihat absensi di hari itu' : 'Klik untuk Zoom / Fullscreen'}
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={job.selesaiThumbnail} alt="Bukti Selesai" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
-                                <ZoomIn className="h-4 w-4" />
-                              </div>
+                              <img
+                                src={job.selesaiThumbnail}
+                                alt="Bukti Selesai"
+                                style={isPhotoRestricted ? { filter: 'blur(14px)' } : undefined}
+                                className={`w-full h-full object-cover ${
+                                  isPhotoRestricted ? 'scale-110 pointer-events-none' : 'group-hover:scale-105 transition-transform'
+                                }`}
+                              />
+                              {isPhotoRestricted ? (
+                                <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center p-2 text-center text-white select-none">
+                                  <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center mb-1 text-white shadow-sm ring-1 ring-white/30">
+                                    <Eye className="h-4 w-4" />
+                                  </div>
+                                  <p className="text-[10px] sm:text-[11px] font-semibold text-white leading-tight drop-shadow max-w-[90%]">
+                                    Petugas hanya bisa lihat absensi di hari itu
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                  <ZoomIn className="h-4 w-4" />
+                                </div>
+                              )}
+                            </div>
+                          ) : isPhotoRestricted ? (
+                            <div className="w-full aspect-video rounded-lg bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 flex flex-col items-center justify-center text-xs text-gray-500 dark:text-slate-400 p-2 text-center select-none">
+                              <Eye className="h-5 w-5 mb-1 text-gray-400 dark:text-slate-500" />
+                              <span className="text-[10px] font-semibold leading-tight max-w-[90%]">Petugas hanya bisa lihat absensi di hari itu</span>
                             </div>
                           ) : (
                             <div className="w-full aspect-video rounded-lg bg-green-50/70 dark:bg-green-950/40 border border-green-200 dark:border-green-800 flex flex-col items-center justify-center text-xs text-green-700 dark:text-green-400 font-medium p-2">
@@ -674,18 +749,40 @@ export function RiwayatView({
                           {job.aktivitasThumbnails.map((url, aIdx) => (
                             <div
                               key={aIdx}
-                              onClick={() => openJobLightbox(job, url)}
-                              className="relative aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-xs border border-gray-200 dark:border-slate-700 cursor-pointer group hover:border-blue-400"
-                              title="Klik untuk Zoom / Fullscreen"
+                              onClick={isPhotoRestricted ? undefined : () => openJobLightbox(job, url)}
+                              className={`relative aspect-video rounded-lg overflow-hidden bg-black/10 dark:bg-black/30 shadow-xs border border-gray-200 dark:border-slate-700 ${
+                                isPhotoRestricted ? 'cursor-not-allowed select-none' : 'cursor-pointer group hover:border-blue-400'
+                              }`}
+                              title={isPhotoRestricted ? 'Petugas hanya bisa lihat absensi di hari itu' : 'Klik untuk Zoom / Fullscreen'}
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={url} alt={`Aktivitas ${aIdx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
-                                <ZoomIn className="h-4 w-4" />
-                              </div>
-                              <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] text-white font-medium">
-                                #{aIdx + 1}
-                              </span>
+                              <img
+                                src={url}
+                                alt={`Aktivitas ${aIdx + 1}`}
+                                style={isPhotoRestricted ? { filter: 'blur(14px)' } : undefined}
+                                className={`w-full h-full object-cover ${
+                                  isPhotoRestricted ? 'scale-110 pointer-events-none' : 'group-hover:scale-105 transition-transform'
+                                }`}
+                              />
+                              {isPhotoRestricted ? (
+                                <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] flex flex-col items-center justify-center p-1.5 text-center text-white select-none">
+                                  <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center mb-1 text-white shadow-sm ring-1 ring-white/30">
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </div>
+                                  <p className="text-[9px] sm:text-[10px] font-semibold text-white drop-shadow leading-tight max-w-[95%]">
+                                    Petugas hanya bisa lihat absensi di hari itu
+                                  </p>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
+                                    <ZoomIn className="h-4 w-4" />
+                                  </div>
+                                  <span className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[9px] text-white font-medium">
+                                    #{aIdx + 1}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           ))}
                         </div>

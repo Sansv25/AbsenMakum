@@ -15,6 +15,7 @@ import {
   Loader2,
   ShieldAlert,
   FileDown,
+  Eye,
 } from 'lucide-react';
 import { isWithin48Hours } from '@/lib/dates';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
@@ -71,6 +72,10 @@ export function AttendanceFormClient({
   const hasExistingData =
     attendance.attachments.length > 0 ||
     Boolean(attendance.note && attendance.note.trim().length > 0);
+
+  // Aturan baru: Petugas hanya bisa lihat absensi di hari itu. Foto absen kemarin atau sebelumnya diburamkan 70%.
+  const isPastShift = workDate < today;
+  const isPhotoRestricted = !isMaster && isPastShift;
 
   let canEdit = true;
   let lockReason: 'locked' | 'expired' | 'future' | 'other_user' | null = null;
@@ -161,6 +166,7 @@ export function AttendanceFormClient({
   });
 
   function handleOpenLightbox(url: string) {
+    if (isPhotoRestricted) return;
     const idx = unifiedSlides.findIndex((s) => s.src === url);
     if (idx !== -1) {
       setLightboxIndex(idx);
@@ -196,6 +202,10 @@ export function AttendanceFormClient({
   }
 
   async function handleExportForm() {
+    if (isPhotoRestricted) {
+      showAlert('Akses Dibatasi', 'Petugas hanya dapat melihat dan mengekspor absensi di hari itu.', 'warning');
+      return;
+    }
     try {
       setIsExporting(true);
       setExportMsg('Mengambil data form...');
@@ -248,6 +258,20 @@ export function AttendanceFormClient({
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {isPhotoRestricted && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex items-start gap-3 text-amber-900 dark:text-amber-300 text-xs shadow-sm">
+          <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5">
+            <Eye className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-bold text-amber-900 dark:text-amber-200 text-sm">Privasi Foto Absensi Aktif</p>
+            <p className="text-amber-800 dark:text-amber-300 mt-0.5 leading-relaxed">
+              Petugas hanya bisa lihat absensi di hari itu. Foto absen kemarin atau sebelumnya diburamkan 70% dan tidak dapat diperbesar.
+            </p>
+          </div>
         </div>
       )}
 
@@ -317,6 +341,7 @@ export function AttendanceFormClient({
         onSaved={handleMulaiSaved}
         canEdit={canEdit}
         onOpenLightbox={handleOpenLightbox}
+        isPhotoRestricted={isPhotoRestricted}
       />
 
       {/* 3. Bukti Piket 2: Selesai Kerja */}
@@ -333,6 +358,7 @@ export function AttendanceFormClient({
         onSaved={handleSelesaiSaved}
         canEdit={canEdit}
         onOpenLightbox={handleOpenLightbox}
+        isPhotoRestricted={isPhotoRestricted}
       />
 
       {/* 4. Bukti Aktivitas Piket (Minimal 2 Gambar) */}
@@ -347,6 +373,7 @@ export function AttendanceFormClient({
         onSaved={handleAktivitasSaved}
         canEdit={canEdit}
         onOpenLightbox={handleOpenLightbox}
+        isPhotoRestricted={isPhotoRestricted}
       />
 
       {/* 5. Catatan Piket */}

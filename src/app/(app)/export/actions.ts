@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserProfile } from '@/lib/data/profile';
+import { todayWITA } from '@/lib/dates';
 import type { ShiftType } from '@/lib/supabase/types';
 import type { PdfAttendanceItem } from '@/lib/pdf';
 
@@ -24,6 +26,13 @@ export async function fetchExportData(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: [], error: 'Tidak terautentikasi' };
+
+  // Security check: Petugas hanya dapat melihat dan mengekspor data absensi di hari itu
+  const { isMaster } = await getCurrentUserProfile();
+  const today = todayWITA();
+  if (!isMaster && (startDate < today || endDate < today)) {
+    return { data: [], error: 'Petugas hanya dapat melihat dan mengekspor data absensi di hari itu (hari ini).' };
+  }
 
   // Fetch attendances in range
   const { data: attendances, error: attError } = await supabase
