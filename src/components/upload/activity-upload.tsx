@@ -78,6 +78,8 @@ export function ActivityUpload({
       const supabase = createClient();
       let currentOrder = items.length;
 
+      const newItems: AttachmentWithUrl[] = [];
+
       for (let i = 0; i < validFiles.length; i++) {
         const file = validFiles[i];
 
@@ -97,7 +99,7 @@ export function ActivityUpload({
 
         if (uploadError) throw new Error(uploadError.message);
 
-        const { error: dbError } = await supabase
+        const { data: inserted, error: dbError } = await supabase
           .from('attachments')
           .insert({
             attendance_id: attendanceId,
@@ -111,6 +113,16 @@ export function ActivityUpload({
 
         if (dbError) throw new Error(dbError.message);
 
+        const { data: signed } = await supabase.storage
+          .from('evidence')
+          .createSignedUrl(storagePath, 3600);
+
+        newItems.push({
+          ...inserted,
+          signedUrl: signed?.signedUrl ?? null,
+          fileSize: compressed.size,
+        });
+
         // Pastikan attendance tercatat atas nama akun user yang mengunggah
         try {
           await claimDeviceAction(attendanceId);
@@ -120,7 +132,9 @@ export function ActivityUpload({
       }
 
       showToast('Foto aktivitas berhasil diunggah!', 'success');
-      onSaved();
+      const allCurrent = [...items, ...newItems];
+      setItems(allCurrent);
+      onSaved(allCurrent);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mengunggah foto.';
       showAlert('Gagal Unggah', msg, 'error');
@@ -543,6 +557,7 @@ export function ActivityUpload({
             .map((x, i) => ({
               src: x.signedUrl!,
               title: `Foto Aktivitas #${i + 1}`,
+              fileSize: x.fileSize ?? undefined,
             }))}
         />
       )}

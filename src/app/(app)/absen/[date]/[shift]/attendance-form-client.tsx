@@ -130,12 +130,13 @@ export function AttendanceFormClient({
   }
 
   // Galeri foto terpadu seluruh form: Mulai -> Selesai -> Aktivitas #1, #2, dst.
-  const unifiedSlides: { src: string; title: string }[] = [];
+  const unifiedSlides: { src: string; title: string; fileSize?: number }[] = [];
 
   if (mulaiAttachment?.signedUrl) {
     unifiedSlides.push({
       src: mulaiAttachment.signedUrl,
       title: '1. Bukti Piket — Mulai Kerja',
+      fileSize: mulaiAttachment.fileSize ?? undefined,
     });
   }
 
@@ -143,6 +144,7 @@ export function AttendanceFormClient({
     unifiedSlides.push({
       src: selesaiAttachment.signedUrl,
       title: '2. Bukti Piket — Selesai Kerja',
+      fileSize: selesaiAttachment.fileSize ?? undefined,
     });
   }
 
@@ -154,6 +156,7 @@ export function AttendanceFormClient({
     unifiedSlides.push({
       src: a.signedUrl!,
       title: `3. Bukti Aktivitas Piket #${idx + 1}`,
+      fileSize: a.fileSize ?? undefined,
     });
   });
 

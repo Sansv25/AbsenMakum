@@ -119,6 +119,7 @@ export function TicketUpload({
         newItems.push({
           ...inserted,
           signedUrl: signed?.signedUrl ?? null,
+          fileSize: compressed.size,
         });
       }
 
@@ -378,6 +379,7 @@ export function TicketUpload({
           .map((t, idx) => ({
             src: t.signedUrl!,
             title: `Ticket #${idx + 1}`,
+            fileSize: t.fileSize ?? undefined,
           }))}
       />
     </div>

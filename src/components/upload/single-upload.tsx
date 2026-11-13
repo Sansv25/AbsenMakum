@@ -1,9 +1,9 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { Camera, Upload, Trash2, Loader2, CheckCircle2, Lock, ZoomIn } from 'lucide-react';
+import { Camera, Upload, Trash2, Loader2, CheckCircle2, Lock, ZoomIn, HardDrive } from 'lucide-react';
 import { CameraModal } from './camera-modal';
-import { ImageLightbox } from '@/components/ui/image-lightbox';
+import { ImageLightbox, formatFileSize, fetchImageMeta } from '@/components/ui/image-lightbox';
 import { compressImage, isImageFile } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
@@ -45,6 +45,28 @@ export function SingleUpload({
   useEffect(() => {
     setAttachment(initialAttachment ?? null);
   }, [initialAttachment, attendanceId]);
+
+  const [resolvedSize, setResolvedSize] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (attachment?.fileSize) {
+      setResolvedSize(formatFileSize(attachment.fileSize));
+      return;
+    }
+    if (attachment?.signedUrl) {
+      let active = true;
+      fetchImageMeta(attachment.signedUrl).then((meta) => {
+        if (active && meta.sizeText) {
+          setResolvedSize(meta.sizeText);
+        }
+      });
+      return () => {
+        active = false;
+      };
+    } else {
+      setResolvedSize(null);
+    }
+  }, [attachment?.signedUrl, attachment?.fileSize]);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -121,9 +143,10 @@ export function SingleUpload({
         .from('evidence')
         .createSignedUrl(storagePath, 3600);
 
-      const newAttachment = {
+      const newAttachment: AttachmentWithUrl = {
         ...inserted,
         signedUrl: signed?.signedUrl ?? null,
+        fileSize: compressed.size,
       };
 
       setAttachment(newAttachment);
@@ -215,6 +238,13 @@ export function SingleUpload({
               alt={title}
               className="w-full h-full object-contain group-hover:scale-[1.01] transition-transform duration-200"
             />
+            {/* Size pill indicator */}
+            {resolvedSize && (
+              <div className="absolute top-2.5 left-2.5 bg-black/75 backdrop-blur-xs text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-md pointer-events-none">
+                <HardDrive className="h-3 w-3" />
+                <span>{resolvedSize}</span>
+              </div>
+            )}
             {/* Zoom pill indicator */}
             <div className="absolute bottom-2.5 right-2.5 bg-black/65 hover:bg-black/85 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-md pointer-events-none transition-colors">
               <ZoomIn className="h-3.5 w-3.5" />
@@ -321,7 +351,11 @@ export function SingleUpload({
         <ImageLightbox
           open={lightboxOpen}
           close={() => setLightboxOpen(false)}
-          slides={attachment?.signedUrl ? [{ src: attachment.signedUrl, title }] : []}
+          slides={
+            attachment?.signedUrl
+              ? [{ src: attachment.signedUrl, title, fileSize: attachment.fileSize ?? undefined }]
+              : []
+          }
         />
       )}
     </div>

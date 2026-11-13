@@ -4,6 +4,7 @@ import type { Attendance, Attachment, ShiftType, JobType, AttachmentKind } from 
 
 export interface AttachmentWithUrl extends Attachment {
   signedUrl: string | null;
+  fileSize?: number | null;
 }
 
 export interface AttendanceDetail extends Attendance {
