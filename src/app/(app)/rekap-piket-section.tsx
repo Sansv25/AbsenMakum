@@ -784,181 +784,197 @@ export function RekapPiketSection({
 
               {/* Vertical Stacked Column Chart (Diagram Batang Bertumpuk Bawah ke Atas) */}
               <div className="w-full max-w-full min-w-0 bg-gray-50/70 dark:bg-slate-800/40 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-slate-800 overflow-x-auto overscroll-x-contain touch-pan-x">
-                <div className="min-w-[500px]">
-                  {recapItems.length === 0 ? (
-                    <p className="text-xs text-center py-6 text-gray-500">Tidak ada data petugas.</p>
-                  ) : (
-                    (() => {
-                      const maxVal = Math.max(...recapItems.map((r) => r.totalShiftsCount), 4);
-                      const tickStep = maxVal <= 6 ? 2 : maxVal <= 12 ? 3 : Math.ceil(maxVal / 4);
-                      const yMax = Math.ceil(maxVal / tickStep) * tickStep;
-                      const ticks: number[] = [];
-                      for (let t = 0; t <= yMax; t += tickStep) {
-                        ticks.push(t);
-                      }
+                {recapItems.length === 0 ? (
+                  <p className="text-xs text-center py-6 text-gray-500">Tidak ada data petugas.</p>
+                ) : (
+                  (() => {
+                    const maxVal = Math.max(...recapItems.map((r) => r.totalShiftsCount), 4);
+                    const tickStep = maxVal <= 6 ? 2 : maxVal <= 12 ? 3 : Math.ceil(maxVal / 4);
+                    const yMax = Math.ceil(maxVal / tickStep) * tickStep;
+                    const ticks: number[] = [];
+                    for (let t = 0; t <= yMax; t += tickStep) {
+                      ticks.push(t);
+                    }
 
-                      const chartH = 220;
-                      const padL = 35;
-                      const padR = 20;
-                      const padT = 30;
-                      const padB = 45;
-                      const plotW = Math.max(500, recapItems.length * 80 + 50) - padL - padR;
-                      const plotH = chartH - padT - padB;
-                      const totalW = padL + plotW + padR;
+                    const chartH = 240;
+                    const padL = 40;
+                    const padR = 25;
+                    const padT = 34;
+                    const padB = 52;
+                    // Berikan lebar per kolom yang lega (80px) agar batang dan label tidak dipaksa desak-desakan
+                    const colWidth = 80;
+                    const plotW = Math.max(recapItems.length * colWidth, 520);
+                    const plotH = chartH - padT - padB;
+                    const totalW = padL + plotW + padR;
 
-                      const colWidth = plotW / Math.max(recapItems.length, 1);
-                      const barW = Math.min(Math.max(colWidth * 0.42, 22), 34);
+                    const barW = 32;
+                    const baselineY = padT + plotH;
 
-                      const baselineY = padT + plotH;
-
-                      return (
-                        <svg viewBox={`0 0 ${totalW} ${chartH}`} className="w-full h-56 select-none">
-                          {/* Gridlines */}
-                          {ticks.map((tick) => {
-                            const y = padT + plotH - (tick / yMax) * plotH;
-                            return (
-                              <g key={tick}>
-                                <line
-                                  x1={padL}
-                                  y1={y}
-                                  x2={totalW - padR}
-                                  y2={y}
-                                  stroke="currentColor"
-                                  className="text-gray-200 dark:text-slate-700"
-                                  strokeDasharray="3 3"
-                                />
-                                <text
-                                  x={padL - 6}
-                                  y={y + 3}
-                                  textAnchor="end"
-                                  className="text-[9px] fill-gray-400 dark:fill-slate-500 font-medium"
-                                >
-                                  {tick}
-                                </text>
-                              </g>
-                            );
-                          })}
-
-                          {/* Baseline */}
-                          <line
-                            x1={padL}
-                            y1={baselineY}
-                            x2={totalW - padR}
-                            y2={baselineY}
-                            stroke="currentColor"
-                            className="text-gray-300 dark:text-slate-600"
-                            strokeWidth="1.5"
-                          />
-
-                          {/* Stacked Bars for each Officer */}
-                          {recapItems.map((r, i) => {
-                            const groupCenterX = padL + i * colWidth + colWidth / 2;
-                            const barX = groupCenterX - barW / 2;
-
-                            const weekday = r.weekdayShiftsCount;
-                            const holiday = r.holidayShiftsCount;
-                            const total = r.totalShiftsCount;
-
-                            const blueH = (weekday / yMax) * plotH;
-                            const yellowH = (holiday / yMax) * plotH;
-                            const totalH = blueH + yellowH;
-
-                            const blueY = baselineY - blueH;
-                            const yellowY = baselineY - totalH;
-
-                            const shortName = r.name.split(' ')[0] || r.name;
-
-                            return (
-                              <g key={r.id} className="group">
-                                {/* Total badge on top of stacked bar */}
-                                <text
-                                  x={groupCenterX}
-                                  y={total > 0 ? yellowY - 8 : baselineY - 8}
-                                  textAnchor="middle"
-                                  className={`text-[10px] font-bold ${
-                                    total > 0
-                                      ? 'fill-emerald-600 dark:fill-emerald-400'
-                                      : 'fill-gray-400 dark:fill-slate-500 font-normal'
-                                  }`}
-                                >
-                                  {total} Total
-                                </text>
-
-                                {/* Bagian Bawah: Hari Biasa (Biru) */}
-                                {weekday > 0 && (
-                                  <rect
-                                    x={barX}
-                                    y={blueY}
-                                    width={barW}
-                                    height={blueH}
-                                    rx={holiday > 0 ? 0 : 4}
-                                    ry={holiday > 0 ? 0 : 4}
-                                    fill="#3b82f6"
-                                    className="hover:opacity-90 transition-opacity"
+                    return (
+                      <div className="space-y-2">
+                        <div style={{ width: `${totalW}px`, minWidth: `${totalW}px` }}>
+                          <svg
+                            viewBox={`0 0 ${totalW} ${chartH}`}
+                            width={totalW}
+                            height={chartH}
+                            className="select-none block"
+                          >
+                            {/* Gridlines */}
+                            {ticks.map((tick) => {
+                              const y = padT + plotH - (tick / yMax) * plotH;
+                              return (
+                                <g key={tick}>
+                                  <line
+                                    x1={padL}
+                                    y1={y}
+                                    x2={totalW - padR}
+                                    y2={y}
+                                    stroke="currentColor"
+                                    className="text-gray-200 dark:text-slate-700"
+                                    strokeDasharray="3 3"
                                   />
-                                )}
+                                  <text
+                                    x={padL - 6}
+                                    y={y + 3}
+                                    textAnchor="end"
+                                    className="text-[10px] fill-gray-400 dark:fill-slate-500 font-medium"
+                                  >
+                                    {tick}
+                                  </text>
+                                </g>
+                              );
+                            })}
 
-                                {/* Bagian Atas: Hari Libur (Kuning) - Bertumpuk tepat di atas Biru */}
-                                {holiday > 0 && (
-                                  <rect
-                                    x={barX}
-                                    y={yellowY}
-                                    width={barW}
-                                    height={yellowH}
-                                    rx={4}
-                                    ry={4}
-                                    fill="#facc15"
-                                    className="hover:opacity-90 transition-opacity"
-                                  />
-                                )}
+                            {/* Baseline */}
+                            <line
+                              x1={padL}
+                              y1={baselineY}
+                              x2={totalW - padR}
+                              y2={baselineY}
+                              stroke="currentColor"
+                              className="text-gray-300 dark:text-slate-600"
+                              strokeWidth="1.5"
+                            />
 
-                                {/* Angka nilai di dalam batang jika tingginya cukup */}
-                                {weekday > 0 && blueH >= 14 && (
+                            {/* Stacked Bars for each Officer */}
+                            {recapItems.map((r, i) => {
+                              const groupCenterX = padL + i * colWidth + colWidth / 2;
+                              const barX = groupCenterX - barW / 2;
+
+                              const weekday = r.weekdayShiftsCount;
+                              const holiday = r.holidayShiftsCount;
+                              const total = r.totalShiftsCount;
+
+                              const blueH = (weekday / yMax) * plotH;
+                              const yellowH = (holiday / yMax) * plotH;
+                              const totalH = blueH + yellowH;
+
+                              const blueY = baselineY - blueH;
+                              const yellowY = baselineY - totalH;
+
+                              const shortName = r.name.split(' ')[0] || r.name;
+
+                              return (
+                                <g key={r.id} className="group">
+                                  {/* Total badge on top of stacked bar */}
                                   <text
                                     x={groupCenterX}
-                                    y={blueY + blueH / 2 + 4}
+                                    y={total > 0 ? yellowY - 8 : baselineY - 8}
                                     textAnchor="middle"
-                                    className="text-[10px] font-bold fill-white pointer-events-none"
+                                    className={`text-[10px] font-bold ${
+                                      total > 0
+                                        ? 'fill-emerald-600 dark:fill-emerald-400'
+                                        : 'fill-gray-400 dark:fill-slate-500 font-normal'
+                                    }`}
                                   >
-                                    {weekday}
+                                    {total > 0 ? `${total} Total` : '0 Total'}
                                   </text>
-                                )}
-                                {holiday > 0 && yellowH >= 14 && (
+
+                                  {/* Bagian Bawah: Hari Biasa (Biru) */}
+                                  {weekday > 0 && (
+                                    <rect
+                                      x={barX}
+                                      y={blueY}
+                                      width={barW}
+                                      height={blueH}
+                                      rx={holiday > 0 ? 0 : 5}
+                                      ry={holiday > 0 ? 0 : 5}
+                                      fill="#3b82f6"
+                                      className="hover:opacity-90 transition-opacity"
+                                    />
+                                  )}
+
+                                  {/* Bagian Atas: Hari Libur (Kuning) - Bertumpuk tepat di atas Biru */}
+                                  {holiday > 0 && (
+                                    <rect
+                                      x={barX}
+                                      y={yellowY}
+                                      width={barW}
+                                      height={yellowH}
+                                      rx={5}
+                                      ry={5}
+                                      fill="#facc15"
+                                      className="hover:opacity-90 transition-opacity"
+                                    />
+                                  )}
+
+                                  {/* Angka nilai di dalam batang jika tingginya cukup */}
+                                  {weekday > 0 && blueH >= 14 && (
+                                    <text
+                                      x={groupCenterX}
+                                      y={blueY + blueH / 2 + 4}
+                                      textAnchor="middle"
+                                      className="text-[10px] font-bold fill-white pointer-events-none"
+                                    >
+                                      {weekday}
+                                    </text>
+                                  )}
+                                  {holiday > 0 && yellowH >= 14 && (
+                                    <text
+                                      x={groupCenterX}
+                                      y={yellowY + yellowH / 2 + 4}
+                                      textAnchor="middle"
+                                      className="text-[10px] font-bold fill-yellow-950 pointer-events-none"
+                                    >
+                                      {holiday}
+                                    </text>
+                                  )}
+
+                                  {/* Officer Name below baseline */}
                                   <text
                                     x={groupCenterX}
-                                    y={yellowY + yellowH / 2 + 4}
+                                    y={baselineY + 18}
                                     textAnchor="middle"
-                                    className="text-[10px] font-bold fill-yellow-950 pointer-events-none"
+                                    className="text-[11px] font-semibold fill-gray-900 dark:fill-slate-100"
                                   >
-                                    {holiday}
+                                    {shortName.length > 9 ? `${shortName.slice(0, 8)}..` : shortName}
                                   </text>
-                                )}
+                                  <text
+                                    x={groupCenterX}
+                                    y={baselineY + 32}
+                                    textAnchor="middle"
+                                    className="text-[10px] fill-gray-400 dark:fill-slate-500 font-medium"
+                                  >
+                                    #{i + 1}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        </div>
 
-                                {/* Officer Name below baseline */}
-                                <text
-                                  x={groupCenterX}
-                                  y={baselineY + 16}
-                                  textAnchor="middle"
-                                  className="text-[10px] font-semibold fill-gray-900 dark:fill-slate-100"
-                                >
-                                  {shortName.length > 8 ? `${shortName.slice(0, 7)}..` : shortName}
-                                </text>
-                                <text
-                                  x={groupCenterX}
-                                  y={baselineY + 28}
-                                  textAnchor="middle"
-                                  className="text-[9px] fill-gray-400 dark:fill-slate-500"
-                                >
-                                  #{i + 1}
-                                </text>
-                              </g>
-                            );
-                          })}
-                        </svg>
-                      );
-                    })()
-                  )}
-                </div>
+                        {recapItems.length > 5 && (
+                          <div className="flex items-center justify-between text-[11px] text-gray-400 dark:text-slate-500 px-1 pt-1">
+                            <span>Total {recapItems.length} petugas</span>
+                            <span className="italic flex items-center gap-1">
+                              &larr; Geser ke samping untuk melihat seluruh petugas &rarr;
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                )}
               </div>
             </div>
           )}
@@ -989,158 +1005,175 @@ export function RekapPiketSection({
 
               {/* Kurva Perbandingan Petugas */}
               <div className="w-full max-w-full min-w-0 bg-gray-50/70 dark:bg-slate-800/40 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-slate-800 overflow-x-auto overscroll-x-contain touch-pan-x">
-                <div className="min-w-[500px]">
-                  {recapItems.length === 0 ? (
-                    <p className="text-xs text-center py-6 text-gray-500">Tidak ada data petugas.</p>
-                  ) : (
-                    (() => {
-                      const maxVal = Math.max(...recapItems.map((r) => r.totalShiftsCount), 4);
-                      const tickStep = maxVal <= 6 ? 2 : maxVal <= 12 ? 3 : Math.ceil(maxVal / 4);
-                      const yMax = Math.ceil(maxVal / tickStep) * tickStep;
-                      const ticks: number[] = [];
-                      for (let t = 0; t <= yMax; t += tickStep) {
-                        ticks.push(t);
-                      }
+                {recapItems.length === 0 ? (
+                  <p className="text-xs text-center py-6 text-gray-500">Tidak ada data petugas.</p>
+                ) : (
+                  (() => {
+                    const maxVal = Math.max(...recapItems.map((r) => r.totalShiftsCount), 4);
+                    const tickStep = maxVal <= 6 ? 2 : maxVal <= 12 ? 3 : Math.ceil(maxVal / 4);
+                    const yMax = Math.ceil(maxVal / tickStep) * tickStep;
+                    const ticks: number[] = [];
+                    for (let t = 0; t <= yMax; t += tickStep) {
+                      ticks.push(t);
+                    }
 
-                      const chartH = 190;
-                      const padL = 35;
-                      const padR = 25;
-                      const padT = 25;
-                      const padB = 40;
-                      const plotW = Math.max(500, recapItems.length * 75 + 40) - padL - padR;
-                      const plotH = chartH - padT - padB;
-                      const totalW = padL + plotW + padR;
+                    const chartH = 210;
+                    const padL = 40;
+                    const padR = 30;
+                    const padT = 28;
+                    const padB = 48;
+                    const colWidth = 80;
+                    const plotW = Math.max(recapItems.length * colWidth, 520);
+                    const plotH = chartH - padT - padB;
+                    const totalW = padL + plotW + padR;
 
-                      const stepX = recapItems.length > 1 ? plotW / (recapItems.length - 1) : plotW / 2;
+                    const stepX = recapItems.length > 1 ? plotW / (recapItems.length - 1) : plotW / 2;
 
-                      const getX = (idx: number) => (recapItems.length > 1 ? padL + idx * stepX : padL + plotW / 2);
-                      const getY = (val: number) => padT + plotH - (val / yMax) * plotH;
+                    const getX = (idx: number) => (recapItems.length > 1 ? padL + idx * stepX : padL + plotW / 2);
+                    const getY = (val: number) => padT + plotH - (val / yMax) * plotH;
 
-                      const pointsWeekday = recapItems.map((r, i) => `${getX(i)},${getY(r.weekdayShiftsCount)}`).join(' ');
-                      const pointsHoliday = recapItems.map((r, i) => `${getX(i)},${getY(r.holidayShiftsCount)}`).join(' ');
-                      const pointsTotal = recapItems.map((r, i) => `${getX(i)},${getY(r.totalShiftsCount)}`).join(' ');
+                    const pointsWeekday = recapItems.map((r, i) => `${getX(i)},${getY(r.weekdayShiftsCount)}`).join(' ');
+                    const pointsHoliday = recapItems.map((r, i) => `${getX(i)},${getY(r.holidayShiftsCount)}`).join(' ');
+                    const pointsTotal = recapItems.map((r, i) => `${getX(i)},${getY(r.totalShiftsCount)}`).join(' ');
 
-                      return (
-                        <svg viewBox={`0 0 ${totalW} ${chartH}`} className="w-full h-52 select-none">
-                          {/* Gridlines */}
-                          {ticks.map((tick) => {
-                            const y = padT + plotH - (tick / yMax) * plotH;
-                            return (
-                              <g key={tick}>
-                                <line
-                                  x1={padL}
-                                  y1={y}
-                                  x2={totalW - padR}
-                                  y2={y}
-                                  stroke="currentColor"
-                                  className="text-gray-200 dark:text-slate-700"
-                                  strokeDasharray="3 3"
-                                />
-                                <text
-                                  x={padL - 6}
-                                  y={y + 3}
-                                  textAnchor="end"
-                                  className="text-[9px] fill-gray-400 dark:fill-slate-500 font-medium"
-                                >
-                                  {tick}
-                                </text>
-                              </g>
-                            );
-                          })}
+                    return (
+                      <div className="space-y-2">
+                        <div style={{ width: `${totalW}px`, minWidth: `${totalW}px` }}>
+                          <svg
+                            viewBox={`0 0 ${totalW} ${chartH}`}
+                            width={totalW}
+                            height={chartH}
+                            className="select-none block"
+                          >
+                            {/* Gridlines */}
+                            {ticks.map((tick) => {
+                              const y = padT + plotH - (tick / yMax) * plotH;
+                              return (
+                                <g key={tick}>
+                                  <line
+                                    x1={padL}
+                                    y1={y}
+                                    x2={totalW - padR}
+                                    y2={y}
+                                    stroke="currentColor"
+                                    className="text-gray-200 dark:text-slate-700"
+                                    strokeDasharray="3 3"
+                                  />
+                                  <text
+                                    x={padL - 6}
+                                    y={y + 3}
+                                    textAnchor="end"
+                                    className="text-[10px] fill-gray-400 dark:fill-slate-500 font-medium"
+                                  >
+                                    {tick}
+                                  </text>
+                                </g>
+                              );
+                            })}
 
-                          {/* Lines */}
-                          <polyline
-                            fill="none"
-                            stroke="#3b82f6"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            points={pointsWeekday}
-                          />
-                          <polyline
-                            fill="none"
-                            stroke="#facc15"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            points={pointsHoliday}
-                          />
-                          <polyline
-                            fill="none"
-                            stroke="#10b981"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            points={pointsTotal}
-                          />
+                            {/* Lines */}
+                            <polyline
+                              fill="none"
+                              stroke="#3b82f6"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={pointsWeekday}
+                            />
+                            <polyline
+                              fill="none"
+                              stroke="#facc15"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={pointsHoliday}
+                            />
+                            <polyline
+                              fill="none"
+                              stroke="#10b981"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              points={pointsTotal}
+                            />
 
-                          {/* Points & Labels */}
-                          {recapItems.map((r, i) => {
-                            const x = getX(i);
-                            const yTotal = getY(r.totalShiftsCount);
-                            const yWeekday = getY(r.weekdayShiftsCount);
-                            const yHoliday = getY(r.holidayShiftsCount);
-                            const shortName = r.name.split(' ')[0] || r.name;
+                            {/* Points & Labels */}
+                            {recapItems.map((r, i) => {
+                              const x = getX(i);
+                              const yTotal = getY(r.totalShiftsCount);
+                              const yWeekday = getY(r.weekdayShiftsCount);
+                              const yHoliday = getY(r.holidayShiftsCount);
+                              const shortName = r.name.split(' ')[0] || r.name;
 
-                            return (
-                              <g key={r.id}>
-                                {/* Titik Hari Biasa */}
-                                <circle
-                                  cx={x}
-                                  cy={yWeekday}
-                                  r="3"
-                                  className="fill-blue-500 stroke-white dark:stroke-slate-900 stroke-1.5"
-                                />
-                                {/* Titik Hari Libur */}
-                                <circle
-                                  cx={x}
-                                  cy={yHoliday}
-                                  r="3"
-                                  className="fill-yellow-400 stroke-white dark:stroke-slate-900 stroke-1.5"
-                                />
-                                {/* Titik Total */}
-                                <circle
-                                  cx={x}
-                                  cy={yTotal}
-                                  r="4"
-                                  className="fill-emerald-500 stroke-white dark:stroke-slate-900 stroke-2"
-                                />
+                              return (
+                                <g key={r.id}>
+                                  {/* Titik Hari Biasa */}
+                                  <circle
+                                    cx={x}
+                                    cy={yWeekday}
+                                    r="3"
+                                    className="fill-blue-500 stroke-white dark:stroke-slate-900 stroke-1.5"
+                                  />
+                                  {/* Titik Hari Libur */}
+                                  <circle
+                                    cx={x}
+                                    cy={yHoliday}
+                                    r="3"
+                                    className="fill-yellow-400 stroke-white dark:stroke-slate-900 stroke-1.5"
+                                  />
+                                  {/* Titik Total */}
+                                  <circle
+                                    cx={x}
+                                    cy={yTotal}
+                                    r="4"
+                                    className="fill-emerald-500 stroke-white dark:stroke-slate-900 stroke-2"
+                                  />
 
-                                {/* Label Total Nilai */}
-                                <text
-                                  x={x}
-                                  y={yTotal - 8}
-                                  textAnchor="middle"
-                                  className="text-[9px] fill-emerald-600 dark:fill-emerald-400 font-bold"
-                                >
-                                  {r.totalShiftsCount}
-                                </text>
+                                  {/* Label Total Nilai */}
+                                  <text
+                                    x={x}
+                                    y={yTotal - 8}
+                                    textAnchor="middle"
+                                    className="text-[9px] fill-emerald-600 dark:fill-emerald-400 font-bold"
+                                  >
+                                    {r.totalShiftsCount}
+                                  </text>
 
-                                {/* Nama Petugas */}
-                                <text
-                                  x={x}
-                                  y={chartH - 14}
-                                  textAnchor="middle"
-                                  className="text-[9px] fill-gray-600 dark:fill-slate-300 font-semibold"
-                                >
-                                  {shortName.length > 7 ? `${shortName.slice(0, 6)}..` : shortName}
-                                </text>
-                                <text
-                                  x={x}
-                                  y={chartH - 4}
-                                  textAnchor="middle"
-                                  className="text-[8px] fill-gray-400 dark:fill-slate-500"
-                                >
-                                  #{i + 1}
-                                </text>
-                              </g>
-                            );
-                          })}
-                        </svg>
-                      );
-                    })()
-                  )}
-                </div>
+                                  {/* Nama Petugas */}
+                                  <text
+                                    x={x}
+                                    y={chartH - 16}
+                                    textAnchor="middle"
+                                    className="text-[11px] fill-gray-600 dark:fill-slate-300 font-semibold"
+                                  >
+                                    {shortName.length > 9 ? `${shortName.slice(0, 8)}..` : shortName}
+                                  </text>
+                                  <text
+                                    x={x}
+                                    y={chartH - 4}
+                                    textAnchor="middle"
+                                    className="text-[10px] fill-gray-400 dark:fill-slate-500 font-medium"
+                                  >
+                                    #{i + 1}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        </div>
+
+                        {recapItems.length > 5 && (
+                          <div className="flex items-center justify-between text-[11px] text-gray-400 dark:text-slate-500 px-1 pt-1">
+                            <span>Total {recapItems.length} petugas</span>
+                            <span className="italic flex items-center gap-1">
+                              &larr; Geser ke samping untuk melihat seluruh petugas &rarr;
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                )}
               </div>
             </div>
           )}
