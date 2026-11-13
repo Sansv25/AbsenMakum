@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { CameraModal } from './camera-modal';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
-import { compressImage } from '@/lib/image';
+import { compressImage, isImageFile } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import { claimDeviceAction } from '@/app/(app)/absen/[date]/[shift]/actions';
@@ -65,19 +65,26 @@ export function ActivityUpload({
 
   async function handleFileProcess(files: FileList | File[]) {
     if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    const validFiles = fileArray.filter(isImageFile);
+
+    if (validFiles.length === 0) {
+      showAlert('Format Tidak Didukung', 'Harap pilih file gambar yang valid (JPG, PNG, WebP, HEIC).', 'warning');
+      return;
+    }
+
     try {
       setUploading(true);
       const supabase = createClient();
       let currentOrder = items.length;
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file.type.startsWith('image/')) continue;
+      for (let i = 0; i < validFiles.length; i++) {
+        const file = validFiles[i];
 
-        setStatusMsg(`Mengompres foto ke-${i + 1}...`);
+        setStatusMsg(`Mengompres foto ${i + 1} dari ${validFiles.length} (~2MB)...`);
         const compressed = await compressImage(file);
 
-        setStatusMsg(`Mengunggah foto ke-${i + 1}...`);
+        setStatusMsg(`Mengunggah foto ${i + 1} dari ${validFiles.length}...`);
         const uuid = crypto.randomUUID();
         const storagePath = `${userId}/${workDate}/${shiftType}/aktivitas-${uuid}.jpg`;
 
@@ -320,11 +327,14 @@ export function ActivityUpload({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
               multiple
               className="hidden"
               onChange={(e) => {
-                if (e.target.files) handleFileProcess(e.target.files);
+                if (e.target.files) {
+                  handleFileProcess(e.target.files);
+                  e.target.value = '';
+                }
               }}
             />
           </div>

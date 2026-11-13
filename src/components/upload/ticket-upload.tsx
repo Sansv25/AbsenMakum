@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Upload, Trash2, ArrowUp, ArrowDown, Clipboard, Loader2, CheckCircle2, AlertTriangle, ZoomIn } from 'lucide-react';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
-import { compressImage } from '@/lib/image';
+import { compressImage, isImageFile } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import { claimDeviceAction } from '@/app/(app)/absen/[date]/[shift]/actions';
@@ -66,18 +66,26 @@ export function TicketUpload({
 
   async function handleUploadFiles(files: File[]) {
     if (files.length === 0) return;
+    const validFiles = files.filter(isImageFile);
+
+    if (validFiles.length === 0) {
+      showAlert('Format Tidak Didukung', 'Harap pilih file screenshot / gambar tiket (JPG, PNG, WebP, HEIC).', 'warning');
+      return;
+    }
+
     try {
       setUploading(true);
-      setStatusMsg('Mengompres dan mengunggah ticket...');
-
       const supabase = createClient();
       let currentOrder = tickets.length;
       const newItems: AttachmentWithUrl[] = [];
 
-      for (const file of files) {
-        if (!file.type.startsWith('image/')) continue;
+      for (let i = 0; i < validFiles.length; i++) {
+        const file = validFiles[i];
 
+        setStatusMsg(`Mengompres tiket ${i + 1} dari ${validFiles.length} (~2MB)...`);
         const compressed = await compressImage(file);
+
+        setStatusMsg(`Mengunggah tiket ${i + 1} dari ${validFiles.length}...`);
         const uuid = crypto.randomUUID();
         const storagePath = `${userId}/${workDate}/${shiftType}/ticket-${uuid}.jpg`;
 
@@ -132,6 +140,7 @@ export function TicketUpload({
       setStatusMsg(null);
     } finally {
       setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
@@ -256,7 +265,7 @@ export function TicketUpload({
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);

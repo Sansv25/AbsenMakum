@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Camera, Upload, Trash2, Loader2, CheckCircle2, Lock, ZoomIn } from 'lucide-react';
 import { CameraModal } from './camera-modal';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
-import { compressImage } from '@/lib/image';
+import { compressImage, isImageFile } from '@/lib/image';
 import { createClient } from '@/lib/supabase/client';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import { claimDeviceAction } from '@/app/(app)/absen/[date]/[shift]/actions';
@@ -54,23 +54,22 @@ export function SingleUpload({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   async function handleFileProcess(file: File) {
+    if (!isImageFile(file)) {
+      showAlert('Format Tidak Didukung', 'Harap pilih file gambar (JPG, PNG, WebP, HEIC).', 'warning');
+      return;
+    }
+
     try {
       setUploading(true);
-      setStatusMsg('Mengompres gambar...');
+      setStatusMsg('Mengompres foto (~2MB)...');
 
-      // 1. Kompres gambar
+      // 1. Kompres gambar dengan target ~2MB
       const compressed = await compressImage(file);
 
-      setStatusMsg('Mengunggah...');
+      setStatusMsg('Mengunggah foto...');
       const supabase = createClient();
 
-      // 2. Jika sudah ada file lama, hapus dari storage dan db
-      if (attachment) {
-        await supabase.storage.from('evidence').remove([attachment.storage_path]);
-        await supabase.from('attachments').delete().eq('id', attachment.id);
-      }
-
-      // 3. Upload file baru ke Storage
+      // 2. Upload file baru ke Storage terlebih dahulu (aman dari resiko data hilang)
       const uuid = crypto.randomUUID();
       const storagePath = `${userId}/${workDate}/${shiftType}/${kind}-${uuid}.jpg`;
 
@@ -83,7 +82,7 @@ export function SingleUpload({
 
       if (uploadError) throw new Error(uploadError.message);
 
-      // 4. Simpan baris ke tabel attachments
+      // 3. Simpan baris ke tabel attachments
       const { data: inserted, error: dbError } = await supabase
         .from('attachments')
         .insert({
@@ -98,14 +97,26 @@ export function SingleUpload({
 
       if (dbError) throw new Error(dbError.message);
 
-      // 4.5 Pastikan attendance tercatat atas nama akun user yang mengunggah
+      // 4. Setelah file baru berhasil tersimpan, hapus file lama (jika ada)
+      if (attachment) {
+        try {
+          await Promise.all([
+            supabase.storage.from('evidence').remove([attachment.storage_path]),
+            supabase.from('attachments').delete().eq('id', attachment.id),
+          ]);
+        } catch {
+          // non-blocking
+        }
+      }
+
+      // 5. Pastikan attendance tercatat atas nama akun user yang mengunggah
       try {
         await claimDeviceAction(attendanceId);
       } catch {
         // non-blocking
       }
 
-      // 5. Buat signed URL untuk pratinjau langsung
+      // 6. Buat signed URL untuk pratinjau langsung
       const { data: signed } = await supabase.storage
         .from('evidence')
         .createSignedUrl(storagePath, 3600);
@@ -287,7 +298,7 @@ export function SingleUpload({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
