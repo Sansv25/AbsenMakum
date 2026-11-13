@@ -76,7 +76,7 @@ function drawFullHeader(doc: jsPDF, item: PdfAttendanceItem): number {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(100, 116, 139); // slate-500
-  doc.text('Kantor Perwakilan Denpasar • Jl. Macan Kumbang, Denpasar', MARGIN + 32, kopTop + 10.8);
+  doc.text('Kantor Perwakilan Denpasar', MARGIN + 32, kopTop + 10.8);
 
   // Metadata Kop Kanan
   doc.setFont('helvetica', 'bold');

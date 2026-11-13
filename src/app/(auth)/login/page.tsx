@@ -84,7 +84,7 @@ function LoginContent() {
           <img
             src="/images/iconnet-colored.svg"
             alt="ICONNET"
-            className="h-11 w-auto object-contain"
+            className="h-14 w-auto object-contain"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               if (!target.src.includes('logo.svg')) {
@@ -97,7 +97,7 @@ function LoginContent() {
           Absensi Piket
         </h1>
         <p className="text-center text-sky-700 dark:text-sky-400 text-xs font-semibold mt-0.5">
-          ICONNET &bull; Macan Kumbang
+          ICONNET
         </p>
         <p className="text-center text-gray-500 dark:text-slate-400 text-xs mt-1">
           Masuk untuk melanjutkan

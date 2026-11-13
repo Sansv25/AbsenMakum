@@ -58,7 +58,7 @@ export default async function AppLayout({
                 )}
               </div>
               <p className="text-[10px] text-sky-700 dark:text-sky-400 font-semibold tracking-wide">
-                ICONNET &bull; Macan Kumbang
+                ICONNET
               </p>
             </div>
           </Link>

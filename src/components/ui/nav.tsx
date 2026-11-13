@@ -76,13 +76,13 @@ export function Sidebar({ isMaster = false, userName, userEmail }: NavProps) {
   return (
     <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-slate-800 p-4 gap-1 fixed top-0 left-0 bottom-0 transition-colors">
       {/* Brand Header */}
-      <div className="mb-5 px-2 flex flex-col items-start gap-3">
-        <div className="p-2 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900 shadow-sm inline-flex items-center justify-center">
+      <div className="mb-6 px-2 flex flex-col items-center text-center gap-2.5">
+        <div className="p-3 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900 shadow-sm inline-flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/images/iconnet-colored.svg"
             alt="ICONNET"
-            className="h-9 w-auto object-contain"
+            className="h-14 w-auto object-contain"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
               if (!target.src.includes('logo.svg')) {
@@ -94,7 +94,7 @@ export function Sidebar({ isMaster = false, userName, userEmail }: NavProps) {
         <div>
           <h1 className="text-base font-bold text-gray-900 dark:text-slate-100 leading-tight">Absensi Piket</h1>
           <p className="text-[11px] text-sky-700 dark:text-sky-400 font-semibold tracking-wide mt-0.5">
-            ICONNET &bull; Macan Kumbang
+            ICONNET
           </p>
         </div>
       </div>

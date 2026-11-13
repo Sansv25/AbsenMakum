@@ -90,7 +90,7 @@ export default async function PendingApprovalPage() {
         </div>
 
         <p className="text-[11px] text-gray-400 dark:text-slate-500 text-center mt-6">
-          ICONNET &bull; Macan Kumbang
+          ICONNET
         </p>
       </div>
     </main>
