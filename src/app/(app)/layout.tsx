@@ -24,7 +24,7 @@ export default async function AppLayout({
   const { email, isMaster, fullName } = profile;
 
   return (
-    <div className="min-h-screen flex bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 transition-colors">
+    <div className="min-h-screen w-full max-w-full flex bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 transition-colors overflow-x-hidden">
       <NavigationProgress />
       <Sidebar
         isMaster={isMaster}
@@ -32,7 +32,7 @@ export default async function AppLayout({
         userEmail={email ?? undefined}
       />
 
-      <div className="flex-1 md:ml-56 flex flex-col min-h-screen">
+      <div className="flex-1 min-w-0 max-w-full md:ml-56 flex flex-col min-h-screen overflow-x-hidden">
         {/* Header (mobile) */}
         <header className="md:hidden sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-4 py-2.5 flex items-center justify-between transition-colors">
           <Link href="/" className="flex items-center gap-2.5">
@@ -114,7 +114,7 @@ export default async function AppLayout({
           </form>
         </header>
 
-        <main className="flex-1 pb-20 md:pb-0">{children}</main>
+        <main className="flex-1 min-w-0 max-w-full pb-20 md:pb-0 overflow-x-hidden">{children}</main>
       </div>
 
       <BottomNav isMaster={isMaster} />

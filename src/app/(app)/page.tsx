@@ -169,9 +169,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const datesInMonth = getDatesInMonth(currentMonth);
 
   return (
-    <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
+    <div className="max-w-2xl mx-auto p-3.5 sm:p-4 md:p-6 space-y-5 sm:space-y-6 w-full min-w-0 overflow-x-hidden">
       {/* Kartu Hari Ini */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5">
+      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-4 sm:p-5">
         <div className="mb-4">
           <p className="text-xs uppercase tracking-wide text-gray-400 dark:text-slate-400 font-medium">Hari ini</p>
           <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100 mt-0.5">{formatIndonesia(today)}</h2>
@@ -261,7 +261,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </section>
 
       {/* Kartu Jadwal & Riwayat Piket Akun Saya */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 space-y-4">
+      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-4 sm:p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-slate-800 pb-3">
           <div>
             <div className="flex items-center gap-2">
@@ -346,7 +346,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       </section>
 
       {/* Kalender Bulanan */}
-      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5">
+      <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-gray-900 dark:text-slate-100 capitalize">
             {new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(

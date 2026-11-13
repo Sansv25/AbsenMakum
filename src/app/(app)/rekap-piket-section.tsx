@@ -323,7 +323,7 @@ export function RekapPiketSection({
   const totalAllShifts = totalAllWeekdayShifts + totalAllHolidayShifts;
 
   return (
-    <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-5 space-y-5">
+    <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-3.5 sm:p-5 space-y-5 w-full min-w-0 overflow-hidden">
       {/* 1. Header (Teks lama sudah dihilangkan) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-slate-800 pb-4">
         <div>
@@ -362,11 +362,11 @@ export function RekapPiketSection({
       <div className="space-y-3 bg-gray-50/70 dark:bg-slate-800/40 p-3.5 sm:p-4 rounded-xl border border-gray-100 dark:border-slate-800">
         {/* Tab Mode Filter */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-gray-200 dark:border-slate-700">
+          <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-gray-200 dark:border-slate-700 max-w-full overflow-x-auto scrollbar-none shrink-0">
             <button
               type="button"
               onClick={() => setFilterMode('bulanan')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap ${
                 filterMode === 'bulanan'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100'
@@ -378,7 +378,7 @@ export function RekapPiketSection({
             <button
               type="button"
               onClick={() => setFilterMode('mingguan')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap ${
                 filterMode === 'mingguan'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100'
@@ -390,7 +390,7 @@ export function RekapPiketSection({
             <button
               type="button"
               onClick={() => setFilterMode('rentang')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap ${
                 filterMode === 'rentang'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100'
@@ -402,7 +402,7 @@ export function RekapPiketSection({
             <button
               type="button"
               onClick={() => setFilterMode('preset')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 sm:gap-1.5 shrink-0 whitespace-nowrap ${
                 filterMode === 'preset'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100'
@@ -414,7 +414,7 @@ export function RekapPiketSection({
           </div>
 
           {/* Kolom Pencarian Petugas */}
-          <div className="relative min-w-[200px] flex-1 sm:flex-initial">
+          <div className="relative w-full sm:w-auto sm:min-w-[180px] flex-1">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400 dark:text-slate-500" />
             <input
               type="text"
@@ -508,22 +508,22 @@ export function RekapPiketSection({
 
         {filterMode === 'rentang' && (
           <div className="flex items-center gap-2 flex-wrap pt-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500 dark:text-slate-400">Dari:</span>
+            <div className="flex items-center gap-1.5 flex-1 min-w-[130px]">
+              <span className="text-xs text-gray-500 dark:text-slate-400 shrink-0">Dari:</span>
               <input
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="py-1.5 px-3 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full py-1.5 px-3 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500 dark:text-slate-400">Sampai:</span>
+            <div className="flex items-center gap-1.5 flex-1 min-w-[130px]">
+              <span className="text-xs text-gray-500 dark:text-slate-400 shrink-0">Sampai:</span>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="py-1.5 px-3 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full py-1.5 px-3 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -585,11 +585,11 @@ export function RekapPiketSection({
         <span className="text-xs font-semibold text-gray-700 dark:text-slate-300">
           Format Visualisasi:
         </span>
-        <div className="inline-flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl border border-gray-200 dark:border-slate-700">
+        <div className="inline-flex items-center gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-xl border border-gray-200 dark:border-slate-700 max-w-full overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={() => setViewMode('tabel')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
               viewMode === 'tabel'
                 ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
@@ -601,26 +601,30 @@ export function RekapPiketSection({
           <button
             type="button"
             onClick={() => setViewMode('batang')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
               viewMode === 'batang'
                 ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
             }`}
           >
             <BarChart2 className="h-3.5 w-3.5" />
-            <span>Diagram Batang</span>
+            <span>
+              <span className="hidden sm:inline">Diagram </span>Batang
+            </span>
           </button>
           <button
             type="button"
             onClick={() => setViewMode('garis')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
               viewMode === 'garis'
                 ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
                 : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
             }`}
           >
             <TrendingUp className="h-3.5 w-3.5" />
-            <span>Diagram Garis</span>
+            <span>
+              <span className="hidden sm:inline">Diagram </span>Garis
+            </span>
           </button>
         </div>
       </div>
@@ -757,7 +761,7 @@ export function RekapPiketSection({
               {/* Legend Batang */}
               <div className="flex items-center justify-between text-xs bg-gray-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-slate-800 flex-wrap gap-3">
                 <span className="font-semibold text-gray-700 dark:text-slate-300">Legend Batang:</span>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-sm bg-blue-500" />
                     <span className="text-gray-600 dark:text-slate-400">Hari Biasa (Bawah)</span>
@@ -774,7 +778,7 @@ export function RekapPiketSection({
               </div>
 
               {/* Vertical Stacked Column Chart (Diagram Batang Bertumpuk Bawah ke Atas) */}
-              <div className="bg-gray-50/70 dark:bg-slate-800/40 p-4 rounded-xl border border-gray-100 dark:border-slate-800 overflow-x-auto">
+              <div className="w-full max-w-full min-w-0 bg-gray-50/70 dark:bg-slate-800/40 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-slate-800 overflow-x-auto overscroll-x-contain touch-pan-x">
                 <div className="min-w-[500px]">
                   {recapItems.length === 0 ? (
                     <p className="text-xs text-center py-6 text-gray-500">Tidak ada data petugas.</p>
@@ -962,7 +966,7 @@ export function RekapPiketSection({
                 <span className="font-semibold text-gray-700 dark:text-slate-300">
                   Perbandingan Piket Petugas:
                 </span>
-                <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-4 text-xs flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2.5 w-4 rounded-full bg-blue-500" />
                     <span className="text-gray-600 dark:text-slate-400">Hari Biasa</span>
@@ -979,7 +983,7 @@ export function RekapPiketSection({
               </div>
 
               {/* Kurva Perbandingan Petugas */}
-              <div className="bg-gray-50/70 dark:bg-slate-800/40 p-4 rounded-xl border border-gray-100 dark:border-slate-800 overflow-x-auto">
+              <div className="w-full max-w-full min-w-0 bg-gray-50/70 dark:bg-slate-800/40 p-3 sm:p-4 rounded-xl border border-gray-100 dark:border-slate-800 overflow-x-auto overscroll-x-contain touch-pan-x">
                 <div className="min-w-[500px]">
                   {recapItems.length === 0 ? (
                     <p className="text-xs text-center py-6 text-gray-500">Tidak ada data petugas.</p>
