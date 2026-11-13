@@ -9,9 +9,10 @@ import { Clock, Check, Loader2, AlertOctagon, Trash2 } from 'lucide-react';
 interface SettingsFormProps {
   settings: ShiftSetting[];
   isMaster?: boolean;
+  isOwner?: boolean;
 }
 
-export function SettingsForm({ settings, isMaster = false }: SettingsFormProps) {
+export function SettingsForm({ settings, isOwner = false }: SettingsFormProps) {
   const pagi = settings.find((s) => s.shift_type === 'pagi');
   const malam = settings.find((s) => s.shift_type === 'malam');
 
@@ -184,13 +185,13 @@ export function SettingsForm({ settings, isMaster = false }: SettingsFormProps) 
         )}
       </button>
 
-      {/* Zona Bahaya Khusus Master: Reset Data */}
-      {isMaster && (
+      {/* Zona Bahaya Khusus Owner: Reset Data */}
+      {isOwner && (
         <div className="pt-6 border-t border-gray-200 dark:border-slate-800">
           <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl p-5 space-y-3">
             <div className="flex items-center gap-2 text-red-900 dark:text-red-200 font-semibold text-sm">
               <AlertOctagon className="h-4 w-4 text-red-600 dark:text-red-400" />
-              Zona Khusus Master: Bersihkan Data Absensi
+              Zona Khusus Owner: Bersihkan Data Absensi
             </div>
             <p className="text-xs text-red-700 dark:text-red-300">
               Menghapus seluruh riwayat absensi, tiket, catatan, dan foto di storage. Akun user dan pengaturan shift tidak akan terhapus.

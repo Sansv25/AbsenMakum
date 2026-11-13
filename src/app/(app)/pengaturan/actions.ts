@@ -6,9 +6,9 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 
 export async function saveShiftSettingsAction(formData: FormData) {
-  const { isMaster } = await getCurrentUserProfile();
-  if (!isMaster) {
-    return { error: 'Hanya Akun Master yang diizinkan mengubah jam shift.' };
+  const { canManageSettings } = await getCurrentUserProfile();
+  if (!canManageSettings) {
+    return { error: 'Hanya Admin atau Owner yang diizinkan mengubah jam shift.' };
   }
 
   const pagiStart = formData.get('pagi_start') as string;
@@ -32,9 +32,9 @@ export async function saveShiftSettingsAction(formData: FormData) {
 
 export async function resetAllAttendanceDataAction() {
   const supabase = await createClient();
-  const { isMaster } = await getCurrentUserProfile();
-  if (!isMaster) {
-    return { error: 'Hanya Akun Master yang diizinkan mereset database absensi.' };
+  const { isOwner } = await getCurrentUserProfile();
+  if (!isOwner) {
+    return { error: 'Hanya Akun Owner yang diizinkan mereset database absensi.' };
   }
 
   try {

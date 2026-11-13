@@ -5,10 +5,10 @@ import { SettingsTabs } from '../settings-tabs';
 import { MonitoringView } from './monitoring-view';
 
 export default async function MonitoringPage() {
-  const { isMaster } = await getCurrentUserProfile();
+  const { isOwner } = await getCurrentUserProfile();
 
-  if (!isMaster) {
-    redirect('/');
+  if (!isOwner) {
+    redirect('/pengaturan');
   }
 
   const { stats, error } = await getStorageStats();
@@ -23,7 +23,7 @@ export default async function MonitoringPage() {
       </div>
 
       {/* Tabs Navigasi Pengaturan */}
-      <SettingsTabs activeTab="monitoring" />
+      <SettingsTabs activeTab="monitoring" isOwner={isOwner} />
 
       {error || !stats ? (
         <div className="bg-red-50 dark:bg-red-950/40 p-4 rounded-2xl border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs">

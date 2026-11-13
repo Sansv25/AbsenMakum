@@ -9,13 +9,17 @@ import {
   adminApproveUser,
   adminUpdateUserProfile,
   adminToggleExcludeRecap,
+  adminUpdateUserRoles,
 } from '@/lib/data/users';
-import type { UserRole } from '@/lib/supabase/types';
+import type { UserRole, AppRole } from '@/lib/supabase/types';
 
 export async function createUserAction(formData: FormData) {
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
-  const role = (formData.get('role') as UserRole) || 'user';
+  const rolesRaw = formData.getAll('roles') as AppRole[];
+  const roles: AppRole[] = rolesRaw.length > 0 ? rolesRaw : ['magang'];
+  const hasAdminRights = roles.some((r) => r === 'owner' || r === 'admin' || r === 'senior');
+  const role: UserRole = hasAdminRights ? 'master' : 'user';
 
   if (!email || !password) {
     return { error: 'Email dan password wajib diisi.' };
@@ -24,7 +28,7 @@ export async function createUserAction(formData: FormData) {
     return { error: 'Password minimal 6 karakter.' };
   }
 
-  const result = await adminCreateUser(email, password, role);
+  const result = await adminCreateUser(email, password, role, roles);
   if (result.error) return { error: result.error };
 
   revalidatePath('/pengaturan/users');
@@ -73,9 +77,27 @@ export async function updateUserProfileAdminAction(
   phone: string,
   role: UserRole,
   setApproved: boolean,
-  excludeFromRecap?: boolean
+  excludeFromRecap?: boolean,
+  newRoles?: AppRole[]
 ) {
-  const result = await adminUpdateUserProfile(userId, fullName, phone, role, setApproved, excludeFromRecap);
+  const result = await adminUpdateUserProfile(
+    userId,
+    fullName,
+    phone,
+    role,
+    setApproved,
+    excludeFromRecap,
+    newRoles
+  );
+  if (result.error) return { error: result.error };
+
+  revalidatePath('/pengaturan/users');
+  revalidatePath('/');
+  return { success: true };
+}
+
+export async function updateUserRolesAction(userId: string, newRoles: AppRole[]) {
+  const result = await adminUpdateUserRoles(userId, newRoles);
   if (result.error) return { error: result.error };
 
   revalidatePath('/pengaturan/users');

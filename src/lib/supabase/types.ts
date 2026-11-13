@@ -1,6 +1,7 @@
 // TypeScript types for database tables
 
 export type UserRole = 'master' | 'user';
+export type AppRole = 'owner' | 'admin' | 'senior' | 'magang';
 export type ShiftType = 'pagi' | 'malam';
 export type JobType = 'marketer' | 'qontak' | 'tiket';
 export type AttachmentKind = 'mulai' | 'selesai' | 'ticket' | 'aktivitas';
@@ -11,6 +12,7 @@ export interface Profile {
   id: string;
   email: string;
   role: UserRole;
+  roles?: AppRole[];
   full_name?: string | null;
   phone?: string | null;
   description?: string | null;

@@ -5,10 +5,10 @@ import { SettingsTabs } from '../settings-tabs';
 import { EmailRecapForm } from './email-recap-form';
 
 export default async function RekapanSettingsPage() {
-  const { isMaster } = await getCurrentUserProfile();
+  const { isOwner } = await getCurrentUserProfile();
 
-  if (!isMaster) {
-    redirect('/');
+  if (!isOwner) {
+    redirect('/pengaturan');
   }
 
   const settings = await getEmailRecapSettings();
@@ -23,7 +23,7 @@ export default async function RekapanSettingsPage() {
       </div>
 
       {/* Tabs Pengaturan */}
-      <SettingsTabs activeTab="rekapan" />
+      <SettingsTabs activeTab="rekapan" isOwner={isOwner} />
 
       {/* Formulir Pengaturan Rekapan */}
       <EmailRecapForm initialSettings={settings} />

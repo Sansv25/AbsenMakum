@@ -4,56 +4,125 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   createUserAction,
-  changeUserRoleAction,
   resetPasswordAction,
   deleteUserAction,
   approveUserAction,
   updateUserProfileAdminAction,
-  toggleExcludeRecapAction,
+  updateUserRolesAction,
 } from './actions';
 import type { AdminUserItem } from '@/lib/data/users';
-import type { UserRole } from '@/lib/supabase/types';
+import type { AppRole } from '@/lib/supabase/types';
 import {
   UserPlus,
   Crown,
-  User as UserIcon,
+  ShieldCheck,
+  Star,
+  GraduationCap,
+  Shield,
   Trash2,
   KeyRound,
-  ShieldAlert,
   Loader2,
   X,
   AlertCircle,
   Check,
   Edit3,
   Clock,
-  UserCheck,
   EyeOff,
-  BarChart2,
+  BarChart3,
+  Layers,
 } from 'lucide-react';
 import { formatIndonesia } from '@/lib/dates';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
+
+const MASTER_EMAIL = 'madesanjaya255@gmail.com';
+
+export const ROLE_INFO: Record<
+  AppRole,
+  {
+    label: string;
+    badgeLabel: string;
+    icon: typeof Crown;
+    bg: string;
+    text: string;
+    border: string;
+    badgeBg: string;
+    description: string;
+  }
+> = {
+  owner: {
+    label: 'Owner',
+    badgeLabel: 'Owner',
+    icon: Crown,
+    bg: 'bg-amber-100 dark:bg-amber-950/80',
+    text: 'text-amber-800 dark:text-amber-300',
+    border: 'border-amber-300 dark:border-amber-800',
+    badgeBg: 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700',
+    description: 'Pemilik tertinggi sistem (1 orang). Akses penuh Shift, Akun, Monitoring Supabase, Rekapan Email, & Reset Data.',
+  },
+  admin: {
+    label: 'Admin',
+    badgeLabel: 'Admin',
+    icon: ShieldCheck,
+    bg: 'bg-blue-100 dark:bg-blue-950/80',
+    text: 'text-blue-800 dark:text-blue-300',
+    border: 'border-blue-300 dark:border-blue-800',
+    badgeBg: 'bg-blue-500/15 text-blue-900 dark:text-blue-200 border-blue-300 dark:border-blue-700',
+    description: 'Pengelola operasional. Di menu Pengaturan hanya dapat mengakses Manajemen Shift dan Manajemen Akun.',
+  },
+  senior: {
+    label: 'Senior',
+    badgeLabel: 'Senior',
+    icon: Star,
+    bg: 'bg-purple-100 dark:bg-purple-950/80',
+    text: 'text-purple-800 dark:text-purple-300',
+    border: 'border-purple-300 dark:border-purple-800',
+    badgeBg: 'bg-purple-500/15 text-purple-900 dark:text-purple-200 border-purple-300 dark:border-purple-700',
+    description: 'Sama seperti Admin (akses Shift & Akun), namun otomatis TIDAK direkap kehadiran kecuali ditumpuk dengan Magang.',
+  },
+  magang: {
+    label: 'Magang',
+    badgeLabel: 'Magang',
+    icon: GraduationCap,
+    bg: 'bg-emerald-100 dark:bg-emerald-950/80',
+    text: 'text-emerald-800 dark:text-emerald-300',
+    border: 'border-emerald-300 dark:border-emerald-800',
+    badgeBg: 'bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700',
+    description: 'Petugas piket aktif (menggantikan nama Petugas Piket). Absensi dihitung dalam rekapitulasi, grafik, dan laporan PDF.',
+  },
+};
 
 interface UserManagerProps {
   initialUsers: AdminUserItem[];
   fetchError?: string;
   currentUserId: string;
+  currentUserIsOwner?: boolean;
 }
 
-export function UserManager({ initialUsers, fetchError, currentUserId }: UserManagerProps) {
+export function UserManager({
+  initialUsers,
+  fetchError,
+  currentUserId,
+  currentUserIsOwner = false,
+}: UserManagerProps) {
   const router = useRouter();
 
   const [filterTab, setFilterTab] = useState<'all' | 'pending' | 'approved'>('all');
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createRoles, setCreateRoles] = useState<AppRole[]>(['magang']);
   const [resetModalUser, setResetModalUser] = useState<AdminUserItem | null>(null);
   const [editModalUser, setEditModalUser] = useState<AdminUserItem | null>(null);
 
   // State untuk form edit modal
   const [editFullName, setEditFullName] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  const [editRole, setEditRole] = useState<UserRole>('user');
+  const [editRoles, setEditRoles] = useState<AppRole[]>(['magang']);
   const [editApproved, setEditApproved] = useState(true);
-  const [editExcludeFromRecap, setEditExcludeFromRecap] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // State untuk modal cepat ganti role
+  const [roleModalUser, setRoleModalUser] = useState<AdminUserItem | null>(null);
+  const [roleModalRoles, setRoleModalRoles] = useState<AppRole[]>(['magang']);
+  const [roleModalError, setRoleModalError] = useState<string | null>(null);
 
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -62,22 +131,29 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
   const pendingCount = initialUsers.filter((u) => !u.is_approved).length;
   const approvedCount = initialUsers.filter((u) => u.is_approved).length;
 
-  // Lock body scroll when any modal is open
+  // Lock body scroll saat ada modal yang terbuka
   useEffect(() => {
-    const hasModal = createModalOpen || !!resetModalUser || !!editModalUser;
+    const hasModal = createModalOpen || !!resetModalUser || !!editModalUser || !!roleModalUser;
     if (!hasModal) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = prevOverflow;
     };
-  }, [createModalOpen, resetModalUser, editModalUser]);
+  }, [createModalOpen, resetModalUser, editModalUser, roleModalUser]);
 
   const filteredUsers = initialUsers.filter((u) => {
     if (filterTab === 'pending') return !u.is_approved;
     if (filterTab === 'approved') return u.is_approved;
     return true;
   });
+
+  function resolveUserRoles(user: AdminUserItem): AppRole[] {
+    if (user.roles && user.roles.length > 0) return user.roles;
+    if (user.email.toLowerCase() === MASTER_EMAIL.toLowerCase()) return ['owner', 'magang'];
+    if (user.role === 'master') return ['admin'];
+    return ['magang'];
+  }
 
   async function handleDirectApprove(user: AdminUserItem) {
     const name = user.full_name || user.email;
@@ -104,10 +180,15 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
     setEditModalUser(user);
     setEditFullName(user.full_name || '');
     setEditPhone(user.phone || '');
-    setEditRole(user.role);
+    setEditRoles(resolveUserRoles(user));
     setEditApproved(user.is_approved);
-    setEditExcludeFromRecap(!!user.exclude_from_recap);
     setEditError(null);
+  }
+
+  function handleOpenRoleModal(user: AdminUserItem) {
+    setRoleModalUser(user);
+    setRoleModalRoles(resolveUserRoles(user));
+    setRoleModalError(null);
   }
 
   async function handleSaveEditUser(e: React.FormEvent<HTMLFormElement>) {
@@ -117,13 +198,18 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
     setEditError(null);
     setLoadingAction('edit-save');
 
+    const isMasterUser = editRoles.some((r) => r === 'owner' || r === 'admin' || r === 'senior');
+    const syncedRole = isMasterUser ? 'master' : 'user';
+    const excludeFromRecap = !editRoles.includes('magang');
+
     const res = await updateUserProfileAdminAction(
       editModalUser.id,
       editFullName,
       editPhone,
-      editRole,
+      syncedRole,
       editApproved,
-      editExcludeFromRecap
+      excludeFromRecap,
+      editRoles
     );
 
     if (res.error) {
@@ -137,34 +223,29 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
     }
   }
 
-  async function handleToggleExcludeRecap(user: AdminUserItem) {
-    const newStatus = !user.exclude_from_recap;
-    const actionTitle = newStatus ? 'Kecualikan dari Rekapitulasi?' : 'Masukkan ke Rekapitulasi?';
-    const actionDesc = newStatus
-      ? `Akun ${user.full_name || user.email} akan disembunyikan dan TIDAK dihitung dalam tabel rekapitulasi piket di dashboard.`
-      : `Akun ${user.full_name || user.email} akan dimasukkan kembali ke tabel rekapitulasi piket di dashboard.`;
+  async function handleSaveRoles(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!roleModalUser) return;
 
-    const confirmed = await showConfirm(
-      actionTitle,
-      actionDesc,
-      newStatus ? 'Ya, Jangan Rekap' : 'Ya, Masukkan Rekap'
-    );
-    if (!confirmed) return;
+    if (roleModalRoles.length === 0) {
+      setRoleModalError('Setidaknya pilih 1 role untuk akun ini.');
+      return;
+    }
 
-    setLoadingAction(`recap-${user.id}`);
-    const res = await toggleExcludeRecapAction(user.id, newStatus);
+    setRoleModalError(null);
+    setLoadingAction(`role-save-${roleModalUser.id}`);
+
+    const res = await updateUserRolesAction(roleModalUser.id, roleModalRoles);
+
     if (res.error) {
-      showAlert('Gagal', `Gagal mengubah status rekap: ${res.error}`, 'error');
+      setRoleModalError(res.error);
+      setLoadingAction(null);
     } else {
-      showToast(
-        newStatus
-          ? `Akun ${user.full_name || user.email} berhasil diset Jangan Rekap.`
-          : `Akun ${user.full_name || user.email} kembali masuk rekapitulasi.`,
-        'success'
-      );
+      showToast(`Role akun ${roleModalUser.email} berhasil diperbarui!`, 'success');
+      setRoleModalUser(null);
+      setLoadingAction(null);
       router.refresh();
     }
-    setLoadingAction(null);
   }
 
   async function handleCreateUser(e: React.FormEvent<HTMLFormElement>) {
@@ -173,6 +254,11 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
     setLoadingAction('create');
 
     const formData = new FormData(e.currentTarget);
+    formData.delete('roles');
+    createRoles.forEach((role) => {
+      formData.append('roles', role);
+    });
+
     const res = await createUserAction(formData);
 
     if (res.error) {
@@ -184,33 +270,6 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       showToast('Akun pengguna berhasil dibuat!', 'success');
       router.refresh();
     }
-  }
-
-  async function handleToggleRole(user: AdminUserItem) {
-    if (user.id === currentUserId) {
-      showAlert('Perhatian', 'Anda tidak dapat mengubah role akun Anda sendiri.', 'warning');
-      return;
-    }
-
-    const nextRole: UserRole = user.role === 'master' ? 'user' : 'master';
-    const confirmMsg =
-      nextRole === 'master'
-        ? `Jadikan akun ${user.email} sebagai Akun Master? Pengguna ini akan memiliki akses penuh.`
-        : `Ubah akun ${user.email} menjadi Akun Petugas biasa?`;
-
-    const confirmed = await showConfirm('Ubah Role Akun?', confirmMsg, 'Ya, Ubah Role');
-    if (!confirmed) return;
-
-    setLoadingAction(`role-${user.id}`);
-    const res = await changeUserRoleAction(user.id, nextRole);
-
-    if (res.error) {
-      showAlert('Gagal', `Gagal mengubah role: ${res.error}`, 'error');
-    } else {
-      showToast(`Role akun ${user.email} berhasil diubah!`, 'success');
-      router.refresh();
-    }
-    setLoadingAction(null);
   }
 
   async function handleResetPassword(e: React.FormEvent<HTMLFormElement>) {
@@ -243,6 +302,11 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       return;
     }
 
+    if (user.email.toLowerCase() === MASTER_EMAIL.toLowerCase()) {
+      showAlert('Perhatian', 'Akun Utama Owner tidak dapat dihapus.', 'warning');
+      return;
+    }
+
     const confirmed = await showConfirm(
       'Hapus Akun?',
       `Hapus akun ${user.email}? Seluruh akses pengguna ini akan dicabut secara permanen.`,
@@ -261,6 +325,48 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       router.refresh();
     }
     setLoadingAction(null);
+  }
+
+  function toggleRoleInList(list: AppRole[], role: AppRole, targetEmail?: string): AppRole[] {
+    const isTargetOwner = targetEmail?.toLowerCase() === MASTER_EMAIL.toLowerCase();
+
+    // Owner utama tidak boleh kehilangan role 'owner'
+    if (role === 'owner' && isTargetOwner) {
+      return list;
+    }
+
+    // Akun selain owner utama tidak boleh dijadikan owner
+    if (role === 'owner' && !isTargetOwner) {
+      return list;
+    }
+
+    if (list.includes(role)) {
+      const next = list.filter((r) => r !== role);
+      return next.length > 0 ? next : ['magang'];
+    } else {
+      return [...list, role];
+    }
+  }
+
+  function renderRoleBadges(roles: AppRole[]) {
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {roles.map((r) => {
+          const config = ROLE_INFO[r];
+          if (!config) return null;
+          const Icon = config.icon;
+          return (
+            <span
+              key={r}
+              className={`text-[10px] ${config.badgeBg} font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border shadow-2xs`}
+            >
+              <Icon className="h-2.5 w-2.5" />
+              <span>{config.badgeLabel}</span>
+            </span>
+          );
+        })}
+      </div>
+    );
   }
 
   return (
@@ -287,7 +393,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                 {pendingCount} Akun Baru Menunggu Persetujuan
               </h3>
               <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                Pendaftar baru belum dapat mengakses aplikasi sebelum Anda setujui atau edit datanya.
+                Pendaftar baru belum dapat mengakses aplikasi sebelum disetujui atau ditentukan role-nya.
               </p>
             </div>
           </div>
@@ -304,15 +410,19 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       {/* Header bar with Add Button */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
         <div>
-          <h2 className="font-bold text-gray-900 dark:text-slate-100 text-sm">Daftar Akun Pengguna</h2>
-          <p className="text-xs text-gray-500 dark:text-slate-400">
-            Total {initialUsers.length} akun terdaftar di sistem.
+          <h2 className="font-bold text-gray-900 dark:text-slate-100 text-sm flex items-center gap-2">
+            <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            Manajemen Akun &amp; Role Bertumpuk
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+            Role dapat ditumpuk (misal: Owner + Magang, Admin + Magang). Total {initialUsers.length} akun.
           </p>
         </div>
         <button
           type="button"
           onClick={() => {
             setCreateError(null);
+            setCreateRoles(['magang']);
             setCreateModalOpen(true);
           }}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm min-h-[44px]"
@@ -349,7 +459,9 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
           {pendingCount > 0 && (
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                filterTab === 'pending' ? 'bg-amber-700 text-white' : 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200'
+                filterTab === 'pending'
+                  ? 'bg-amber-700 text-white'
+                  : 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200'
               }`}
             >
               {pendingCount}
@@ -383,8 +495,28 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
         ) : (
           filteredUsers.map((user) => {
             const isSelf = user.id === currentUserId;
-            const isUserMaster = user.role === 'master';
+            const isTargetOwner = user.email.toLowerCase() === MASTER_EMAIL.toLowerCase();
+            const userRoles = resolveUserRoles(user);
             const isPending = !user.is_approved;
+            const isMagang = userRoles.includes('magang');
+
+            // Pilih icon utama untuk avatar
+            let AvatarIcon = GraduationCap;
+            let avatarClass = 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800';
+
+            if (isPending) {
+              AvatarIcon = Clock;
+              avatarClass = 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800';
+            } else if (userRoles.includes('owner')) {
+              AvatarIcon = Crown;
+              avatarClass = 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700';
+            } else if (userRoles.includes('admin')) {
+              AvatarIcon = ShieldCheck;
+              avatarClass = 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800';
+            } else if (userRoles.includes('senior')) {
+              AvatarIcon = Star;
+              avatarClass = 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800';
+            }
 
             return (
               <div
@@ -396,22 +528,8 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                 }`}
               >
                 <div className="flex items-start gap-3 min-w-0">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                      isPending
-                        ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                        : isUserMaster
-                        ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                        : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                    }`}
-                  >
-                    {isPending ? (
-                      <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                    ) : isUserMaster ? (
-                      <Crown className="h-5 w-5" />
-                    ) : (
-                      <UserIcon className="h-5 w-5" />
-                    )}
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${avatarClass}`}>
+                    <AvatarIcon className="h-5 w-5" />
                   </div>
 
                   <div className="min-w-0">
@@ -428,19 +546,29 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                         <span className="text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300 dark:border-amber-800 animate-pulse">
                           <Clock className="h-2.5 w-2.5" /> Menunggu Review
                         </span>
-                      ) : isUserMaster ? (
-                        <span className="text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300 dark:border-amber-800">
-                          <Crown className="h-2.5 w-2.5" /> Master
-                        </span>
                       ) : (
-                        <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-medium px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                          <UserCheck className="h-2.5 w-2.5" /> Aktif
-                        </span>
+                        renderRoleBadges(userRoles)
                       )}
-                      {user.exclude_from_recap && (
-                        <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 flex items-center gap-1" title="Dikecualikan dari tabel rekapitulasi piket di dashboard">
-                          <EyeOff className="h-2.5 w-2.5 text-amber-500" /> Jangan Rekap
-                        </span>
+
+                      {/* Status Rekap Kehadiran */}
+                      {!isPending && (
+                        isMagang ? (
+                          <span
+                            className="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-medium px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1"
+                            title="Akun Magang: Diikutsertakan dalam tabel rekapitulasi piket"
+                          >
+                            <BarChart3 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>Ikut Rekap</span>
+                          </span>
+                        ) : (
+                          <span
+                            className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 flex items-center gap-1"
+                            title="Bukan Magang: Tidak dihitung dalam tabel rekap piket dashboard"
+                          >
+                            <EyeOff className="h-2.5 w-2.5 text-slate-500" />
+                            <span>Tidak Direkap</span>
+                          </span>
+                        )
                       )}
                     </div>
 
@@ -485,7 +613,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                     </button>
                   )}
 
-                  {/* Edit Data Akun (Nama, HP, Role, Status) */}
+                  {/* Edit Profil Lengkap */}
                   <button
                     type="button"
                     onClick={() => handleOpenEditModal(user)}
@@ -495,58 +623,17 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                     <span>{isPending ? 'Edit & Review' : 'Edit'}</span>
                   </button>
 
-                  {/* Ganti Role (hanya untuk akun aktif dan bukan diri sendiri) */}
-                  {!isPending && !isSelf && (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleRole(user)}
-                      disabled={loadingAction === `role-${user.id}`}
-                      title="Ubah Role"
-                      className="px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-gray-100 dark:hover:bg-slate-800 disabled:opacity-40 rounded-lg transition-colors flex items-center gap-1 min-h-[38px]"
-                    >
-                      {loadingAction === `role-${user.id}` ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <>
-                          <ShieldAlert className="h-3.5 w-3.5 text-gray-500 dark:text-slate-400" />
-                          <span>{isUserMaster ? 'Ke Petugas' : 'Ke Master'}</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-
-                  {/* Toggle Jangan Rekap */}
+                  {/* Kelola Role Bertumpuk */}
                   {!isPending && (
                     <button
                       type="button"
-                      onClick={() => handleToggleExcludeRecap(user)}
-                      disabled={loadingAction === `recap-${user.id}`}
-                      title={
-                        user.exclude_from_recap
-                          ? 'Klik untuk memasukkan akun ini ke tabel rekap piket dashboard'
-                          : 'Klik agar akun ini tidak dihitung dalam rekap piket dashboard (monitoring saja)'
-                      }
-                      className={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1 min-h-[38px] border ${
-                        user.exclude_from_recap
-                          ? 'text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/40'
-                          : 'text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100 bg-white dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border-gray-200 dark:border-slate-700'
-                      }`}
+                      onClick={() => handleOpenRoleModal(user)}
+                      disabled={loadingAction === `role-save-${user.id}`}
+                      title="Ubah & tumpuk role akun"
+                      className="px-2.5 py-1.5 text-xs font-medium text-gray-700 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-400 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-1.5 min-h-[38px] border border-gray-200 dark:border-slate-700"
                     >
-                      {loadingAction === `recap-${user.id}` ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : user.exclude_from_recap ? (
-                        <>
-                          <EyeOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                          <span className="hidden sm:inline">Tidak Direkap</span>
-                          <span className="sm:hidden">Off</span>
-                        </>
-                      ) : (
-                        <>
-                          <BarChart2 className="h-3.5 w-3.5 text-gray-500 dark:text-slate-400" />
-                          <span className="hidden sm:inline">Jangan Rekap</span>
-                          <span className="sm:hidden">Rekap</span>
-                        </>
-                      )}
+                      <Shield className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>Ubah Role</span>
                     </button>
                   )}
 
@@ -558,19 +645,19 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                       setResetModalUser(user);
                     }}
                     title="Ganti Password"
-                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
+                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center border border-gray-200 dark:border-slate-700"
                   >
                     <KeyRound className="h-4 w-4" />
                   </button>
 
-                  {/* Hapus / Tolak Akun */}
-                  {!isSelf && (
+                  {/* Hapus Akun (Kecuali Owner Utama dan Akun Sendiri) */}
+                  {!isSelf && !isTargetOwner && (
                     <button
                       type="button"
                       onClick={() => handleDeleteUser(user)}
                       disabled={loadingAction === `delete-${user.id}`}
                       title={isPending ? 'Tolak & Hapus Akun' : 'Hapus Akun'}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center border border-gray-200 dark:border-slate-700"
                     >
                       {loadingAction === `delete-${user.id}` ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -586,10 +673,142 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
         )}
       </div>
 
+      {/* Modal Kelola Role Bertumpuk */}
+      {roleModalUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  Kelola Role Akun
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                  {roleModalUser.full_name || roleModalUser.email} &bull; Role boleh ditumpuk
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRoleModalUser(null)}
+                className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRoles} className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300">
+                  Pilih Role (Dapat Dipilih Lebih Dari Satu):
+                </label>
+
+                {(['owner', 'admin', 'senior', 'magang'] as AppRole[]).map((roleKey) => {
+                  const info = ROLE_INFO[roleKey];
+                  const Icon = info.icon;
+                  const isChecked = roleModalRoles.includes(roleKey);
+                  const isTargetOwner = roleModalUser.email.toLowerCase() === MASTER_EMAIL.toLowerCase();
+
+                  // Owner role lock logic
+                  const isOwnerDisabled = roleKey === 'owner' && (!isTargetOwner || !currentUserIsOwner);
+
+                  return (
+                    <label
+                      key={roleKey}
+                      className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                        isChecked
+                          ? 'border-blue-400 dark:border-blue-600 bg-blue-50/40 dark:bg-blue-950/30'
+                          : 'border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/40 hover:bg-gray-100/60 dark:hover:bg-slate-800'
+                      } ${isOwnerDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={isOwnerDisabled}
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isOwnerDisabled) return;
+                          setRoleModalRoles(toggleRoleInList(roleModalRoles, roleKey, roleModalUser.email));
+                        }}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold flex items-center gap-1.5 ${info.text}`}>
+                            <Icon className="h-3.5 w-3.5" />
+                            {info.label}
+                          </span>
+                          {roleKey === 'owner' && (
+                            <span className="text-[10px] bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 font-semibold px-2 py-0.2 rounded-full border border-amber-300 dark:border-amber-700">
+                              Akun Utama
+                            </span>
+                          )}
+                          {roleKey === 'magang' && (
+                            <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-semibold px-2 py-0.2 rounded-full border border-emerald-300 dark:border-emerald-700">
+                              Ikut Rekap
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1 leading-relaxed">
+                          {info.description}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Status Rekap Kehadiran Realtime */}
+              <div className="p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/60 space-y-1.5">
+                <span className="text-[11px] font-semibold text-gray-700 dark:text-slate-300 block">
+                  Status Rekapitulasi Kehadiran:
+                </span>
+                {roleModalRoles.includes('magang') ? (
+                  <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
+                    <BarChart3 className="h-4 w-4" />
+                    <span>DIHITUNG dalam rekapitulasi piket, grafik dashboard, &amp; laporan PDF.</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 font-semibold">
+                    <EyeOff className="h-4 w-4" />
+                    <span>TIDAK DIHITUNG dalam rekapitulasi piket dashboard (hanya monitoring &amp; manajemen).</span>
+                  </div>
+                )}
+              </div>
+
+              {roleModalError && (
+                <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-2.5 rounded-lg border border-red-200 dark:border-red-900/60">
+                  {roleModalError}
+                </p>
+              )}
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRoleModalUser(null)}
+                  className="flex-1 py-2.5 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors min-h-[44px]"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingAction === `role-save-${roleModalUser.id}`}
+                  className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-xs font-semibold rounded-xl transition-colors min-h-[44px] flex items-center justify-center gap-2"
+                >
+                  {loadingAction === `role-save-${roleModalUser.id}` ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Simpan Role'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal Edit Pengguna */}
       {editModalUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-xl space-y-4">
+          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base flex items-center gap-2">
                 <Edit3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -617,7 +836,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">
-                  Nama
+                  Nama Lengkap
                 </label>
                 <input
                   type="text"
@@ -643,18 +862,49 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Role Akun</label>
-                <select
-                  value={editRole}
-                  onChange={(e) => setEditRole(e.target.value as UserRole)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
-                >
-                  <option value="user">Petugas (Absen hari ini & Device lock)</option>
-                  <option value="master">Master (Akses Penuh)</option>
-                </select>
+              {/* Pilihan Role Bertumpuk di Edit Modal */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300">
+                  Role Akun (Boleh Ditumpuk):
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(['owner', 'admin', 'senior', 'magang'] as AppRole[]).map((roleKey) => {
+                    const info = ROLE_INFO[roleKey];
+                    const Icon = info.icon;
+                    const isChecked = editRoles.includes(roleKey);
+                    const isTargetOwner = editModalUser.email.toLowerCase() === MASTER_EMAIL.toLowerCase();
+                    const isOwnerDisabled = roleKey === 'owner' && (!isTargetOwner || !currentUserIsOwner);
+
+                    return (
+                      <label
+                        key={roleKey}
+                        className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          isChecked
+                            ? 'border-blue-400 dark:border-blue-600 bg-blue-50/40 dark:bg-blue-950/30'
+                            : 'border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/40 hover:bg-gray-100/60'
+                        } ${isOwnerDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={isOwnerDisabled}
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isOwnerDisabled) return;
+                            setEditRoles(toggleRoleInList(editRoles, roleKey, editModalUser.email));
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className={`text-xs font-bold flex items-center gap-1 ${info.text}`}>
+                          <Icon className="h-3 w-3" />
+                          {info.label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
+              {/* Status Persetujuan */}
               <div className="pt-1">
                 <label className="flex items-center gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/60 cursor-pointer">
                   <input
@@ -668,27 +918,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                       Status Akun: Disetujui (Approved)
                     </span>
                     <span className="text-[11px] text-gray-500 dark:text-slate-400 block">
-                      Centang untuk mengizinkan pengguna masuk dan mengisi piket.
-                    </span>
-                  </div>
-                </label>
-              </div>
-
-              <div className="pt-1">
-                <label className="flex items-start gap-2.5 p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/60 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editExcludeFromRecap}
-                    onChange={(e) => setEditExcludeFromRecap(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-amber-600 focus:ring-amber-500"
-                  />
-                  <div>
-                    <span className="text-xs font-semibold text-gray-900 dark:text-slate-100 flex items-center gap-1.5">
-                      <EyeOff className="h-3.5 w-3.5 text-amber-500" />
-                      Jangan Rekap (Kecualikan dari Tabel Dashboard)
-                    </span>
-                    <span className="text-[11px] text-gray-500 dark:text-slate-400 block mt-0.5 leading-relaxed">
-                      Centang opsi ini untuk akun Master / Monitoring yang tidak piket agar namanya tidak muncul di tabel rekap piket dashboard.
+                      Centang untuk mengizinkan pengguna masuk dan mengisi absensi piket.
                     </span>
                   </div>
                 </label>
@@ -730,11 +960,11 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
       {/* Modal Tambah User Manual */}
       {createModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-sm p-6 shadow-xl space-y-4">
+          <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-gray-900 dark:text-slate-100 text-base flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                Tambah Akun Pengguna
+                Tambah Akun Pengguna Baru
               </h3>
               <button
                 type="button"
@@ -752,7 +982,7 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                   type="email"
                   name="email"
                   required
-                  placeholder="petugas@icnt.com"
+                  placeholder="nama@icnt.com"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                 />
               </div>
@@ -769,16 +999,49 @@ export function UserManager({ initialUsers, fetchError, currentUserId }: UserMan
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">Role Akun</label>
-                <select
-                  name="role"
-                  defaultValue="user"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
-                >
-                  <option value="user">Petugas (Hanya absen hari ini + Device lock)</option>
-                  <option value="master">Master (Akses Penuh)</option>
-                </select>
+              {/* Pilihan Role Bertumpuk */}
+              <div className="space-y-2 pt-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300">
+                  Role Akun (Boleh Ditumpuk):
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(['admin', 'senior', 'magang'] as AppRole[]).map((roleKey) => {
+                    const info = ROLE_INFO[roleKey];
+                    const Icon = info.icon;
+                    const isChecked = createRoles.includes(roleKey);
+
+                    return (
+                      <label
+                        key={roleKey}
+                        className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          isChecked
+                            ? 'border-blue-400 dark:border-blue-600 bg-blue-50/40 dark:bg-blue-950/30'
+                            : 'border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/40 hover:bg-gray-100/60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            setCreateRoles((prev) => {
+                              if (prev.includes(roleKey)) {
+                                const next = prev.filter((r) => r !== roleKey);
+                                return next.length > 0 ? next : ['magang'];
+                              } else {
+                                return [...prev, roleKey];
+                              }
+                            });
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className={`text-xs font-bold flex items-center gap-1 ${info.text}`}>
+                          <Icon className="h-3 w-3" />
+                          {info.label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               {createError && (

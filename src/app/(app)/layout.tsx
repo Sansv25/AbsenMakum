@@ -4,7 +4,62 @@ import { logout } from '@/app/(auth)/login/actions';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 import { BottomNav, Sidebar } from '@/components/ui/nav';
 import { NavigationProgress } from '@/components/ui/navigation-progress';
-import { LogOut, Crown, User as UserIcon } from 'lucide-react';
+import { LogOut, Crown, User as UserIcon, ShieldCheck, Star, GraduationCap } from 'lucide-react';
+import type { AppRole } from '@/lib/supabase/types';
+
+function renderHeaderRoleBadges(roles?: AppRole[], isMaster?: boolean) {
+  const activeRoles: AppRole[] =
+    roles && roles.length > 0
+      ? roles
+      : isMaster
+      ? ['admin']
+      : ['magang'];
+
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {activeRoles.map((role) => {
+        if (role === 'owner') {
+          return (
+            <span
+              key={role}
+              className="text-[10px] bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5"
+            >
+              <Crown className="h-2.5 w-2.5" /> Owner
+            </span>
+          );
+        }
+        if (role === 'admin') {
+          return (
+            <span
+              key={role}
+              className="text-[10px] bg-blue-100 dark:bg-blue-950/80 border border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-300 font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5"
+            >
+              <ShieldCheck className="h-2.5 w-2.5" /> Admin
+            </span>
+          );
+        }
+        if (role === 'senior') {
+          return (
+            <span
+              key={role}
+              className="text-[10px] bg-purple-100 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-300 font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5"
+            >
+              <Star className="h-2.5 w-2.5" /> Senior
+            </span>
+          );
+        }
+        return (
+          <span
+            key={role}
+            className="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 font-medium px-1.5 py-0.2 rounded-full flex items-center gap-0.5"
+          >
+            <GraduationCap className="h-2.5 w-2.5" /> Magang
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 export default async function AppLayout({
   children,
@@ -17,19 +72,20 @@ export default async function AppLayout({
     redirect('/complete-profile');
   }
 
-  if (!profile.isMaster && !profile.isApproved) {
+  if (!profile.canManageSettings && !profile.isApproved) {
     redirect('/pending-approval');
   }
 
-  const { email, isMaster, fullName } = profile;
+  const { email, fullName, roles, canManageSettings, isMaster } = profile;
 
   return (
     <div className="min-h-screen w-full max-w-full flex bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 transition-colors overflow-x-hidden">
       <NavigationProgress />
       <Sidebar
-        isMaster={isMaster}
+        isMaster={canManageSettings}
         userName={fullName || email || undefined}
         userEmail={email ?? undefined}
+        roles={roles}
       />
 
       <div className="flex-1 min-w-0 max-w-full md:ml-56 flex flex-col min-h-screen overflow-x-hidden">
@@ -45,17 +101,9 @@ export default async function AppLayout({
               />
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-bold text-gray-900 dark:text-slate-100 text-sm leading-none">Absensi Piket</span>
-                {isMaster ? (
-                  <span className="text-[10px] bg-amber-100 border border-amber-300 text-amber-800 font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5">
-                    <Crown className="h-2.5 w-2.5" /> Master
-                  </span>
-                ) : (
-                  <span className="text-[10px] bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 font-medium px-1.5 py-0.2 rounded-full">
-                    Petugas
-                  </span>
-                )}
+                {renderHeaderRoleBadges(roles, isMaster)}
               </div>
               <p className="text-[10px] text-sky-700 dark:text-sky-400 font-semibold tracking-wide">
                 ICONNET
@@ -93,15 +141,7 @@ export default async function AppLayout({
             <span className="text-sm text-gray-700 dark:text-slate-200 font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400">
               {fullName || email}
             </span>
-            {isMaster ? (
-              <span className="text-xs bg-amber-100 border border-amber-300 text-amber-800 font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-                <Crown className="h-3 w-3" /> Master
-              </span>
-            ) : (
-              <span className="text-xs bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
-                <UserIcon className="h-3 w-3" /> Petugas
-              </span>
-            )}
+            {renderHeaderRoleBadges(roles, isMaster)}
           </Link>
           <form action={logout}>
             <button
@@ -117,7 +157,7 @@ export default async function AppLayout({
         <main className="flex-1 min-w-0 max-w-full pb-20 md:pb-0 overflow-x-hidden">{children}</main>
       </div>
 
-      <BottomNav isMaster={isMaster} />
+      <BottomNav isMaster={canManageSettings} />
     </div>
   );
 }

@@ -5,9 +5,9 @@ import { SettingsForm } from './settings-form';
 import { SettingsTabs } from './settings-tabs';
 
 export default async function PengaturanPage() {
-  const { isMaster } = await getCurrentUserProfile();
+  const { canManageSettings, isOwner } = await getCurrentUserProfile();
 
-  if (!isMaster) {
+  if (!canManageSettings) {
     redirect('/');
   }
 
@@ -22,10 +22,10 @@ export default async function PengaturanPage() {
         </p>
       </div>
 
-      {/* Tabs khusus Master */}
-      {isMaster && <SettingsTabs activeTab="shifts" />}
+      {/* Tabs Navigasi Pengaturan */}
+      <SettingsTabs activeTab="shifts" isOwner={isOwner} />
 
-      <SettingsForm settings={settings} isMaster={isMaster} />
+      <SettingsForm settings={settings} isMaster={canManageSettings} isOwner={isOwner} />
     </div>
   );
 }

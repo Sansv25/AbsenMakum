@@ -3,35 +3,42 @@ import { SlidersHorizontal, Users, HardDrive, Mail } from 'lucide-react';
 
 interface SettingsTabsProps {
   activeTab: 'shifts' | 'users' | 'monitoring' | 'rekapan';
+  isOwner?: boolean;
 }
 
-export function SettingsTabs({ activeTab }: SettingsTabsProps) {
-  const tabs = [
+export function SettingsTabs({ activeTab, isOwner = false }: SettingsTabsProps) {
+  const allTabs = [
     {
       id: 'shifts',
       label: 'Pengaturan Shift',
       href: '/pengaturan',
       icon: SlidersHorizontal,
+      ownerOnly: false,
     },
     {
       id: 'users',
       label: 'Manajemen Akun',
       href: '/pengaturan/users',
       icon: Users,
+      ownerOnly: false,
     },
     {
       id: 'monitoring',
       label: 'Monitoring Supabase',
       href: '/pengaturan/monitoring',
       icon: HardDrive,
+      ownerOnly: true,
     },
     {
       id: 'rekapan',
       label: 'Rekapan Email',
       href: '/pengaturan/rekapan',
       icon: Mail,
+      ownerOnly: true,
     },
   ] as const;
+
+  const tabs = isOwner ? allTabs : allTabs.filter((t) => !t.ownerOnly);
 
   return (
     <div className="flex items-center gap-1.5 sm:gap-2 border-b border-gray-200 dark:border-slate-800 pb-2 overflow-x-auto no-scrollbar">

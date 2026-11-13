@@ -84,6 +84,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     full_name: string | null;
     email: string | null;
     role: string;
+    roles?: string[];
     is_approved?: boolean;
     exclude_from_recap?: boolean;
   };
@@ -93,13 +94,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   try {
     const { data: pRecapData, error: pRecapErr } = await supabase
       .from('profiles')
-      .select('id, full_name, email, role, is_approved, exclude_from_recap')
+      .select('id, full_name, email, role, roles, is_approved, exclude_from_recap')
       .eq('is_approved', true);
 
     if (pRecapErr) {
       const { data: pFbData } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, is_approved')
+        .select('id, full_name, email, role, is_approved, exclude_from_recap')
         .eq('is_approved', true);
       allProfilesList = (pFbData ?? []) as ProfileSummary[];
     } else {

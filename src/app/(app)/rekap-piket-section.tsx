@@ -22,6 +22,7 @@ export interface ProfileRecapSummary {
   full_name: string | null;
   email: string | null;
   role: string;
+  roles?: string[];
   is_approved?: boolean;
   exclude_from_recap?: boolean;
 }
@@ -221,9 +222,14 @@ export function RekapPiketSection({
     });
   }, [startDate, endDate, currentMonth, initialAttendances, initialAttachments]);
 
-  // Petugas yang masuk rekapitulasi (dikecualikan jika exclude_from_recap === true)
+  // Petugas yang masuk rekapitulasi (wajib punya role 'magang' jika roles terisi, atau !exclude_from_recap)
   const activeProfiles = useMemo(() => {
-    return initialProfiles.filter((p) => !p.exclude_from_recap);
+    return initialProfiles.filter((p) => {
+      if (p.roles && Array.isArray(p.roles) && p.roles.length > 0) {
+        return p.roles.includes('magang');
+      }
+      return !p.exclude_from_recap;
+    });
   }, [initialProfiles]);
 
   // Map attachments by attendance_id

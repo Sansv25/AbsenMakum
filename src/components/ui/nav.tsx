@@ -12,6 +12,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
+import type { AppRole } from '@/lib/supabase/types';
+
 interface NavItem {
   href: string;
   label: string;
@@ -31,6 +33,20 @@ interface NavProps {
   isMaster?: boolean;
   userName?: string | null;
   userEmail?: string | null;
+  roles?: AppRole[];
+}
+
+function formatRoleLabels(roles?: AppRole[], isMaster?: boolean) {
+  if (roles && roles.length > 0) {
+    const map: Record<AppRole, string> = {
+      owner: 'Owner',
+      admin: 'Admin',
+      senior: 'Senior',
+      magang: 'Magang',
+    };
+    return roles.map((r) => map[r] || r).join(', ');
+  }
+  return isMaster ? 'Master' : 'Magang';
 }
 
 export function BottomNav({ isMaster = false }: NavProps) {
@@ -67,7 +83,7 @@ export function BottomNav({ isMaster = false }: NavProps) {
   );
 }
 
-export function Sidebar({ isMaster = false, userName, userEmail }: NavProps) {
+export function Sidebar({ isMaster = false, userName, userEmail, roles }: NavProps) {
   const pathname = usePathname();
   const navItems = isMaster ? allNavItems : allNavItems.filter((item) => !item.masterOnly);
   const displayName = userName || userEmail || 'Pengguna';
@@ -139,7 +155,7 @@ export function Sidebar({ isMaster = false, userName, userEmail }: NavProps) {
               {displayName}
             </p>
             <p className="text-[10px] text-gray-400 dark:text-slate-400 truncate mt-0.5">
-              {isMaster ? 'Master' : 'Petugas'} &bull; Profil
+              {formatRoleLabels(roles, isMaster)} &bull; Profil
             </p>
           </div>
           <ChevronRight className="h-4 w-4 text-gray-400 dark:text-slate-500 flex-shrink-0" />

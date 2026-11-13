@@ -5,9 +5,9 @@ import { UserManager } from './user-manager';
 import { SettingsTabs } from '../settings-tabs';
 
 export default async function UsersManagementPage() {
-  const { isMaster, userId } = await getCurrentUserProfile();
+  const { canManageSettings, isOwner, userId } = await getCurrentUserProfile();
 
-  if (!isMaster) {
+  if (!canManageSettings) {
     redirect('/');
   }
 
@@ -23,12 +23,13 @@ export default async function UsersManagementPage() {
       </div>
 
       {/* Tabs */}
-      <SettingsTabs activeTab="users" />
+      <SettingsTabs activeTab="users" isOwner={isOwner} />
 
       <UserManager
         initialUsers={users}
         fetchError={error}
         currentUserId={userId ?? ''}
+        currentUserIsOwner={isOwner}
       />
     </div>
   );
