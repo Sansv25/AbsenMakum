@@ -13,6 +13,7 @@ import {
   Key,
   User,
   CheckCircle2,
+  AlertCircle,
   Loader2,
   FileText,
   ShieldCheck,
@@ -417,8 +418,18 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
               {showApiKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             </button>
           </div>
+          {settings.brevoApiKey && settings.brevoApiKey.trim().startsWith('xsmtpsib-') && (
+            <div className="mt-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs leading-relaxed flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong>Perhatian:</strong> Kunci yang Anda tempel adalah <strong>SMTP Key</strong> (berawalan <code>xsmtpsib-</code>).<br />
+                Untuk fitur kirim email otomatis ini, Anda membutuhkan <strong>API Key</strong>. Caranya:<br />
+                Buka Brevo &rarr; <strong>SMTP &amp; API</strong> &rarr; klik tab <strong>API Keys</strong> (di sebelah kanan tab SMTP) &rarr; klik tombol <strong>Generate a new API key</strong>. Kunci yang benar akan berawalan <code>xkeysib-...</code>.
+              </div>
+            </div>
+          )}
           <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1">
-            Ambil di dashboard Brevo &rarr; <strong>SMTP &amp; API</strong> &rarr; <strong>API Keys</strong> &rarr; <strong>Generate key</strong>.
+            Ambil di dashboard Brevo &rarr; <strong>SMTP &amp; API</strong> &rarr; klik tab <strong>API Keys</strong> &rarr; <strong>Generate a new API key</strong> (kuncinya berawalan <code>xkeysib-...</code>).
           </p>
         </div>
       </div>

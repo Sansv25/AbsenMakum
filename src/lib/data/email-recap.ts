@@ -191,6 +191,13 @@ export async function sendRecapEmailNow(
     };
   }
 
+  if (apiKey.startsWith('xsmtpsib-')) {
+    return {
+      success: false,
+      error: 'Kunci yang Anda masukkan adalah Brevo SMTP Key (berawalan xsmtpsib-), bukan API Key. Silakan buka Brevo -> SMTP & API -> klik tab "API Keys" di sebelah kanan tab SMTP -> klik "Generate a new API key" (kuncinya yang benar berawalan xkeysib-...).',
+    };
+  }
+
   const senderEmail = (settings.senderEmail || process.env.BREVO_SENDER_EMAIL || '').trim();
   if (!senderEmail) {
     return {
