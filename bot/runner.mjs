@@ -240,6 +240,11 @@ async function ensureAuthenticated() {
         if (!error && data?.user) {
           console.log(`[AUTH] Sesi tersimpan aktif untuk: ${data.user.email}`);
           return;
+        } else if (error) {
+          console.log(`[AUTH] Sesi tersimpan sudah kedaluwarsa (${error.message}). Memerlukan login ulang...`);
+          try {
+            fs.unlinkSync(sessionFile);
+          } catch {}
         }
       }
     } catch {}
@@ -686,6 +691,52 @@ async function syncActiveChat(activeTicket) {
   }
 }
 
+// Verifikasi & Refresh Sesi Supabase Berkala
+async function checkAndRefreshSession() {
+  if (serviceRoleKey) return true;
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session && session.expires_at) {
+      const nowSec = Math.floor(Date.now() / 1000);
+      // Jika token masih berlaku lebih dari 60 detik, sesi aman
+      if (session.expires_at - nowSec > 60) {
+        return true;
+      }
+    }
+
+    const sessionFile = path.resolve(__dirname, '.session.json');
+    if (!fs.existsSync(sessionFile)) return false;
+
+    const fileData = JSON.parse(fs.readFileSync(sessionFile, 'utf-8'));
+    if (!fileData?.refresh_token) return false;
+
+    const { data, error } = await supabase.auth.refreshSession({
+      refresh_token: fileData.refresh_token,
+    });
+
+    if (error || !data?.session) {
+      return false;
+    }
+
+    fs.writeFileSync(
+      sessionFile,
+      JSON.stringify(
+        {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          user: data.session.user.email,
+        },
+        null,
+        2
+      )
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Loop Utama Bot
 async function startBotLoop() {
   console.log('=======================================================');
@@ -704,6 +755,14 @@ async function startBotLoop() {
     isChecking = true;
 
     try {
+      const isAuthValid = await checkAndRefreshSession();
+      if (!isAuthValid) {
+        process.stdout.write(
+          `\r[${new Date().toLocaleTimeString()}] ⚠️ [SESI EXPIRED] Sesi login Supabase habis. Tutup dan buka kembali jalankan_bot.bat untuk login! `
+        );
+        return;
+      }
+
       // 1. Cek apakah ada tiket aktif (in_conversation / needs_admin)
       const { data: activeTicket } = await supabase
         .from('tickets')
