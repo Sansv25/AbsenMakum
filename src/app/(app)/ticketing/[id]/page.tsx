@@ -612,7 +612,12 @@ function TicketDetailContent() {
       )}
 
       {/* Monitoring Mode: Pending Reply Approval Banner */}
-      {pendingDraft && (
+      {pendingDraft &&
+        pendingDraft.ticket_id === ticket.id &&
+        ticket.status !== 'ticket_issued' &&
+        ticket.status !== 'closed' &&
+        ticket.status !== 'failed' &&
+        !ticket.ticket_number && (
         <div className="p-5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-orange-500/10 border-2 border-amber-400 dark:border-amber-600 rounded-3xl shadow-md space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200 dark:border-amber-800/80 pb-3">
             <div className="flex items-center gap-3">

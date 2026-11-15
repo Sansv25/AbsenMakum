@@ -242,8 +242,25 @@ export default function TicketingDashboardPage() {
     }
   };
 
+  // Draf yang valid hanya jika tiket terkait masih aktif dan belum terbit / selesai
+  const activeDraft = useMemo(() => {
+    if (!pendingDraft) return null;
+    const targetTicket = tickets.find((t) => t.id === pendingDraft.ticket_id);
+    if (targetTicket) {
+      if (
+        targetTicket.status === 'ticket_issued' ||
+        targetTicket.status === 'closed' ||
+        targetTicket.status === 'failed' ||
+        Boolean(targetTicket.ticket_number)
+      ) {
+        return null;
+      }
+    }
+    return pendingDraft;
+  }, [pendingDraft, tickets]);
+
   const handleApproveDraft = async () => {
-    if (!pendingDraft) return;
+    if (!activeDraft) return;
     setProcessingDraft(true);
     try {
       await fetch('/api/ticketing/ai/pending-reply', {
@@ -251,7 +268,7 @@ export default function TicketingDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'approve',
-          ticketId: pendingDraft.ticket_id,
+          ticketId: activeDraft.ticket_id,
           replyText: editedDraftText,
         }),
       });
@@ -263,7 +280,7 @@ export default function TicketingDashboardPage() {
   };
 
   const handleRejectDraft = async () => {
-    if (!pendingDraft) return;
+    if (!activeDraft) return;
     setProcessingDraft(true);
     try {
       await fetch('/api/ticketing/ai/pending-reply', {
@@ -271,7 +288,7 @@ export default function TicketingDashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'reject',
-          ticketId: pendingDraft.ticket_id,
+          ticketId: activeDraft.ticket_id,
         }),
       });
       setPendingDraft(null);
@@ -411,7 +428,7 @@ export default function TicketingDashboardPage() {
 
       {/* AI Approval Floating Banner */}
       <TicketAiApprovalBanner
-        draft={pendingDraft}
+        draft={activeDraft}
         editedText={editedDraftText}
         onTextChange={setEditedDraftText}
         onApprove={handleApproveDraft}

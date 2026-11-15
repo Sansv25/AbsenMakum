@@ -11,6 +11,29 @@ export async function GET() {
       .maybeSingle();
 
     if (data && data.value && typeof data.value === 'object') {
+      const pending = data.value as { ticket_id?: string };
+      
+      // Jika ada ticket_id, verifikasi status tiketnya
+      if (pending.ticket_id) {
+        const { data: ticket } = await supabase
+          .from('tickets')
+          .select('status, ticket_number')
+          .eq('id', pending.ticket_id)
+          .maybeSingle();
+
+        // Jika tiket sudah terbit nomornya, selesai, atau tidak ditemukan, bersihkan draf usang
+        if (!ticket || ticket.status === 'ticket_issued' || ticket.status === 'closed' || ticket.ticket_number) {
+          await supabase
+            .from('ticketing_settings')
+            .upsert({
+              key: 'pending_ai_reply',
+              value: null,
+              updated_at: new Date().toISOString(),
+            });
+          return NextResponse.json({ pending: null });
+        }
+      }
+
       return NextResponse.json({ pending: data.value });
     }
 

@@ -77,6 +77,27 @@ const supabase = createClient(supabaseUrl, activeKey, {
   },
 });
 
+// Otomatis perbarui file sesi jika token Supabase diperbarui
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    try {
+      const sessionFile = path.resolve(__dirname, '.session.json');
+      fs.writeFileSync(
+        sessionFile,
+        JSON.stringify(
+          {
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            user: session.user?.email || '',
+          },
+          null,
+          2
+        )
+      );
+    } catch {}
+  }
+});
+
 // Cache pesan terakhir yang sudah dijawab agar tidak menjawab berulang-ulang
 let lastAnsweredMessage = '';
 
@@ -504,6 +525,13 @@ async function syncActiveChat(activeTicket) {
             body: text,
           });
 
+          // Bersihkan juga draf yang mungkin menggantung di pending_ai_reply
+          await supabase.from('ticketing_settings').upsert({
+            key: 'pending_ai_reply',
+            value: null,
+            updated_at: now,
+          });
+
           console.log(`   ✓ Status tiket ${activeTicket.name} diperbarui ke: TIKET TERBIT\n`);
           return;
         }
@@ -540,6 +568,19 @@ async function syncActiveChat(activeTicket) {
       if (m.includes('ID Pelanggan') || m.includes('Selamat Pagi/Siang Kak, izin melaporkan')) continue;
       if (m.includes(activeTicket.customer_id)) continue;
       if (activeTicket.pln_id && m.includes(activeTicket.pln_id)) continue;
+
+      // Abaikan pesan antrean otomatis CS / bot pesan tunggu live chat
+      const lowerM = m.toLowerCase();
+      if (
+        lowerM.includes('seluruh agent') ||
+        lowerM.includes('melayani pelanggan lain') ||
+        lowerM.includes('menunggu dengan menyampaikan') ||
+        lowerM.includes('antrean') ||
+        lowerM.includes('antrian') ||
+        lowerM.includes('menunggu antrian')
+      ) {
+        continue;
+      }
 
       lastCsMessage = m;
       break;
