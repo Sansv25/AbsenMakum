@@ -18,6 +18,7 @@ import {
   AlertCircle,
   CheckCircle2,
   User,
+  Trash2,
 } from 'lucide-react';
 import { showToast } from '@/lib/swal';
 
@@ -114,6 +115,29 @@ BALI
 
 Lampu indikator LOS berkedip merah sejak pagi hari, internet tidak bisa digunakan.`;
     handleParse(demo);
+  };
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.readText) {
+        showToast('Browser tidak mendukung akses clipboard otomatis. Silakan gunakan Ctrl+V.', 'info');
+        return;
+      }
+      const text = await navigator.clipboard.readText();
+      if (!text || !text.trim()) {
+        showToast('Clipboard masih kosong. Silakan salin (copy) teks keluhan terlebih dahulu.', 'info');
+        return;
+      }
+      handleParse(text);
+      showToast('Teks berhasil ditempel dari clipboard!', 'success');
+    } catch (err) {
+      console.warn('Clipboard read error:', err);
+      showToast('Gagal membaca clipboard. Izinkan izin clipboard browser atau tekan Ctrl+V di kotak teks.', 'info');
+    }
+  };
+
+  const handleClearPaste = () => {
+    handleParse('');
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -257,28 +281,61 @@ Lampu indikator LOS berkedip merah sejak pagi hari, internet tidak bisa digunaka
           {/* Kolom Kiri: Smart Paste Box */}
           <div className="lg:col-span-5 space-y-4">
             <div className="bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <label className="text-xs font-bold text-gray-900 dark:text-slate-100 flex items-center gap-1.5">
                   <ClipboardPaste className="h-4 w-4 text-sky-500" />
                   <span>Tempel Blok Teks Pelanggan</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={handleFillDemoData}
-                  className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  <span>Isi Data Contoh</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handlePasteFromClipboard}
+                    className="px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-semibold flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer"
+                    title="Tempel teks langsung dari clipboard"
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5" />
+                    <span>Paste Teks</span>
+                  </button>
+                  {pasteInput && (
+                    <button
+                      type="button"
+                      onClick={handleClearPaste}
+                      className="p-1 rounded-lg text-gray-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 transition cursor-pointer"
+                      title="Bersihkan teks"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleFillDemoData}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 ml-0.5 cursor-pointer"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    <span>Contoh</span>
+                  </button>
+                </div>
               </div>
 
-              <textarea
-                value={pasteInput}
-                onChange={(e) => handleParse(e.target.value)}
-                rows={11}
-                placeholder={`Contoh:\nID Pelanggan\n151000663039\nID PLN\n551400201269\nTelepon\n+6281775447019\nNama\nI NYOMAN MUDANA\nAlamat\nBANJAR SILADAN DESA TAMANBALI\n\nKeluhan: Lampu LOS berkedip merah...`}
-                className="w-full p-3 rounded-xl border border-gray-300 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800 text-xs font-mono text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition leading-relaxed"
-              />
+              <div className="relative">
+                <textarea
+                  value={pasteInput}
+                  onChange={(e) => handleParse(e.target.value)}
+                  rows={11}
+                  placeholder={`Contoh:\nID Pelanggan\n151000663039\nID PLN\n551400201269\nTelepon\n+6281775447019\nNama\nI NYOMAN MUDANA\nAlamat\nBANJAR SILADAN DESA TAMANBALI\n\nKeluhan: Lampu LOS berkedip merah...`}
+                  className="w-full p-3 rounded-xl border border-gray-300 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800 text-xs font-mono text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition leading-relaxed pb-10"
+                />
+                {!pasteInput && (
+                  <button
+                    type="button"
+                    onClick={handlePasteFromClipboard}
+                    className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-blue-600/20 backdrop-blur-xs transition hover:scale-105 active:scale-95 cursor-pointer"
+                  >
+                    <ClipboardPaste className="h-3.5 w-3.5" />
+                    <span>Paste dari Clipboard</span>
+                  </button>
+                )}
+              </div>
 
               <div className="p-3 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-xl text-[11px] text-blue-800 dark:text-blue-300 space-y-1">
                 <span className="font-bold flex items-center gap-1">
