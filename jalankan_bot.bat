@@ -9,6 +9,6 @@ echo Pastikan Anda sudah login Instagram lewat login_instagram.bat sekali saja.
 echo Bot ini akan memantau antrean tiket di Supabase secara otomatis dan
 echo mengetikkan laporan keluhan ke DM Instagram @iconnet.here di laptop ini.
 echo.
-cd /d "%~dp0app"
-node "%~dp0bot\runner.mjs"
+cd /d "%~dp0"
+node "bot\runner.mjs"
 pause
