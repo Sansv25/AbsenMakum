@@ -46,24 +46,11 @@ export async function POST(
       );
     }
 
-    // Jika berjalan di PC lokal dengan Chrome terinstall, kita bisa mengupdate status dan memulai sesi
-    const { error: updateError } = await supabase
-      .from('tickets')
-      .update({
-        status: 'in_conversation',
-        started_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', ticketId);
+    // Panggil otomasi Puppeteer lokal untuk mengetik ke Instagram
+    const { sendFirstMessageViaBrowser } = await import('@/lib/instagram/sendViaBrowser');
+    const result = await sendFirstMessageViaBrowser(ticketId);
 
-    if (updateError) {
-      throw new Error(updateError.message);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Tiket berhasil dimulai via mode pengiriman!',
-    });
+    return NextResponse.json(result);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem';
     return NextResponse.json({ error: message }, { status: 500 });
