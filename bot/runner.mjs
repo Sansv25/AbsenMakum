@@ -1,7 +1,7 @@
 /**
- * ICONNET TICKET RUNNER BOT (LOCAL PUPPETEER)
- * Memantau antrean tiket Supabase dan mengeksekusi pengetikan serta sinkronisasi
- * ke DM Instagram @iconnet.here secara otomatis di PC/Laptop lokal.
+ * ICONNET TICKET RUNNER BOT (LOCAL PUPPETEER + AI AUTO-RESPONDER)
+ * Memantau antrean tiket Supabase, mengetikkan pesan pembuka ke DM Instagram @iconnet.here,
+ * menjawab pertanyaan CS secara cerdas menggunakan AI Nemotron, dan mengekstrak nomor tiket resmi.
  */
 
 import puppeteer from 'puppeteer-core';
@@ -30,7 +30,7 @@ function getProfileDir() {
   return localProfile;
 }
 
-// Baca Env Supabase
+// Baca Env Supabase & AI Key
 function loadEnv() {
   const envPaths = [
     path.resolve(__dirname, '.env'),
@@ -41,6 +41,7 @@ function loadEnv() {
   let supabaseUrl = 'https://osaliefiqfydqibwfafl.supabase.co';
   let supabaseAnonKey = '';
   let serviceRoleKey = '';
+  let nvidiaApiKey = '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';
 
   for (const p of envPaths) {
     if (fs.existsSync(p)) {
@@ -56,14 +57,17 @@ function loadEnv() {
         if (trimmed.startsWith('SUPABASE_SERVICE_ROLE_KEY=')) {
           serviceRoleKey = trimmed.split('=')[1].trim();
         }
+        if (trimmed.startsWith('NVIDIA_NIM_API_KEY=')) {
+          nvidiaApiKey = trimmed.split('=')[1].trim();
+        }
       }
     }
   }
 
-  return { supabaseUrl, supabaseAnonKey, serviceRoleKey };
+  return { supabaseUrl, supabaseAnonKey, serviceRoleKey, nvidiaApiKey };
 }
 
-const { supabaseUrl, supabaseAnonKey, serviceRoleKey } = loadEnv();
+const { supabaseUrl, supabaseAnonKey, serviceRoleKey, nvidiaApiKey } = loadEnv();
 const activeKey = serviceRoleKey || supabaseAnonKey;
 
 const supabase = createClient(supabaseUrl, activeKey, {
@@ -73,7 +77,10 @@ const supabase = createClient(supabaseUrl, activeKey, {
   },
 });
 
-// Format Pesan Standar Sesuai PRD
+// Cache pesan terakhir yang sudah dijawab agar tidak menjawab berulang-ulang
+let lastAnsweredMessage = '';
+
+// Format Pesan Pembuka Standar
 function buildFirstMessage(ticket) {
   const parts = [];
   parts.push('Selamat Pagi/Siang Kak, izin melaporkan gangguan pelanggan:');
@@ -124,7 +131,75 @@ function extractTicketOutcome(text) {
   return null;
 }
 
-// Pastikan User Terautentikasi (Jika Belum Pakai Service Role)
+// Otak AI: Menjawab Pertanyaan CS ICONNET Sesuai Data Tiket
+async function generateAIReply(ticket, incomingMessage) {
+  const isLoss = (ticket.complaint || '').toLowerCase().includes('loss') || (ticket.complaint || '').toLowerCase().includes('los');
+  const statusIndikatorText = isLoss ? 'lampu indikator merah' : 'tidak ada indikator merah';
+  const indikatorSentence = `Untuk kendalanya ${statusIndikatorText} Kak`;
+
+  const prompt = `Kamu adalah asisten pelapor layanan pelanggan yang berkomunikasi dengan CS ICONNET lewat Instagram DM.
+PENTING: POSISIMU ADALAH PELAPOR (PELANGGAN / PEMOHON LAYANAN), BUKAN CUSTOMER SERVICE!
+Jangan pernah menawarkan bantuan seperti "Ada yang bisa dibantu?". Kamu yang meminta bantuan penanganan layanan ICONNET!
+
+DATA TIKET PELANGGAN (Satu-satunya sumber fakta):
+- Nama: ${ticket.name}
+- ID Pelanggan: ${ticket.customer_id}
+- No Telepon / WA: ${ticket.phone || '-'}
+- Keluhan: ${ticket.complaint}
+- Kondisi Indikator Modem: ${statusIndikatorText.toUpperCase()}
+
+ATURAN PALING PENTING:
+1. JAWAB HANYA HAL YANG SPESIFIK DITANYAKAN CS (MAKSIMAL 1-2 KALIMAT PENDEK):
+   - Jawab secara singkat, sopan, to-the-point, dan natural seperti manusia.
+   - Jika CS meminta foto modem/SN: jawab bahwa foto saat ini belum dapat dilampirkan ("Untuk foto saat ini belum dapat kami lampirkan Kak. Mohon bantuannya Kak.").
+   - Jika CS meminta nomor WhatsApp / alternatif: jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} dan tidak ada nomor alternatif ("Untuk nomor WhatsApp aktif sama seperti di data: ${ticket.phone || '-'} Kak, tidak ada nomor alternatif lain. Mohon bantuannya Kak.").
+   - Jika CS menanyakan kondisi lampu indikator: jawab "${indikatorSentence}. Mohon bantuannya Kak."
+   - Jika CS menanyakan foto DAN nomor telepon sekaligus: jawab ringkas keduanya dalam satu pesan ("${indikatorSentence}, untuk foto saat ini belum dapat kami lampirkan, dan untuk nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif). Mohon bantuannya Kak.").
+
+2. KELUARAN HANYA JSON VALID TANPA MARKDOWN:
+{"action":"reply","text":"..."}`;
+
+  try {
+    const res = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${nvidiaApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'nvidia/nemotron-3.5-lightning-30b-a3b',
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content: incomingMessage.trim() },
+        ],
+        temperature: 0.1,
+        max_tokens: 300,
+        chat_template_kwargs: { enable_thinking: false },
+      }),
+    });
+
+    const data = await res.json();
+    const rawContent = data.choices?.[0]?.message?.content || '';
+    const cleaned = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+      if (!parsed.action) parsed.action = 'reply';
+    } catch {
+      parsed = { action: 'reply', text: cleaned };
+    }
+    return parsed;
+  } catch (err) {
+    console.error('[AI Error]:', err.message);
+    return {
+      action: 'reply',
+      text: `${indikatorSentence}, untuk foto saat ini belum dapat kami lampirkan, dan untuk nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif). Mohon bantuannya Kak.`,
+    };
+  }
+}
+
+// Pastikan User Terautentikasi di Supabase
 async function ensureAuthenticated() {
   if (serviceRoleKey) {
     console.log('[AUTH] Menggunakan SUPABASE_SERVICE_ROLE_KEY.');
@@ -133,7 +208,6 @@ async function ensureAuthenticated() {
 
   const sessionFile = path.resolve(__dirname, '.session.json');
 
-  // Coba restore session tersimpan
   if (fs.existsSync(sessionFile)) {
     try {
       const sessionData = JSON.parse(fs.readFileSync(sessionFile, 'utf-8'));
@@ -150,7 +224,6 @@ async function ensureAuthenticated() {
     } catch {}
   }
 
-  // Jika belum ada sesi, minta email dan password
   console.log('\n======================================================');
   console.log('  LOGIN KE SUPABASE UNTUK MENJALANKAN BOT LOKAL');
   console.log('======================================================');
@@ -211,14 +284,12 @@ async function openDirectThread(page) {
   await page.goto(DIRECT_THREAD_URL, { waitUntil: 'networkidle2', timeout: 35000 });
   await new Promise((r) => setTimeout(r, 2000));
 
-  // Cek apakah ter-redirect ke login
   if (page.url().includes('/accounts/login')) {
     throw new Error(
       'Sesi login Instagram belum tersimpan. Silakan jalankan "login_instagram.bat" terlebih dahulu.'
     );
   }
 
-  // Tutup popup / modal "Not Now" jika ada
   try {
     const buttons = await page.$$('button');
     for (const btn of buttons) {
@@ -230,7 +301,7 @@ async function openDirectThread(page) {
     }
   } catch {}
 
-  // Scroll percakapan ke paling bawah
+  // Scroll ke paling bawah
   await page.evaluate(() => {
     const allDivs = Array.from(document.querySelectorAll('div'));
     for (const d of allDivs) {
@@ -253,7 +324,6 @@ async function dispatchTicket(ticket) {
     const page = (await browser.pages())[0] || (await browser.newPage());
     await openDirectThread(page);
 
-    // Cari kotak pesan
     const messageInputSelector =
       'div[role="textbox"][contenteditable="true"], div[aria-label="Message"], div[aria-label="Pesan"]';
     const messageBox = await page.waitForSelector(messageInputSelector, { timeout: 15000 });
@@ -265,7 +335,6 @@ async function dispatchTicket(ticket) {
     await messageBox.click();
     await new Promise((r) => setTimeout(r, 500));
 
-    // Simulasi ketikan manusia
     console.log('   Mengetik teks keluhan...');
     for (const char of messageText) {
       if (char === '\n') {
@@ -345,7 +414,6 @@ async function dispatchTicket(ticket) {
       }
     }
 
-    // Update status tiket di Supabase
     const now = new Date().toISOString();
     await supabase
       .from('tickets')
@@ -356,7 +424,6 @@ async function dispatchTicket(ticket) {
       })
       .eq('id', ticket.id);
 
-    // Rekam pesan ke tabel ticket_messages
     await supabase.from('ticket_messages').insert({
       ticket_id: ticket.id,
       direction: 'out',
@@ -374,7 +441,7 @@ async function dispatchTicket(ticket) {
   }
 }
 
-// Cek Pesan Masuk & Nomor Tiket
+// Cek Pesan Masuk, Ekstrak Nomor Tiket, & Jalankan AI Auto-Reply
 async function syncActiveChat(activeTicket) {
   let browser = null;
   try {
@@ -382,7 +449,6 @@ async function syncActiveChat(activeTicket) {
     const page = (await browser.pages())[0] || (await browser.newPage());
     await openDirectThread(page);
 
-    // Ambil semua elemen teks chat
     const messages = await page.evaluate(() => {
       const nav = document.querySelector('nav');
       const nodes = Array.from(document.querySelectorAll('div[dir="auto"], span[dir="auto"]'));
@@ -409,21 +475,22 @@ async function syncActiveChat(activeTicket) {
 
     if (messages.length === 0) return;
 
-    // Cari apakah ada nomor tiket di pesan-pesan terakhir
+    // 1. Prioritas 1: Cari apakah ada nomor tiket resmi di pesan-pesan terbaru
+    let ticketNumFound = null;
     for (let i = messages.length - 1; i >= Math.max(0, messages.length - 15); i--) {
       const text = messages[i];
       const outcome = extractTicketOutcome(text);
 
       if (outcome && outcome.type === 'ticket') {
-        const ticketNum = outcome.value;
-        if (activeTicket.ticket_number !== ticketNum) {
-          console.log(`\n🎉 [NOMOR TIKET TERBIT] Ditemukan Nomor Tiket Resmi: ${ticketNum}!`);
+        ticketNumFound = outcome.value;
+        if (activeTicket.ticket_number !== ticketNumFound) {
+          console.log(`\n🎉 [NOMOR TIKET TERBIT] Ditemukan Nomor Tiket Resmi: ${ticketNumFound}!`);
 
           const now = new Date().toISOString();
           await supabase
             .from('tickets')
             .update({
-              ticket_number: ticketNum,
+              ticket_number: ticketNumFound,
               status: 'ticket_issued',
               ticket_issued_at: now,
               updated_at: now,
@@ -438,7 +505,134 @@ async function syncActiveChat(activeTicket) {
           });
 
           console.log(`   ✓ Status tiket ${activeTicket.name} diperbarui ke: TIKET TERBIT\n`);
-          break;
+          return;
+        }
+      }
+    }
+
+    // 2. Prioritas 2: Jika nomor tiket belum keluar, periksa apakah CS mengajukan pertanyaan yang butuh dijawab AI
+    const ignoredChatKeywords = new Set([
+      'iconnet.here',
+      'mitraiconnet.balinusra',
+      'Primary',
+      'General',
+      'Requests',
+      'Seen',
+      'Delivered',
+      'Sent',
+      'Sending...',
+      'Dashboard',
+      'Active now',
+      'Details',
+      'Info',
+      'WhatsApp',
+      'Also from Meta',
+    ]);
+
+    let lastCsMessage = '';
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]?.trim();
+      if (!m) continue;
+      if (/^\d+$/.test(m)) continue;
+      if (/^\d+[smhdwy]$/i.test(m)) continue;
+      if (/^\d{1,2}[:.]\d{2}$/.test(m)) continue;
+      if (ignoredChatKeywords.has(m)) continue;
+      if (m.includes('ID Pelanggan') || m.includes('Selamat Pagi/Siang Kak, izin melaporkan')) continue;
+      if (m.includes(activeTicket.customer_id)) continue;
+      if (activeTicket.pln_id && m.includes(activeTicket.pln_id)) continue;
+
+      lastCsMessage = m;
+      break;
+    }
+
+    if (
+      lastCsMessage &&
+      lastCsMessage !== lastAnsweredMessage &&
+      activeTicket.status === 'in_conversation' &&
+      activeTicket.mode === 'ai' &&
+      (activeTicket.ai_turns || 0) < 12
+    ) {
+      console.log(`\n💬 [PESAN CS MASUK] "${lastCsMessage.slice(0, 90)}..."`);
+      console.log(`🤖 [AI MEMPROSES JAWABAN] Memanggil Nemotron AI...`);
+
+      const aiReply = await generateAIReply(activeTicket, lastCsMessage);
+
+      if (aiReply && aiReply.text) {
+        console.log(`   Draf Balasan AI: "${aiReply.text}"`);
+
+        // Periksa apakah Mode Monitoring Aktif
+        const { data: monSetting } = await supabase
+          .from('ticketing_settings')
+          .select('value')
+          .eq('key', 'ai_monitoring_enabled')
+          .maybeSingle();
+
+        const isMonitoring = monSetting ? Boolean(monSetting.value) : false;
+
+        if (isMonitoring) {
+          console.log(`🔔 [MODE MONITORING AKTIF] Balasan AI menunggu approval admin di Web!\n`);
+          await supabase.from('ticketing_settings').upsert({
+            key: 'pending_ai_reply',
+            value: {
+              ticket_id: activeTicket.id,
+              customer_name: activeTicket.name,
+              reply_text: aiReply.text,
+              incoming_text: lastCsMessage,
+              created_at: new Date().toISOString(),
+            },
+          });
+          await supabase
+            .from('tickets')
+            .update({ status: 'needs_admin', updated_at: new Date().toISOString() })
+            .eq('id', activeTicket.id);
+
+          lastAnsweredMessage = lastCsMessage;
+        } else {
+          // Mode AI Auto: Ketikkan balasan langsung ke Instagram DM
+          console.log(`   Mengetikkan balasan ke DM Instagram...`);
+          const messageInputSelector =
+            'div[role="textbox"][contenteditable="true"], div[aria-label="Message"], div[aria-label="Pesan"]';
+          const messageBox = await page.waitForSelector(messageInputSelector, { timeout: 10000 });
+
+          if (messageBox) {
+            await messageBox.click();
+            await new Promise((r) => setTimeout(r, 400));
+
+            for (const char of aiReply.text) {
+              if (char === '\n') {
+                await page.keyboard.down('Shift');
+                await page.keyboard.press('Enter');
+                await page.keyboard.up('Shift');
+              } else {
+                await page.keyboard.sendCharacter(char);
+              }
+              const delay = Math.floor(Math.random() * (50 - 20 + 1)) + 20;
+              await new Promise((r) => setTimeout(r, delay));
+            }
+
+            await new Promise((r) => setTimeout(r, 600));
+            await page.keyboard.press('Enter');
+            await new Promise((r) => setTimeout(r, 2500));
+
+            // Rekam ke ticket_messages dan update ai_turns
+            await supabase.from('ticket_messages').insert({
+              ticket_id: activeTicket.id,
+              direction: 'out',
+              sender: 'ai',
+              body: aiReply.text,
+            });
+
+            await supabase
+              .from('tickets')
+              .update({
+                ai_turns: (activeTicket.ai_turns || 0) + 1,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', activeTicket.id);
+
+            lastAnsweredMessage = lastCsMessage;
+            console.log(`✅ [AI TERKIRIM] Berhasil membalas ke CS ICONNET!\n`);
+          }
         }
       }
     }
@@ -458,7 +652,7 @@ async function startBotLoop() {
   console.log('=======================================================');
   console.log(`[INFO] Supabase URL: ${supabaseUrl}`);
   console.log(`[INFO] Profil Chrome: ${getProfileDir()}`);
-  console.log('[INFO] Bot siap memantau antrean tiket...\n');
+  console.log('[INFO] Bot siap memantau antrean & balasan AI...\n');
 
   await ensureAuthenticated();
 
@@ -477,7 +671,9 @@ async function startBotLoop() {
         .maybeSingle();
 
       if (activeTicket) {
-        process.stdout.write(`\r[${new Date().toLocaleTimeString()}] ⏳ Tiket aktif: "${activeTicket.name}" | Memeriksa balasan... `);
+        process.stdout.write(
+          `\r[${new Date().toLocaleTimeString()}] ⏳ Tiket aktif: "${activeTicket.name}" | Memeriksa chat... `
+        );
         await syncActiveChat(activeTicket);
       } else {
         // 2. Jika tidak ada tiket aktif, periksa apakah ada antrean
@@ -493,7 +689,9 @@ async function startBotLoop() {
           const nextTicket = queuedTickets[0];
           await dispatchTicket(nextTicket);
         } else {
-          process.stdout.write(`\r[${new Date().toLocaleTimeString()}] 💤 Tidak ada antrean tiket aktif. Menunggu tiket baru... `);
+          process.stdout.write(
+            `\r[${new Date().toLocaleTimeString()}] 💤 Tidak ada antrean tiket aktif. Menunggu tiket baru... `
+          );
         }
       }
     } catch (err) {
@@ -503,7 +701,6 @@ async function startBotLoop() {
     }
   };
 
-  // Jalankan siklus pertama langsung, lalu ulangi setiap 12 detik
   await runCycle();
   setInterval(runCycle, 12000);
 }
