@@ -10,6 +10,7 @@ import {
   FileDown,
   User,
   ChevronRight,
+  Ticket,
 } from 'lucide-react';
 
 import type { AppRole } from '@/lib/supabase/types';
@@ -23,6 +24,7 @@ interface NavItem {
 
 const allNavItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/ticketing', label: 'Ticketing', icon: Ticket },
   { href: '/riwayat', label: 'Riwayat', icon: History },
   { href: '/libur', label: 'Libur', icon: CalendarOff, masterOnly: true },
   { href: '/pengaturan', label: 'Pengaturan', icon: Settings, masterOnly: true },
