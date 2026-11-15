@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { UploadCloud, X, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { UploadCloud, X, Image as ImageIcon, Loader2, Clipboard } from 'lucide-react';
 import { compressImage, CompressedImageResult, formatFileSize } from '@/lib/ticketing/compressImage';
 
 interface TicketImageUploaderProps {
@@ -18,38 +18,113 @@ export function TicketImageUploader({
   const [compressing, setCompressing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  const processFiles = useCallback(
+    async (fileList: File[]) => {
+      if (!fileList || fileList.length === 0) return;
+
+      setUploadError(null);
+      setCompressing(true);
+
+      try {
+        const remainingSlots = maxFiles - images.length;
+        if (remainingSlots <= 0) {
+          setUploadError(`Maksimal ${maxFiles} foto diperbolehkan.`);
+          return;
+        }
+
+        if (fileList.length > remainingSlots) {
+          setUploadError(`Hanya dapat menambahkan ${remainingSlots} foto lagi (Maksimal ${maxFiles}).`);
+        }
+
+        const filesToProcess = Array.from(fileList).slice(0, remainingSlots);
+        const newCompressed: CompressedImageResult[] = [];
+
+        for (const file of filesToProcess) {
+          try {
+            const res = await compressImage(file);
+            newCompressed.push(res);
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Gagal memproses gambar.';
+            setUploadError(msg);
+          }
+        }
+
+        if (newCompressed.length > 0) {
+          onChange([...images, ...newCompressed]);
+        }
+      } finally {
+        setCompressing(false);
+      }
+    },
+    [images, maxFiles, onChange]
+  );
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+    await processFiles(Array.from(files));
+    e.target.value = '';
+  };
 
-    setUploadError(null);
-    setCompressing(true);
-
+  // Baca gambar langsung dari Clipboard API
+  const handlePasteClipboardImage = async () => {
     try {
-      const remainingSlots = maxFiles - images.length;
-      if (files.length > remainingSlots) {
-        setUploadError(`Maksimal ${maxFiles} foto diperbolehkan.`);
+      if (!navigator.clipboard?.read) {
+        setUploadError('Tekan shortcut keyboard Ctrl+V pada halaman ini untuk menempelkan gambar screenshot.');
+        return;
       }
+      setCompressing(true);
+      const clipboardItems = await navigator.clipboard.read();
+      const files: File[] = [];
 
-      const filesToProcess = Array.from(files).slice(0, remainingSlots);
-      const newCompressed: CompressedImageResult[] = [];
-
-      for (const file of filesToProcess) {
-        try {
-          const res = await compressImage(file);
-          newCompressed.push(res);
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : 'Gagal memproses gambar.';
-          setUploadError(msg);
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((t) => t.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const ext = imageType.split('/')[1] || 'png';
+          files.push(new File([blob], `screenshot_${Date.now()}.${ext}`, { type: imageType }));
         }
       }
 
-      onChange([...images, ...newCompressed]);
+      if (files.length === 0) {
+        setUploadError('Tidak ada gambar di clipboard. Pastikan Anda sudah copy screenshot gambar terlebih dahulu (misal: Win+Shift+S).');
+        return;
+      }
+
+      await processFiles(files);
+    } catch (err: unknown) {
+      console.warn('Clipboard read error:', err);
+      setUploadError('Gagal membaca clipboard otomatis. Anda bisa langsung menekan tombol Ctrl+V pada keyboard di halaman ini.');
     } finally {
       setCompressing(false);
-      e.target.value = '';
     }
   };
+
+  // Tangani shortcut Ctrl+V secara global pada halaman
+  useEffect(() => {
+    const handleWindowPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items || items.length === 0) return;
+
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            imageFiles.push(file);
+          }
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        processFiles(imageFiles);
+      }
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, [processFiles]);
 
   const handleRemove = (index: number) => {
     const updated = [...images];
@@ -62,7 +137,7 @@ export function TicketImageUploader({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <label className="text-xs font-bold text-gray-700 dark:text-slate-300 flex items-center gap-1.5">
           <ImageIcon className="h-4 w-4 text-sky-500" />
           <span>Foto Bukti Keluhan / Lampu LOS / Serial Number</span>
@@ -70,9 +145,23 @@ export function TicketImageUploader({
             ({images.length}/{maxFiles})
           </span>
         </label>
-        <span className="text-[11px] text-gray-400 dark:text-slate-500">
-          Otomatis dikompres &le; 1600px
-        </span>
+        <div className="flex items-center gap-2">
+          {images.length < maxFiles && (
+            <button
+              type="button"
+              onClick={handlePasteClipboardImage}
+              disabled={compressing}
+              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+              title="Paste gambar dari clipboard (atau tekan Ctrl+V)"
+            >
+              <Clipboard className="h-3.5 w-3.5" />
+              <span>Paste Gambar (Ctrl+V)</span>
+            </button>
+          )}
+          <span className="text-[11px] text-gray-400 dark:text-slate-500 hidden sm:inline">
+            Otomatis dikompres &le; 1600px
+          </span>
+        </div>
       </div>
 
       {/* Dropzone */}
@@ -95,10 +184,10 @@ export function TicketImageUploader({
           </div>
           <div className="text-center">
             <span className="text-xs font-bold text-gray-800 dark:text-slate-200">
-              {compressing ? 'Sedang mengompres gambar...' : 'Klik atau seret foto ke sini'}
+              {compressing ? 'Sedang mengompres gambar...' : 'Klik, seret foto, atau tekan Ctrl+V untuk Paste'}
             </span>
             <p className="text-[11px] text-gray-400 dark:text-slate-500 mt-0.5">
-              Maksimal 10 MB per foto (JPEG, PNG, WebP)
+              Bisa langsung tempel screenshot dari clipboard (JPEG, PNG, WebP)
             </p>
           </div>
         </label>
