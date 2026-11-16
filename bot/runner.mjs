@@ -550,7 +550,29 @@ async function syncActiveChat(activeTicket) {
     await openDirectThread(page);
 
     const messages = await page.evaluate(() => {
-      const nav = document.querySelector('nav');
+      // Abaikan sidebar navigasi, panel rincian/info di sebelah kanan, dan dialog
+      const isInsideIgnoredContainer = (el) => {
+        let p = el.parentElement;
+        while (p && p !== document.body) {
+          const tag = p.tagName;
+          if (tag === 'NAV' || tag === 'ASIDE') return true;
+          const role = p.getAttribute('role');
+          if (role === 'complementary' || role === 'navigation') return true;
+          const ariaLabel = p.getAttribute('aria-label');
+          if (
+            ariaLabel &&
+            (ariaLabel === 'Details' ||
+              ariaLabel === 'Rincian' ||
+              ariaLabel === 'Info' ||
+              ariaLabel === 'Thread details')
+          ) {
+            return true;
+          }
+          p = p.parentElement;
+        }
+        return false;
+      };
+
       const nodes = Array.from(document.querySelectorAll('div[dir="auto"], span[dir="auto"]'));
       const ignored = new Set([
         'Home',
@@ -563,10 +585,13 @@ async function syncActiveChat(activeTicket) {
         'Profile',
         'More',
         'Threads',
+        'Phone number',
+        'Phone Number',
       ]);
+
       return nodes
         .filter((n) => {
-          if (nav && nav.contains(n)) return false;
+          if (isInsideIgnoredContainer(n)) return false;
           const text = n.innerText?.trim();
           return text && !ignored.has(text);
         })
@@ -625,7 +650,7 @@ async function syncActiveChat(activeTicket) {
       if (m.includes(activeTicket.customer_id)) continue;
       if (activeTicket.pln_id && m.includes(activeTicket.pln_id)) continue;
 
-      // Abaikan pesan antrean otomatis CS / bot pesan tunggu live chat
+      // Abaikan pesan antrean otomatis CS / bot pesan tunggu live chat / info profil kontak
       const lowerM = m.toLowerCase();
       if (
         lowerM.includes('auto-detected') ||
@@ -635,7 +660,13 @@ async function syncActiveChat(activeTicket) {
         lowerM.includes('menunggu dengan menyampaikan') ||
         lowerM.includes('antrean') ||
         lowerM.includes('antrian') ||
-        lowerM.includes('menunggu antrian')
+        lowerM.includes('menunggu antrian') ||
+        lowerM.includes('phone number') ||
+        lowerM.startsWith('+55 ') ||
+        lowerM.startsWith('phone number') ||
+        lowerM.includes('business account') ||
+        lowerM.includes('view profile') ||
+        lowerM.includes('suggested')
       ) {
         continue;
       }
@@ -768,11 +799,10 @@ async function syncActiveChat(activeTicket) {
                 })
                 .eq('id', activeTicket.id);
 
-              await supabase.from('ticketing_settings').upsert({
-                key: 'pending_ai_reply',
-                value: null,
-                updated_at: finalNow,
-              });
+              await supabase
+                .from('ticketing_settings')
+                .delete()
+                .eq('key', 'pending_ai_reply');
 
               console.log(`✅ [SESI TUNTAS] Tiket "${activeTicket.name}" resmi selesai dengan output: "${detectedOutcome || activeTicket.ticket_number}". Antrean baru aman diproses!\n`);
               return;

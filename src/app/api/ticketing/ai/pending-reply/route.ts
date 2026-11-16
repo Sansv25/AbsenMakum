@@ -25,11 +25,8 @@ export async function GET() {
         if (!ticket || ticket.status === 'ticket_issued' || ticket.status === 'closed' || ticket.ticket_number) {
           await supabase
             .from('ticketing_settings')
-            .upsert({
-              key: 'pending_ai_reply',
-              value: null,
-              updated_at: new Date().toISOString(),
-            });
+            .delete()
+            .eq('key', 'pending_ai_reply');
           return NextResponse.json({ pending: null });
         }
       }
@@ -76,11 +73,8 @@ export async function POST(request: NextRequest) {
       // 3. Bersihkan pending reply di ticketing_settings
       await supabase
         .from('ticketing_settings')
-        .upsert({
-          key: 'pending_ai_reply',
-          value: null,
-          updated_at: new Date().toISOString(),
-        });
+        .delete()
+        .eq('key', 'pending_ai_reply');
 
       return NextResponse.json({
         success: true,
@@ -99,11 +93,8 @@ export async function POST(request: NextRequest) {
       // Bersihkan pending reply
       await supabase
         .from('ticketing_settings')
-        .upsert({
-          key: 'pending_ai_reply',
-          value: null,
-          updated_at: new Date().toISOString(),
-        });
+        .delete()
+        .eq('key', 'pending_ai_reply');
 
       return NextResponse.json({
         success: true,
