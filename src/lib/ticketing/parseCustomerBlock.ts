@@ -139,7 +139,24 @@ export function parseCustomerBlock(text: string): ParsedCustomerData {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (trimmed && !consumedLineIndices.has(i)) {
-      complaintLines.push(trimmed);
+      // Abaikan salam pembuka umum jika ada di teks yang dipaste
+      if (
+        /^(?:selamat\s+(?:pagi|siang|sore|malam)|halo|dear|izin\s+melaporkan)/i.test(trimmed) ||
+        /izin\s+melaporkan/i.test(trimmed)
+      ) {
+        continue;
+      }
+      // Abaikan kalimat penutup umum jika ada di teks yang dipaste
+      if (
+        /^(?:mohon\s+bantuannya|terima\s*kasih|tks|thank\s*you)/i.test(trimmed) ||
+        /mohon\s+bantuannya\s+untuk\s+diterbitkan/i.test(trimmed)
+      ) {
+        continue;
+      }
+
+      // Bersihkan prefix "Keluhan:" atau "Kendala:" jika baris diawali kata tersebut
+      const cleaned = trimmed.replace(/^(?:keluhan|kendala)\s*[:=-]\s*/i, '');
+      complaintLines.push(cleaned || trimmed);
     }
   }
 

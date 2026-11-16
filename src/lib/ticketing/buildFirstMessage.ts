@@ -10,35 +10,20 @@ export function buildFirstMessage(ticket: {
   office?: string | null;
   complaint: string;
 }): string {
-  const fields: [string, string | null | undefined][] = [
-    ['ID Pelanggan', ticket.customer_id],
-    ['ID PLN', ticket.pln_id],
-    ['Telepon', ticket.phone],
-    ['Nama', ticket.name],
-    ['Alamat', ticket.address],
-    ['Email', ticket.email],
-    ['Regional', ticket.regional],
-    ['Kantor Perwakilan', ticket.office],
-  ];
-
-  const lines: string[] = [];
-  for (const [label, val] of fields) {
-    if (val && val.trim()) {
-      lines.push(label);
-      lines.push(val.trim());
-    }
-  }
-
   const parts: string[] = [];
-  const fieldBlock = lines.join('\n');
-  if (fieldBlock) parts.push(fieldBlock);
 
-  const complaint = (ticket.complaint || '').trim();
-  if (complaint) parts.push(complaint);
+  parts.push(`ID Pelanggan: ${ticket.customer_id || '-'}`);
+  if (ticket.pln_id) parts.push(`ID PLN: ${ticket.pln_id}`);
+  if (ticket.phone) parts.push(`No Telp/WA: ${ticket.phone}`);
+  if (ticket.alt_phone) parts.push(`No Telp/CP Alternatif: ${ticket.alt_phone}`);
+  parts.push(`Nama Pelanggan: ${ticket.name || '-'}`);
+  if (ticket.address) parts.push(`Alamat: ${ticket.address}`);
+  if (ticket.email) parts.push(`Email: ${ticket.email}`);
+  if (ticket.regional) parts.push(`Regional: ${ticket.regional}`);
+  if (ticket.office) parts.push(`Kantor Perwakilan: ${ticket.office}`);
+  parts.push('');
+  parts.push(`Keluhan: ${ticket.complaint || '-'}`);
+  if (ticket.alt_phone) parts.push(`cp alt ${ticket.alt_phone}`);
 
-  if (ticket.alt_phone && ticket.alt_phone.trim()) {
-    parts.push(`cp alt ${ticket.alt_phone.trim()}`);
-  }
-
-  return parts.join('\n\n');
+  return parts.join('\n');
 }

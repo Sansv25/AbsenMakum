@@ -101,11 +101,9 @@ supabase.auth.onAuthStateChange((event, session) => {
 // Cache pesan terakhir yang sudah dijawab agar tidak menjawab berulang-ulang
 let lastAnsweredMessage = '';
 
-// Format Pesan Pembuka Standar
+// Format Pesan Pembuka Standar (Tanpa awalan dan akhiran kata)
 function buildFirstMessage(ticket) {
   const parts = [];
-  parts.push('Selamat Pagi/Siang Kak, izin melaporkan gangguan pelanggan:');
-  parts.push('');
   parts.push(`ID Pelanggan: ${ticket.customer_id || '-'}`);
   if (ticket.pln_id) parts.push(`ID PLN: ${ticket.pln_id}`);
   if (ticket.phone) parts.push(`No Telp/WA: ${ticket.phone}`);
@@ -118,8 +116,6 @@ function buildFirstMessage(ticket) {
   parts.push('');
   parts.push(`Keluhan: ${ticket.complaint || '-'}`);
   if (ticket.alt_phone) parts.push(`cp alt ${ticket.alt_phone}`);
-  parts.push('');
-  parts.push('Mohon bantuannya untuk diterbitkan tiket gangguan. Terima kasih.');
   return parts.join('\n');
 }
 
@@ -145,8 +141,12 @@ function extractTicketOutcome(text) {
     }
   }
 
-  // 2. Cek tagihan belum bayar / isolir
-  if (lower.includes('bayar') || lower.includes('pembayaran') || lower.includes('tagihan') || lower.includes('isolir')) {
+  // 2. Cek tagihan belum bayar / isolir (hindari mencocokkan kata biasa/password seperti 'bayardong')
+  if (
+    /\b(?:terisolir|isolir)\b/i.test(text) ||
+    /(?:belum\s*(?:melakukan\s*)?pembayaran|tagihan\s*(?:belum\s*dibayar|tertunggak|menunggak))/i.test(text) ||
+    /(?:ada\s*tagihan|menunggu\s*pembayaran)/i.test(text)
+  ) {
     return { type: 'billing', value: 'Belum Bayar / Tagihan Tertunggak' };
   }
 
@@ -244,10 +244,12 @@ LOGIKA DETEKSI DAN JAWABAN:
 2. SAPAAN / PEMBUKA DARI CS (Chat Baru Dimulai):
    - Jika CS baru menyapa atau memperkenalkan diri (misal "siap melayani...", "dengan [nama agen] yang akan membantu", "Selamat pagi/siang Kak", dsb.):
      DILARANG KERAS MENGAKHIRI CHAT ATAU MENGUCAPKAN SALAM PENUTUP!
-     Jawab bahwa pelanggan sedang menunggu penanganan: "Baik Kak, mohon bantuannya untuk perbaikan kendala internet kami. Terima kasih."
+     Jawab bahwa pelanggan sedang menunggu penanganan: "Baik Kak, mohon bantuannya untuk kendala/permintaan layanan kami. Terima kasih."
      Wajib set "is_closing": false, dan "ticket_number": null.
 
-3. PERTANYAAN KENDALA DARI CS (Chat belum berakhir):
+3. PERTANYAAN / KONFIRMASI DARI CS (Chat belum berakhir):
+   - Jika CS menanyakan konfirmasi data/perubahan (misal konfirmasi nama wifi baru, password baru, atau kesediaan perbaikan):
+     Jawab sopan dan konfirmasikan kesesuaian: "Sudah sesuai Kak, kami bersedia untuk dibantu pergantiannya. Terima kasih."
    - Jika CS meminta foto modem/SN: jawab bahwa foto saat ini belum dapat dilampirkan ("Untuk foto saat ini belum dapat kami lampirkan Kak. Mohon bantuannya Kak.").
    - Jika CS meminta nomor WhatsApp / alternatif: ${ticket.alt_phone ? `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} dan nomor alternatif/CP alt di ${ticket.alt_phone}.` : `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif lain).`}
    - Jika CS menanyakan kondisi lampu indikator: jawab "${indikatorSentence}. Mohon bantuannya Kak."
