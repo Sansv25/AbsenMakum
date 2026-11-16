@@ -43,8 +43,6 @@ export async function PATCH(
     // Tangani otomatis timestamp jika status diubah
     if (updatePayload.status === 'ticket_issued') {
       updatePayload.ticket_issued_at = new Date().toISOString();
-    } else if (updatePayload.status === 'closed') {
-      updatePayload.closed_at = new Date().toISOString();
     }
 
     let { data: updatedTicket, error: updateError } = await supabase

@@ -620,6 +620,7 @@ async function syncActiveChat(activeTicket) {
       'Auto-detected outcome',
       'Auto-detected',
       'Outcome',
+      'Your note',
     ]);
 
     // Cari posisi kemunculan pesan pembuka untuk tiket aktif saat ini di thread chat Instagram
@@ -632,14 +633,20 @@ async function syncActiveChat(activeTicket) {
       }
     }
 
-    // Jika pesan pembuka belum ditemukan/termuat di UI thread, jangan baca pesan apa pun
+    // Jika pesan pembuka dengan customer_id tidak tampak (karena virtual scrolling Instagram me-recycle pesan atas),
+    // cek apakah tiket ini sudah pernah di-dispatch (started_at ada): jika ya, ambil pesan di thread
     if (openingMsgIndex === -1) {
-      return;
+      if (activeTicket.started_at) {
+        openingMsgIndex = 0;
+      } else {
+        return;
+      }
     }
 
     // Kumpulkan seluruh bubble pesan CS yang masuk SETELAH pesan pembuka tiket ini
     const csBubbles = [];
-    for (let i = openingMsgIndex + 1; i < messages.length; i++) {
+    const startIndex = openingMsgIndex === 0 && !messages[0]?.includes(activeTicket.customer_id) ? 0 : openingMsgIndex + 1;
+    for (let i = startIndex; i < messages.length; i++) {
       const m = messages[i]?.trim();
       if (!m) continue;
       if (/^\d+$/.test(m)) continue;
@@ -671,12 +678,86 @@ async function syncActiveChat(activeTicket) {
         continue;
       }
 
-      csBubbles.push(m);
+      // Hindari duplikat bubble berurutan
+      if (csBubbles.length === 0 || csBubbles[csBubbles.length - 1] !== m) {
+        csBubbles.push(m);
+      }
     }
 
     if (csBubbles.length === 0) return;
 
-    // Gabungkan bubble-bubble pesan CS terbaru (maksimal 4 bubble terakhir)
+    // 1. Simpan bubble pesan CS baru ke tabel ticket_messages agar admin melihat isi chat CS di Web
+    for (const bubble of csBubbles) {
+      const { data: existingMsg } = await supabase
+        .from('ticket_messages')
+        .select('id')
+        .eq('ticket_id', activeTicket.id)
+        .eq('direction', 'in')
+        .eq('body', bubble)
+        .maybeSingle();
+
+      if (!existingMsg) {
+        await supabase.from('ticket_messages').insert({
+          ticket_id: activeTicket.id,
+          direction: 'in',
+          sender: 'iconnet',
+          body: bubble,
+        });
+      }
+    }
+
+    // 2. DETEKSI OUTPUT TIKET SECARA UNIVERSAL (Nomor Tiket / Restart Sistem / Gangguan Massal / Tagihan)
+    const combinedCsText = csBubbles.join('\n');
+    const directOutcome = extractTicketOutcome(combinedCsText);
+
+    if (directOutcome && directOutcome.value !== activeTicket.ticket_number) {
+      console.log(`\n🎉 [OUTPUT TERDETEKSI] "${directOutcome.value}" (Tipe: ${directOutcome.type})`);
+      await supabase
+        .from('tickets')
+        .update({ ticket_number: directOutcome.value, updated_at: new Date().toISOString() })
+        .eq('id', activeTicket.id);
+      activeTicket.ticket_number = directOutcome.value;
+    }
+
+    // 3. DETEKSI APAKAH SESI TELAH DITUTUP OLEH CS (misal: "chat akan kami akhiri", "tidak ada jawaban", dll)
+    const lowerCombined = combinedCsText.toLowerCase();
+    const isClosedByCs =
+      lowerCombined.includes('chat akan kami akhiri') ||
+      lowerCombined.includes('percakapan kami akhiri') ||
+      lowerCombined.includes('sesi kami akhiri') ||
+      (lowerCombined.includes('terima kasih telah menghubungi') &&
+        (lowerCombined.includes('selamat pagi') ||
+         lowerCombined.includes('selamat siang') ||
+         lowerCombined.includes('selamat sore') ||
+         lowerCombined.includes('selamat malam')));
+
+    if (isClosedByCs) {
+      console.log(`\n🏁 [SESI DITUTUP OLEH CS] CS ICONNET telah menutup percakapan.`);
+      const finalNow = new Date().toISOString();
+      const isActualTicket = activeTicket.ticket_number && /^[A-Z0-9]{8}$/.test(activeTicket.ticket_number);
+      const finalStatus = isActualTicket ? 'ticket_issued' : 'closed';
+      const finalOutcome = activeTicket.ticket_number || directOutcome?.value || 'Sesi Diakhiri CS (Selesai)';
+
+      await supabase
+        .from('tickets')
+        .update({
+          status: finalStatus,
+          ticket_issued_at: isActualTicket ? finalNow : null,
+          ticket_number: finalOutcome,
+          updated_at: finalNow,
+        })
+        .eq('id', activeTicket.id);
+
+      await supabase
+        .from('ticketing_settings')
+        .delete()
+        .eq('key', 'pending_ai_reply');
+
+      console.log(`✅ [TIKET SELESAI] Tiket "${activeTicket.name}" resmi ${finalStatus} dengan output: "${finalOutcome}". Antrean baru dapat berjalan!\n`);
+      return;
+    }
+
+    // 4. BALASAN AI / ESCALATION UNTUK PERTANYAAN CS (JIKA CHAT BELUM BERAKHIR)
     const recentCsBubbles = csBubbles.slice(-4);
     const lastCsMessage = recentCsBubbles.join('\n');
 
@@ -704,7 +785,11 @@ async function syncActiveChat(activeTicket) {
 
         const isMonitoring = monSetting ? Boolean(monSetting.value) : false;
 
-        if (isMonitoring) {
+        // Jika balasan AI adalah penutup resmi (misal terima kasih dan selamat pagi/siang),
+        // atau jika tiket sudah punya nomor tiket resmi, kirim langsung tanpa menahan approval
+        const isClosingReply = aiReply.is_closing || Boolean(aiReply.ticket_number) || Boolean(activeTicket.ticket_number);
+
+        if (isMonitoring && !isClosingReply) {
           console.log(`🔔 [MODE MONITORING AKTIF] Balasan AI menunggu approval admin di Web!\n`);
           await supabase.from('ticketing_settings').upsert({
             key: 'pending_ai_reply',
@@ -774,7 +859,7 @@ async function syncActiveChat(activeTicket) {
               aiReply.ticket_number || (fallbackOutcome ? fallbackOutcome.value : null);
             const isClosing = aiReply.is_closing || Boolean(detectedOutcome);
 
-            if (detectedOutcome) {
+            if (detectedOutcome && detectedOutcome !== activeTicket.ticket_number) {
               console.log(`🎉 [OUTPUT / KESIMPULAN TIKET] Terdeteksi Output: "${detectedOutcome}"!`);
               await supabase
                 .from('tickets')
@@ -789,11 +874,14 @@ async function syncActiveChat(activeTicket) {
               await new Promise((r) => setTimeout(r, 40000));
 
               const finalNow = new Date().toISOString();
+              const isActualTicket = detectedOutcome && /^[A-Z0-9]{8}$/.test(detectedOutcome);
+              const finalStatus = isActualTicket ? 'ticket_issued' : 'closed';
+
               await supabase
                 .from('tickets')
                 .update({
-                  status: 'ticket_issued',
-                  ticket_issued_at: finalNow,
+                  status: finalStatus,
+                  ticket_issued_at: isActualTicket ? finalNow : null,
                   updated_at: finalNow,
                   ticket_number: detectedOutcome || activeTicket.ticket_number,
                 })
@@ -804,7 +892,7 @@ async function syncActiveChat(activeTicket) {
                 .delete()
                 .eq('key', 'pending_ai_reply');
 
-              console.log(`✅ [SESI TUNTAS] Tiket "${activeTicket.name}" resmi selesai dengan output: "${detectedOutcome || activeTicket.ticket_number}". Antrean baru aman diproses!\n`);
+              console.log(`✅ [SESI TUNTAS] Tiket "${activeTicket.name}" resmi ${finalStatus} dengan output: "${detectedOutcome || activeTicket.ticket_number}". Antrean baru aman diproses!\n`);
               return;
             }
           }
