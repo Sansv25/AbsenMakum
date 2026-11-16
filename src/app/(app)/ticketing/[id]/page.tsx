@@ -971,6 +971,10 @@ function TicketDetailContent() {
                 </div>
               </div>
               <div>
+                <span className="text-slate-400 dark:text-slate-500 font-semibold block mb-0.5">No. Telepon / CP Alternatif:</span>
+                <p className="font-bold text-slate-900 dark:text-white text-sm">{ticket.alt_phone || '-'}</p>
+              </div>
+              <div>
                 <span className="text-slate-400 dark:text-slate-500 font-semibold block mb-0.5">Email:</span>
                 <div className="flex items-center gap-2">
                   <p className="font-bold text-slate-900 dark:text-white text-sm">{ticket.email || '-'}</p>

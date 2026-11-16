@@ -36,6 +36,7 @@ export default function NewTicketPage() {
     customer_id: '',
     pln_id: '',
     phone: '',
+    alt_phone: '',
     name: '',
     address: '',
     email: '',
@@ -69,6 +70,7 @@ export default function NewTicketPage() {
         customer_id: '',
         pln_id: '',
         phone: '',
+        alt_phone: '',
         name: '',
         address: '',
         email: '',
@@ -85,6 +87,7 @@ export default function NewTicketPage() {
       customer_id: parsed.customer_id || '',
       pln_id: parsed.pln_id || '',
       phone: parsed.phone || '',
+      alt_phone: parsed.alt_phone || '',
       name: parsed.name || '',
       address: parsed.address || '',
       email: parsed.email || '',
@@ -175,10 +178,11 @@ Lampu indikator LOS berkedip merah sejak pagi hari, internet tidak bisa digunaka
       const supabase = createClient();
 
       // 1. Simpan tiket baru
-      const insertPayload = {
+      const insertPayload: Record<string, unknown> = {
         customer_id: formData.customer_id.trim(),
         pln_id: formData.pln_id.trim() || null,
         phone: formData.phone.trim() || null,
+        alt_phone: formData.alt_phone.trim() || null,
         name: formData.name.trim(),
         address: formData.address.trim() || null,
         email: formData.email.trim() || null,
@@ -191,14 +195,27 @@ Lampu indikator LOS berkedip merah sejak pagi hari, internet tidak bisa digunaka
         creator_name: currentUser?.name || null,
       };
 
-      const { data: ticket, error: ticketError } = await supabase
+      let { data: ticket, error: ticketError } = await supabase
         .from('tickets')
         .insert(insertPayload)
         .select('id')
         .single();
 
-      if (ticketError) {
-        throw new Error(ticketError.message);
+      // Fallback jika database Supabase belum menambahkan kolom alt_phone
+      if (ticketError && ticketError.message?.includes('alt_phone')) {
+        const fallbackComplaint = formData.alt_phone.trim()
+          ? `${formData.complaint.trim()}\n\nCP Alt: ${formData.alt_phone.trim()}`
+          : formData.complaint.trim();
+        const fallbackPayload: Record<string, unknown> = { ...insertPayload, complaint: fallbackComplaint };
+        delete fallbackPayload.alt_phone;
+
+        const res = await supabase.from('tickets').insert(fallbackPayload).select('id').single();
+        ticket = res.data;
+        ticketError = res.error;
+      }
+
+      if (ticketError || !ticket) {
+        throw new Error(ticketError?.message || 'Gagal menyimpan tiket.');
       }
 
       // 2. Unggah foto keluhan jika ada
@@ -417,6 +434,20 @@ Lampu indikator LOS berkedip merah sejak pagi hari, internet tidak bisa digunaka
                     value={formData.phone}
                     onChange={handleChange}
                     placeholder="Contoh: +6281775447019"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-xs focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">
+                    No. Telepon / CP Alternatif
+                  </label>
+                  <input
+                    type="tel"
+                    name="alt_phone"
+                    value={formData.alt_phone}
+                    onChange={handleChange}
+                    placeholder="Contoh: 6285732144668 (opsional)"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-xs focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

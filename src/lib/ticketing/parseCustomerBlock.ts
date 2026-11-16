@@ -5,6 +5,7 @@ export function parseCustomerBlock(text: string): ParsedCustomerData {
     customer_id: '',
     pln_id: '',
     phone: '',
+    alt_phone: '',
     name: '',
     address: '',
     email: '',
@@ -27,7 +28,8 @@ export function parseCustomerBlock(text: string): ParsedCustomerData {
   const labelMap: { key: keyof Omit<ParsedCustomerData, 'complaint'>; patterns: RegExp[] }[] = [
     { key: 'customer_id', patterns: [/^(?:id\s*pelanggan|customer\s*id|id\s*cust(?:omer)?|id(?!\s*(?:pln|meter)))\b/i] },
     { key: 'pln_id', patterns: [/^(?:id\s*pln|no(?:mor)?\s*meter(?:an)?|id\s*meter)\b/i] },
-    { key: 'phone', patterns: [/^(?:telepon|no(?:mor)?\s*(?:tlp|telp|hp|wa|telepon)|phone)\b/i] },
+    { key: 'alt_phone', patterns: [/^(?:cp\s*alt(?:ernatif)?|no(?:mor)?\s*(?:alt|alternatif)|(?:telepon|telp|hp|wa)\s*(?:alt|alternatif)|kontak\s*(?:alt|alternatif))\b/i] },
+    { key: 'phone', patterns: [/^(?:telepon|no(?:mor)?\s*(?:tlp|telp|hp|wa|telepon)|phone|cp(?!\s*alt))\b/i] },
     { key: 'name', patterns: [/^(?:nama\s*pelanggan|nama\s*lengkap|nama(?!\s*(?:wifi|wi-fi|ssid|sandi|hotspot|network|jaringan|perangkat|modem|baru)))\b/i] },
     { key: 'address', patterns: [/^(?:alamat\s*instalasi|alamat\s*lengkap|alamat)\b/i] },
     { key: 'email', patterns: [/^(?:email|e-mail)\b/i] },
@@ -41,6 +43,7 @@ export function parseCustomerBlock(text: string): ParsedCustomerData {
     inlineValue?: string;
   };
 
+  const consumedLineIndices = new Set<number>();
   const tokens: Token[] = [];
 
   for (let i = 0; i < lines.length; i++) {
@@ -48,20 +51,43 @@ export function parseCustomerBlock(text: string): ParsedCustomerData {
     if (!rawLine) continue;
 
     for (const item of labelMap) {
+      let matched = false;
       for (const pattern of item.patterns) {
-        // Check if line matches "Label: Value" or "Label = Value" or "Label - Value"
-        const matchWithColon = rawLine.match(new RegExp(pattern.source + `\\s*[:=-]\\s*(.*)$`, 'i'));
-        if (matchWithColon) {
-          tokens.push({ lineIndex: i, key: item.key, inlineValue: matchWithColon[1].trim() });
+        // 1. Cek apakah baris ini tepat HANYA label saja (tanpa nilai)
+        const matchExactOnly = new RegExp(pattern.source + `\\s*$`, 'i').test(rawLine);
+        if (matchExactOnly) {
+          tokens.push({ lineIndex: i, key: item.key });
+          consumedLineIndices.add(i);
+          matched = true;
           break;
         }
 
-        const matchExact = pattern.test(rawLine);
-        if (matchExact) {
-          tokens.push({ lineIndex: i, key: item.key });
+        // 2. Cek apakah ada delimiter pemisah titik dua/sama dengan/strip (misal: "Nama: Budi", "CP Alt: 08123")
+        const matchWithColon = rawLine.match(new RegExp(pattern.source + `\\s*[:=-]\\s*(.+)$`, 'i'));
+        if (matchWithColon) {
+          tokens.push({ lineIndex: i, key: item.key, inlineValue: matchWithColon[1].trim() });
+          consumedLineIndices.add(i);
+          matched = true;
           break;
         }
+
+        // 3. Khusus format dengan spasi langsung tanpa titik dua (misal: "cp alt 6285732144668", "ID 151000357186", "Telepon 08123456")
+        const matchWithSpace = rawLine.match(new RegExp(pattern.source + `\\s+([+0-9A-Za-z].*)$`, 'i'));
+        if (matchWithSpace) {
+          const val = matchWithSpace[1].trim();
+          // Pastikan baris ini bukan cuma label persis dari key lain
+          const isAnotherLabelExact = labelMap.some((m) =>
+            m.patterns.some((p) => new RegExp(p.source + `\\s*$`, 'i').test(rawLine))
+          );
+          if (!isAnotherLabelExact) {
+            tokens.push({ lineIndex: i, key: item.key, inlineValue: val });
+            consumedLineIndices.add(i);
+            matched = true;
+            break;
+          }
+        }
       }
+      if (matched) break;
     }
   }
 
@@ -89,14 +115,18 @@ export function parseCustomerBlock(text: string): ParsedCustomerData {
     } else {
       // The value is in subsequent line(s) before the next recognized token
       const startLine = current.lineIndex + 1;
-      const endLine = next ? next.lineIndex : -1;
+      const endLine = next ? next.lineIndex : lines.length;
       const collectedLines: string[] = [];
 
-      const maxLine = endLine === -1 ? lines.length : endLine;
-      for (let l = startLine; l < maxLine; l++) {
+      for (let l = startLine; l < endLine; l++) {
         const lineContent = lines[l].trim();
         if (lineContent) {
           collectedLines.push(lineContent);
+          consumedLineIndices.add(l);
+          // For single line fields (all except address), break after first non-empty line
+          if (current.key !== 'address') {
+            break;
+          }
         }
       }
 
@@ -104,24 +134,11 @@ export function parseCustomerBlock(text: string): ParsedCustomerData {
     }
   }
 
-  // Complaint is everything after the last token's value lines
-  const lastToken = tokens[tokens.length - 1];
-  let complaintStartLine = lastToken.lineIndex + 1;
-
-  if (lastToken.inlineValue === undefined || lastToken.inlineValue === '') {
-    // If last token was multi-line or empty, advance past the value
-    for (let l = lastToken.lineIndex + 1; l < lines.length; l++) {
-      if (lines[l].trim()) {
-        complaintStartLine = l + 1;
-        break;
-      }
-    }
-  }
-
+  // Baris-baris yang tidak dikonsumsi oleh token apa pun adalah bagian dari keluhan (complaint)
   const complaintLines: string[] = [];
-  for (let l = complaintStartLine; l < lines.length; l++) {
-    const trimmed = lines[l].trim();
-    if (trimmed) {
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed && !consumedLineIndices.has(i)) {
       complaintLines.push(trimmed);
     }
   }

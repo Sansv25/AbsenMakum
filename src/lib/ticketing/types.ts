@@ -17,6 +17,7 @@ export interface Ticket {
   customer_id: string;
   pln_id: string | null;
   phone: string | null;
+  alt_phone?: string | null;
   name: string;
   address: string | null;
   email: string | null;
@@ -65,6 +66,7 @@ export interface ParsedCustomerData {
   customer_id: string;
   pln_id: string;
   phone: string;
+  alt_phone: string;
   name: string;
   address: string;
   email: string;

@@ -2,6 +2,7 @@ export function buildFirstMessage(ticket: {
   customer_id: string;
   pln_id?: string | null;
   phone?: string | null;
+  alt_phone?: string | null;
   name: string;
   address?: string | null;
   email?: string | null;
@@ -28,9 +29,16 @@ export function buildFirstMessage(ticket: {
     }
   }
 
+  const parts: string[] = [];
+  const fieldBlock = lines.join('\n');
+  if (fieldBlock) parts.push(fieldBlock);
+
   const complaint = (ticket.complaint || '').trim();
-  if (complaint) {
-    return `${lines.join('\n')}\n\n${complaint}`;
+  if (complaint) parts.push(complaint);
+
+  if (ticket.alt_phone && ticket.alt_phone.trim()) {
+    parts.push(`cp alt ${ticket.alt_phone.trim()}`);
   }
-  return lines.join('\n');
+
+  return parts.join('\n\n');
 }

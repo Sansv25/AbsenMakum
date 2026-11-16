@@ -109,6 +109,7 @@ function buildFirstMessage(ticket) {
   parts.push(`ID Pelanggan: ${ticket.customer_id || '-'}`);
   if (ticket.pln_id) parts.push(`ID PLN: ${ticket.pln_id}`);
   if (ticket.phone) parts.push(`No Telp/WA: ${ticket.phone}`);
+  if (ticket.alt_phone) parts.push(`No Telp/CP Alternatif: ${ticket.alt_phone}`);
   parts.push(`Nama Pelanggan: ${ticket.name || '-'}`);
   if (ticket.address) parts.push(`Alamat: ${ticket.address}`);
   if (ticket.email) parts.push(`Email: ${ticket.email}`);
@@ -116,6 +117,7 @@ function buildFirstMessage(ticket) {
   if (ticket.office) parts.push(`Kantor Perwakilan: ${ticket.office}`);
   parts.push('');
   parts.push(`Keluhan: ${ticket.complaint || '-'}`);
+  if (ticket.alt_phone) parts.push(`cp alt ${ticket.alt_phone}`);
   parts.push('');
   parts.push('Mohon bantuannya untuk diterbitkan tiket gangguan. Terima kasih.');
   return parts.join('\n');
@@ -191,6 +193,7 @@ DATA TIKET PELANGGAN (Satu-satunya sumber fakta):
 - Nama: ${ticket.name}
 - ID Pelanggan: ${ticket.customer_id}
 - No Telepon / WA: ${ticket.phone || '-'}
+- No Telepon Alternatif / CP Alt: ${ticket.alt_phone || '-'}
 - Keluhan: ${ticket.complaint}
 - Kondisi Indikator Modem: ${statusIndikatorText.toUpperCase()}
 
@@ -203,9 +206,9 @@ LOGIKA DETEKSI DAN JAWABAN:
 
 2. PERTANYAAN KENDALA DARI CS:
    - Jika CS meminta foto modem/SN: jawab bahwa foto saat ini belum dapat dilampirkan ("Untuk foto saat ini belum dapat kami lampirkan Kak. Mohon bantuannya Kak.").
-   - Jika CS meminta nomor WhatsApp / alternatif: jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif lain).
+   - Jika CS meminta nomor WhatsApp / alternatif: ${ticket.alt_phone ? `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} dan nomor alternatif/CP alt di ${ticket.alt_phone}.` : `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif lain).`}
    - Jika CS menanyakan kondisi lampu indikator: jawab "${indikatorSentence}. Mohon bantuannya Kak."
-   - Jika CS menanyakan foto DAN nomor telepon sekaligus: jawab ringkas keduanya dalam satu pesan ("${indikatorSentence}, untuk foto saat ini belum dapat kami lampirkan, dan untuk nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif). Mohon bantuannya Kak.").
+   - Jika CS menanyakan foto DAN nomor telepon sekaligus: jawab ringkas keduanya dalam satu pesan ("${indikatorSentence}, untuk foto saat ini belum dapat kami lampirkan, dan untuk nomor WhatsApp aktif di ${ticket.phone || '-'}${ticket.alt_phone ? ` serta nomor alternatif di ${ticket.alt_phone}` : ' (tidak ada nomor alternatif)'}. Mohon bantuannya Kak.").
    - Wajib set "is_closing": false, dan "ticket_number": null.
 
 KELUARAN HANYA JSON VALID TANPA MARKDOWN:
