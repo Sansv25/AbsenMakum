@@ -30,7 +30,17 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const publicPaths = ['/login', '/register', '/verify-otp', '/auth/callback', '/pending-approval', '/auth/approve'];
+  const publicPaths = [
+    '/login',
+    '/register',
+    '/verify-otp',
+    '/auth/callback',
+    '/pending-approval',
+    '/auth/approve',
+    '/privacy',
+    '/terms',
+    '/data-deletion',
+  ];
   const isPublicPage = publicPaths.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   );
