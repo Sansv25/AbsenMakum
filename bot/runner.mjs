@@ -123,7 +123,7 @@ function buildFirstMessage(ticket) {
   return parts.join('\n');
 }
 
-// Ekstraksi Nomor Tiket & Hasil Resolusi
+// Ekstraksi Nomor Tiket & Hasil Resolusi Otomatis
 function extractTicketOutcome(text) {
   if (!text) return null;
   const lower = text.toLowerCase();
@@ -143,12 +143,33 @@ function extractTicketOutcome(text) {
 
   // 2. Cek tagihan belum bayar / isolir
   if (lower.includes('bayar') || lower.includes('pembayaran') || lower.includes('tagihan') || lower.includes('isolir')) {
-    return { type: 'billing', value: 'Belum Bayar / Disuruh Bayar' };
+    return { type: 'billing', value: 'Belum Bayar / Tagihan Tertunggak' };
   }
 
-  // 3. Cek restart sistem
-  if (lower.includes('restart dari sistem') || lower.includes('dibantu restart') || lower.includes('5 hingga 10 menit')) {
-    return { type: 'restart', value: 'Restart Sistem (Tunggu 5-10 mnt)' };
+  // 3. Cek perbaikan / restart dari sistem pusat
+  if (
+    lower.includes('perbaikan melalui sistem') ||
+    lower.includes('perbaikan sistem') ||
+    lower.includes('restart dari sistem') ||
+    lower.includes('dibantu restart') ||
+    lower.includes('restart sistem') ||
+    lower.includes('refresh sistem') ||
+    lower.includes('5-10 menit') ||
+    lower.includes('5 hingga 10 menit') ||
+    lower.includes('menunggu 5') ||
+    lower.includes('10 menit setelah itu bisa mencoba')
+  ) {
+    return { type: 'restart', value: 'Perbaikan Sistem (Tunggu 5-10 Menit)' };
+  }
+
+  // 4. Cek gangguan massal / pemeliharaan area
+  if (lower.includes('gangguan massal') || lower.includes('pemeliharaan jaringan') || lower.includes('maintenance')) {
+    return { type: 'mass_outage', value: 'Gangguan Massal di Area' };
+  }
+
+  // 5. Cek chat diakhiri oleh CS
+  if (lower.includes('chat akan kami akhiri') || lower.includes('percakapan kami akhiri') || lower.includes('sesi kami akhiri')) {
+    return { type: 'closed_by_cs', value: 'Sesi Diakhiri oleh CS ICONNET' };
   }
 
   return null;
@@ -198,13 +219,25 @@ DATA TIKET PELANGGAN (Satu-satunya sumber fakta):
 - Kondisi Indikator Modem: ${statusIndikatorText.toUpperCase()}
 
 LOGIKA DETEKSI DAN JAWABAN:
-1. AKHIR PERCAKAPAN (CS memberikan nomor tiket, menyelesaikan laporan, atau menanyakan "ada lagi yang bisa dibantu / ada keluhan lain?"):
-   - Deteksi ini sebagai penutupan sesi tiket.
-   - Ekstrak nomor tiket resmi jika ada di pesan CS (kode alfanumerik 8 karakter, misal R2J9S7MA, IN123456).
-   - Susun teks balasan penutup yang sopan dan natural: ucapkan terima kasih banyak atas bantuannya, sampaikan bahwa sudah cukup dan tidak ada lagi yang perlu dibantu, lalu tutup dengan "${timeContext.greeting}!".
-   - Wajib set "is_closing": true, dan "ticket_number": "<NOMOR_TIKET_JIKA_ADA>" (atau null jika nomor belum ada tapi CS sudah konfirmasi/tanya).
+1. AKHIR PERCAKAPAN & SIMPULKAN OUTPUT TIKET:
+   Periksa apakah pesan CS mengarah pada penyelesaian / penutupan chat / tindakan resolusi:
+   a. Jika CS memberikan NOMOR TIKET RESMI (kode alfanumerik 8 karakter, misal R2J9S7MA, IN123456):
+      - "ticket_number": isi persis kode 8 karakter tersebut (misal "R2J9S7MA").
+   b. Jika CS melakukan PERBAIKAN DARI SISTEM / RESTART / RESET (misal "telah kami bantu lakukan perbaikan melalui sistem kami... mohon menunggu 5-10 menit"):
+      - "ticket_number": simpulkan ringkas 3-6 kata (misal: "Perbaikan Sistem (Tunggu 5-10 Menit)").
+   c. Jika CS menyatakan TAGIHAN BELUM LUNAS / ISOLIR:
+      - "ticket_number": "Belum Bayar / Tagihan Tertunggak".
+   d. Jika CS menyatakan GANGGUAN MASSAL:
+      - "ticket_number": "Gangguan Massal di Area".
+   e. Jika CS menutup percakapan ("chat akan kami akhiri", "tidak ada jawaban", atau menanyakan "ada lagi yang bisa dibantu?"):
+      - "ticket_number": simpulkan tindakan CS secara ringkas dan padat.
+   
+   Jika terdeteksi salah satu kondisi penyelesaian / penutupan di atas:
+   - Wajib set "is_closing": true.
+   - Field "ticket_number": isi dengan nomor tiket atau kesimpulan tindakan CS di atas.
+   - Field "text": susun teks balasan penutup yang sopan dan natural, ucapkan terima kasih banyak atas bantuannya dan tutup dengan "${timeContext.greeting}!" (misal: "Baik Kak, terima kasih banyak atas bantuannya. ${timeContext.greeting}!").
 
-2. PERTANYAAN KENDALA DARI CS:
+2. PERTANYAAN KENDALA DARI CS (Chat belum berakhir):
    - Jika CS meminta foto modem/SN: jawab bahwa foto saat ini belum dapat dilampirkan ("Untuk foto saat ini belum dapat kami lampirkan Kak. Mohon bantuannya Kak.").
    - Jika CS meminta nomor WhatsApp / alternatif: ${ticket.alt_phone ? `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} dan nomor alternatif/CP alt di ${ticket.alt_phone}.` : `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif lain).`}
    - Jika CS menanyakan kondisi lampu indikator: jawab "${indikatorSentence}. Mohon bantuannya Kak."
@@ -579,9 +612,9 @@ async function syncActiveChat(activeTicket) {
       return;
     }
 
-    // Hanya baca pesan CS yang masuk SETELAH pesan pembuka tiket ini (i > openingMsgIndex)
-    let lastCsMessage = '';
-    for (let i = messages.length - 1; i > openingMsgIndex; i--) {
+    // Kumpulkan seluruh bubble pesan CS yang masuk SETELAH pesan pembuka tiket ini
+    const csBubbles = [];
+    for (let i = openingMsgIndex + 1; i < messages.length; i++) {
       const m = messages[i]?.trim();
       if (!m) continue;
       if (/^\d+$/.test(m)) continue;
@@ -607,9 +640,14 @@ async function syncActiveChat(activeTicket) {
         continue;
       }
 
-      lastCsMessage = m;
-      break;
+      csBubbles.push(m);
     }
+
+    if (csBubbles.length === 0) return;
+
+    // Gabungkan bubble-bubble pesan CS terbaru (maksimal 4 bubble terakhir)
+    const recentCsBubbles = csBubbles.slice(-4);
+    const lastCsMessage = recentCsBubbles.join('\n');
 
     if (
       lastCsMessage &&
@@ -699,25 +737,25 @@ async function syncActiveChat(activeTicket) {
             lastAnsweredMessage = lastCsMessage;
             console.log(`✅ [AI TERKIRIM] Berhasil membalas ke CS ICONNET: "${aiReply.text}"\n`);
 
-            // Cek apakah percakapan mencapai akhir sesi (closing / nomor tiket keluar)
+            // Cek apakah percakapan mencapai akhir sesi (closing / nomor tiket keluar / kesimpulan hasil)
             const fallbackOutcome = extractTicketOutcome(lastCsMessage);
-            const detectedTicketNumber =
-              aiReply.ticket_number || (fallbackOutcome?.type === 'ticket' ? fallbackOutcome.value : null);
-            const isClosing = aiReply.is_closing || Boolean(detectedTicketNumber);
+            const detectedOutcome =
+              aiReply.ticket_number || (fallbackOutcome ? fallbackOutcome.value : null);
+            const isClosing = aiReply.is_closing || Boolean(detectedOutcome);
 
-            if (detectedTicketNumber) {
-              console.log(`🎉 [NOMOR TIKET RESMI] Terdeteksi Nomor Tiket: ${detectedTicketNumber}!`);
+            if (detectedOutcome) {
+              console.log(`🎉 [OUTPUT / KESIMPULAN TIKET] Terdeteksi Output: "${detectedOutcome}"!`);
               await supabase
                 .from('tickets')
-                .update({ ticket_number: detectedTicketNumber })
+                .update({ ticket_number: detectedOutcome })
                 .eq('id', activeTicket.id);
             }
 
             if (isClosing) {
-              console.log(`🏁 [SESI PENUTUPAN] AI telah menyampaikan terima kasih & salam penutup ke CS ICONNET.`);
-              console.log(`⏳ Memberi jeda 35 detik agar CS menutup sesi chat sebelum memproses tiket antrean berikutnya...`);
+              console.log(`🏁 [SESI PENUTUPAN] AI telah menyampaikan salam penutup / merangkum resolusi sesi chat.`);
+              console.log(`⏳ Memberi jeda 40 detik agar CS menutup sesi chat sebelum memproses tiket antrean berikutnya...`);
 
-              await new Promise((r) => setTimeout(r, 35000));
+              await new Promise((r) => setTimeout(r, 40000));
 
               const finalNow = new Date().toISOString();
               await supabase
@@ -726,7 +764,7 @@ async function syncActiveChat(activeTicket) {
                   status: 'ticket_issued',
                   ticket_issued_at: finalNow,
                   updated_at: finalNow,
-                  ticket_number: detectedTicketNumber || activeTicket.ticket_number,
+                  ticket_number: detectedOutcome || activeTicket.ticket_number,
                 })
                 .eq('id', activeTicket.id);
 
@@ -736,7 +774,7 @@ async function syncActiveChat(activeTicket) {
                 updated_at: finalNow,
               });
 
-              console.log(`✅ [SESI TUNTAS] Tiket "${activeTicket.name}" resmi selesai. Antrean baru aman diproses!\n`);
+              console.log(`✅ [SESI TUNTAS] Tiket "${activeTicket.name}" resmi selesai dengan output: "${detectedOutcome || activeTicket.ticket_number}". Antrean baru aman diproses!\n`);
               return;
             }
           }

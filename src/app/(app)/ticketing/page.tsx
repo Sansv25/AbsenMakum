@@ -618,20 +618,48 @@ export default function TicketingDashboardPage() {
                 {/* Right action / Ticket Number highlight */}
                 <div className="flex items-center gap-3 self-end sm:self-center flex-shrink-0">
                   {hasTicketNo && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 shadow-2xs">
-                      <div>
-                        <span className="text-[9px] uppercase tracking-wider font-bold text-emerald-800 dark:text-emerald-300 block">
-                          Nomor Tiket
+                    <div
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-2xs max-w-xs ${
+                        /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
+                          ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800'
+                          : ticket.ticket_number!.toLowerCase().includes('bayar')
+                          ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-800'
+                          : 'bg-sky-50 dark:bg-sky-950/50 border-sky-300 dark:border-sky-800'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <span
+                          className={`text-[9px] uppercase tracking-wider font-bold block ${
+                            /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
+                              ? 'text-emerald-800 dark:text-emerald-300'
+                              : ticket.ticket_number!.toLowerCase().includes('bayar')
+                              ? 'text-amber-800 dark:text-amber-300'
+                              : 'text-sky-800 dark:text-sky-300'
+                          }`}
+                        >
+                          {/^[A-Z0-9]{8}$/.test(ticket.ticket_number!) ? 'Nomor Tiket' : 'Output / Kesimpulan'}
                         </span>
-                        <span className="font-mono font-extrabold text-sm text-emerald-950 dark:text-emerald-200 tracking-wider">
+                        <span
+                          className={`font-semibold text-xs tracking-tight line-clamp-1 ${
+                            /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
+                              ? 'font-mono font-extrabold text-sm text-emerald-950 dark:text-emerald-200 tracking-wider'
+                              : ticket.ticket_number!.toLowerCase().includes('bayar')
+                              ? 'text-amber-950 dark:text-amber-200'
+                              : 'text-sky-950 dark:text-sky-200'
+                          }`}
+                        >
                           {ticket.ticket_number}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={(e) => handleCopyTicketNumber(ticket.ticket_number!, ticket.id, e)}
-                        className="p-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 transition"
-                        title="Salin Nomor Tiket"
+                        className={`p-1.5 rounded-lg transition shrink-0 ${
+                          /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
+                            ? 'hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300'
+                            : 'hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300'
+                        }`}
+                        title="Salin Nomor Tiket / Output"
                       >
                         {copiedId === ticket.id ? (
                           <Check className="h-4 w-4 text-emerald-600 animate-scale" />
