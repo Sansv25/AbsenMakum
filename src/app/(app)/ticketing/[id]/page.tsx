@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState, Suspense, useCallback, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { Ticket, TicketStatus, TicketImage, Message } from '@/lib/ticketing/types';
 import { formatDateWITA, getStatusLabel, getStatusBadgeClass, getModeLabel } from '@/lib/ticketing/format';
 import { compressImage, formatFileSize } from '@/lib/ticketing/compressImage';
 import { buildFirstMessage } from '@/lib/ticketing/buildFirstMessage';
+import { TicketEditModal } from '@/components/ticketing/ticket-edit-modal';
+import { DeleteTicketModal } from '@/components/ticketing/delete-ticket-modal';
 import {
   ArrowLeft,
   Copy,
@@ -29,6 +31,8 @@ import {
   X,
   ExternalLink,
   CheckCheck,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 interface DisplayImage {
@@ -48,6 +52,7 @@ interface ActiveConflict {
 
 function TicketDetailContent() {
   const params = useParams();
+  const router = useRouter();
   const ticketId = params.id as string;
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -55,6 +60,8 @@ function TicketDetailContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeConflict, setActiveConflict] = useState<ActiveConflict | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [startingTicket, setStartingTicket] = useState(false);
   const [autoSending, setAutoSending] = useState(false);
@@ -569,8 +576,26 @@ function TicketDetailContent() {
           </div>
         </div>
 
-        {/* Right Mode Toggle */}
-        <div className="flex items-center gap-3">
+        {/* Right Action Controls */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => setIsEditModalOpen(true)}
+            className="px-3.5 py-2 rounded-2xl text-xs font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition flex items-center gap-1.5 shadow-2xs"
+            title="Edit data tiket atau nomor output"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span>Edit Tiket</span>
+          </button>
+
+          <button
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="px-3.5 py-2 rounded-2xl text-xs font-bold border border-rose-200 dark:border-rose-800/80 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition flex items-center gap-1.5 shadow-2xs"
+            title={ticket.status === 'queued' ? 'Hapus tiket dari antrean' : 'Hapus tiket ini'}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>{ticket.status === 'queued' ? 'Hapus Antrean' : 'Hapus Tiket'}</span>
+          </button>
+
           <button
             onClick={handleToggleMode}
             className={`px-3.5 py-2 rounded-2xl text-xs font-bold border transition-all flex items-center gap-2 shadow-2xs ${
@@ -721,25 +746,52 @@ function TicketDetailContent() {
               </p>
             )}
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="px-4 py-2.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-bold shadow-xs transition flex items-center gap-2"
+              title="Koreksi atau edit nomor tiket / output"
+            >
+              <Pencil className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Edit Output</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (ticket.ticket_number) {
+                  navigator.clipboard.writeText(ticket.ticket_number);
+                  setCopiedTicketNo(true);
+                  setTimeout(() => setCopiedTicketNo(false), 3000);
+                }
+              }}
+              className="px-5 py-2.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-bold shadow-xs transition flex items-center gap-2"
+            >
+              {copiedTicketNo ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-600" /> Tersalin!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" /> Salin Nomor Tiket
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Jika Belum Ada Nomor Tiket: Tombol Input Manual Output */}
+      {!ticket.ticket_number && (
+        <div className="p-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-xs text-slate-600 dark:text-slate-400">
+            <span>Nomor tiket / output belum tercatat. Anda dapat memasukkan atau mengedit output secara manual jika diperlukan.</span>
+          </div>
           <button
-            onClick={() => {
-              if (ticket.ticket_number) {
-                navigator.clipboard.writeText(ticket.ticket_number);
-                setCopiedTicketNo(true);
-                setTimeout(() => setCopiedTicketNo(false), 3000);
-              }
-            }}
-            className="px-5 py-2.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-bold shadow-xs transition flex items-center gap-2"
+            onClick={() => setIsEditModalOpen(true)}
+            className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
           >
-            {copiedTicketNo ? (
-              <>
-                <Check className="w-4 h-4 text-emerald-600" /> Tersalin!
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" /> Salin Nomor Tiket
-              </>
-            )}
+            <Pencil className="w-3.5 h-3.5" />
+            <span>Input / Edit Output</span>
           </button>
         </div>
       )}
@@ -1255,6 +1307,28 @@ function TicketDetailContent() {
           </div>
         </div>
       )}
+      {/* Modal Edit Tiket & Output */}
+      <TicketEditModal
+        isOpen={isEditModalOpen}
+        ticket={ticket}
+        onClose={() => setIsEditModalOpen(false)}
+        onSuccess={(updated) => {
+          setTicket(updated);
+          setActionSuccess('Data tiket dan output berhasil diperbarui!');
+          setTimeout(() => setActionSuccess(null), 3000);
+          loadTicketAndImages();
+        }}
+      />
+
+      {/* Modal Hapus Tiket */}
+      <DeleteTicketModal
+        isOpen={isDeleteModalOpen}
+        ticket={ticket}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onSuccess={() => {
+          router.push('/ticketing');
+        }}
+      />
     </div>
   );
 }

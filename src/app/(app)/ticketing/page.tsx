@@ -8,6 +8,8 @@ import { getStatusBadgeClass, getStatusLabel, getModeLabel, formatDateWITA } fro
 import { TicketStatsCards } from '@/components/ticketing/ticket-stats-cards';
 import { TicketControlSwitches } from '@/components/ticketing/ticket-control-switches';
 import { TicketAiApprovalBanner } from '@/components/ticketing/ticket-ai-approval-banner';
+import { TicketEditModal } from '@/components/ticketing/ticket-edit-modal';
+import { DeleteTicketModal } from '@/components/ticketing/delete-ticket-modal';
 import {
   Search,
   ArrowUp,
@@ -20,6 +22,8 @@ import {
   AlertCircle,
   Inbox,
   Sparkles,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 export default function TicketingDashboardPage() {
@@ -35,6 +39,10 @@ export default function TicketingDashboardPage() {
 
   // Queue Order
   const [queueOrder, setQueueOrder] = useState<string[]>([]);
+
+  // Modal States
+  const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
+  const [deletingTicket, setDeletingTicket] = useState<Ticket | null>(null);
 
   // Toggles
   const [autoQueueEnabled, setAutoQueueEnabled] = useState(true);
@@ -634,6 +642,32 @@ export default function TicketingDashboardPage() {
                     </div>
                   )}
 
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingTicket(ticket);
+                    }}
+                    className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition shadow-2xs"
+                    title="Edit Tiket & Output"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDeletingTicket(ticket);
+                    }}
+                    className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-gray-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition shadow-2xs"
+                    title={ticket.status === 'queued' ? 'Hapus dari Antrean' : 'Hapus Tiket'}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+
                   <Link
                     href={`/ticketing/${ticket.id}`}
                     className="inline-flex items-center gap-1 px-3.5 py-2 bg-gray-100 hover:bg-blue-600 hover:text-white dark:bg-slate-800 dark:hover:bg-blue-600 text-gray-700 dark:text-slate-200 rounded-xl text-xs font-bold transition shadow-2xs min-h-[38px]"
@@ -647,6 +681,28 @@ export default function TicketingDashboardPage() {
           })
         )}
       </div>
+
+      {/* Modal Edit Tiket & Output */}
+      <TicketEditModal
+        isOpen={Boolean(editingTicket)}
+        ticket={editingTicket}
+        onClose={() => setEditingTicket(null)}
+        onSuccess={(updated) => {
+          setTickets((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+          fetchTickets();
+        }}
+      />
+
+      {/* Modal Hapus Tiket */}
+      <DeleteTicketModal
+        isOpen={Boolean(deletingTicket)}
+        ticket={deletingTicket}
+        onClose={() => setDeletingTicket(null)}
+        onSuccess={(deletedId) => {
+          setTickets((prev) => prev.filter((t) => t.id !== deletedId));
+          fetchTickets();
+        }}
+      />
     </div>
   );
 }
