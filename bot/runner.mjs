@@ -128,17 +128,21 @@ function extractTicketOutcome(text) {
   if (!text) return null;
   const lower = text.toLowerCase();
 
-  // 1. Cek nomor tiket resmi 8 karakter alfanumerik (wajib ada angka)
-  const ticketRegex = /(?:id\s*tiket|nomor\s*tiket|no\.?\s*tiket|tiket|nomor\s*pelaporan|no\.?\s*pelaporan)\s*[:#]?\s*([A-Z0-9]{8})\b/i;
+  // 1. Cek nomor tiket resmi alfanumerik (6 s/d 12 karakter, wajib ada angka)
+  const ticketRegex = /(?:id\s*tiket|nomor\s*tiket|no\.?\s*tiket|tiket|nomor\s*pelaporan|no\.?\s*pelaporan)\s*[:#]?\s*([A-Z0-9]{6,12})\b/i;
   const match = text.match(ticketRegex);
   if (match && match[1] && /\d/.test(match[1])) {
     return { type: 'ticket', value: match[1].toUpperCase() };
   }
 
-  // Standalone 8-char kode tiket (mis. IN123456, R2J92BW3)
-  const standaloneMatch = text.match(/\b([A-Z][A-Z0-9]{7})\b/);
+  // Standalone kode tiket (mis. A2000842, IN123456, R2J92BW3)
+  const standaloneMatch = text.match(/\b([A-Z][A-Z0-9]{6,10})\b/);
   if (standaloneMatch && standaloneMatch[1] && /\d/.test(standaloneMatch[1])) {
-    return { type: 'ticket', value: standaloneMatch[1].toUpperCase() };
+    const val = standaloneMatch[1].toUpperCase();
+    const blacklist = new Set(['ICONNET', 'WHATSAPP', 'INSTAGRAM', 'INTERNET', 'MODEMNYA', 'PELAPORAN']);
+    if (!blacklist.has(val)) {
+      return { type: 'ticket', value: val };
+    }
   }
 
   // 2. Cek tagihan belum bayar / isolir
@@ -237,12 +241,20 @@ LOGIKA DETEKSI DAN JAWABAN:
    - Field "ticket_number": isi dengan nomor tiket atau kesimpulan tindakan CS di atas.
    - Field "text": susun teks balasan penutup yang sopan dan natural, ucapkan terima kasih banyak atas bantuannya dan tutup dengan "${timeContext.greeting}!" (misal: "Baik Kak, terima kasih banyak atas bantuannya. ${timeContext.greeting}!").
 
-2. PERTANYAAN KENDALA DARI CS (Chat belum berakhir):
+2. SAPAAN / PEMBUKA DARI CS (Chat Baru Dimulai):
+   - Jika CS baru menyapa atau memperkenalkan diri (misal "siap melayani...", "dengan [nama agen] yang akan membantu", "Selamat pagi/siang Kak", dsb.):
+     DILARANG KERAS MENGAKHIRI CHAT ATAU MENGUCAPKAN SALAM PENUTUP!
+     Jawab bahwa pelanggan sedang menunggu penanganan: "Baik Kak, mohon bantuannya untuk perbaikan kendala internet kami. Terima kasih."
+     Wajib set "is_closing": false, dan "ticket_number": null.
+
+3. PERTANYAAN KENDALA DARI CS (Chat belum berakhir):
    - Jika CS meminta foto modem/SN: jawab bahwa foto saat ini belum dapat dilampirkan ("Untuk foto saat ini belum dapat kami lampirkan Kak. Mohon bantuannya Kak.").
    - Jika CS meminta nomor WhatsApp / alternatif: ${ticket.alt_phone ? `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} dan nomor alternatif/CP alt di ${ticket.alt_phone}.` : `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif lain).`}
    - Jika CS menanyakan kondisi lampu indikator: jawab "${indikatorSentence}. Mohon bantuannya Kak."
    - Jika CS menanyakan foto DAN nomor telepon sekaligus: jawab ringkas keduanya dalam satu pesan ("${indikatorSentence}, untuk foto saat ini belum dapat kami lampirkan, dan untuk nomor WhatsApp aktif di ${ticket.phone || '-'}${ticket.alt_phone ? ` serta nomor alternatif di ${ticket.alt_phone}` : ' (tidak ada nomor alternatif)'}. Mohon bantuannya Kak.").
    - Wajib set "is_closing": false, dan "ticket_number": null.
+
+PENTING: DILARANG KERAS MENGIRIM SALAM PENUTUP ATAU SET "is_closing": true KECUALI CS SUDAH MEMBERIKAN NOMOR TIKET RESMI ATAU TINDAKAN PENYELESAIAN JELAS!
 
 KELUARAN HANYA JSON VALID TANPA MARKDOWN:
 {
@@ -785,9 +797,9 @@ async function syncActiveChat(activeTicket) {
 
         const isMonitoring = monSetting ? Boolean(monSetting.value) : false;
 
-        // Jika balasan AI adalah penutup resmi (misal terima kasih dan selamat pagi/siang),
-        // atau jika tiket sudah punya nomor tiket resmi, kirim langsung tanpa menahan approval
-        const isClosingReply = aiReply.is_closing || Boolean(aiReply.ticket_number) || Boolean(activeTicket.ticket_number);
+        // Hanya anggap sebagai balasan penutup jika SUDAH ADA nomor tiket atau resolusi valid
+        const hasKnownOutcome = Boolean(aiReply.ticket_number) || Boolean(activeTicket.ticket_number);
+        const isClosingReply = hasKnownOutcome && Boolean(aiReply.is_closing);
 
         if (isMonitoring && !isClosingReply) {
           console.log(`🔔 [MODE MONITORING AKTIF] Balasan AI menunggu approval admin di Web!\n`);
@@ -857,7 +869,10 @@ async function syncActiveChat(activeTicket) {
             const fallbackOutcome = extractTicketOutcome(lastCsMessage);
             const detectedOutcome =
               aiReply.ticket_number || (fallbackOutcome ? fallbackOutcome.value : null);
-            const isClosing = aiReply.is_closing || Boolean(detectedOutcome);
+            
+            // KUNCI PENGAMAN: Sesi HANYA boleh ditutup jika SUDAH ADA nomor tiket resmi atau output resolusi!
+            const hasFinalOutcome = Boolean(detectedOutcome) || Boolean(activeTicket.ticket_number);
+            const isClosing = hasFinalOutcome && (aiReply.is_closing || Boolean(detectedOutcome));
 
             if (detectedOutcome && detectedOutcome !== activeTicket.ticket_number) {
               console.log(`🎉 [OUTPUT / KESIMPULAN TIKET] Terdeteksi Output: "${detectedOutcome}"!`);
