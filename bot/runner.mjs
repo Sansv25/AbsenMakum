@@ -564,8 +564,24 @@ async function syncActiveChat(activeTicket) {
       'Outcome',
     ]);
 
-    let lastCsMessage = '';
+    // Cari posisi kemunculan pesan pembuka untuk tiket aktif saat ini di thread chat Instagram
+    let openingMsgIndex = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
+      const text = messages[i];
+      if (text.includes(activeTicket.customer_id)) {
+        openingMsgIndex = i;
+        break;
+      }
+    }
+
+    // Jika pesan pembuka belum ditemukan/termuat di UI thread, jangan baca pesan apa pun
+    if (openingMsgIndex === -1) {
+      return;
+    }
+
+    // Hanya baca pesan CS yang masuk SETELAH pesan pembuka tiket ini (i > openingMsgIndex)
+    let lastCsMessage = '';
+    for (let i = messages.length - 1; i > openingMsgIndex; i--) {
       const m = messages[i]?.trim();
       if (!m) continue;
       if (/^\d+$/.test(m)) continue;

@@ -67,7 +67,13 @@ export async function POST(request: NextRequest) {
         body: replyText,
       });
 
-      // 2. Bersihkan pending reply di ticketing_settings
+      // 2. Kembalikan status tiket ke in_conversation
+      await supabase
+        .from('tickets')
+        .update({ status: 'in_conversation', updated_at: new Date().toISOString() })
+        .eq('id', ticketId);
+
+      // 3. Bersihkan pending reply di ticketing_settings
       await supabase
         .from('ticketing_settings')
         .upsert({
@@ -83,6 +89,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'reject') {
+      if (ticketId) {
+        await supabase
+          .from('tickets')
+          .update({ status: 'in_conversation', updated_at: new Date().toISOString() })
+          .eq('id', ticketId);
+      }
+
       // Bersihkan pending reply
       await supabase
         .from('ticketing_settings')

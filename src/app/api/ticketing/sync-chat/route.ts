@@ -43,14 +43,21 @@ export async function POST() {
 
     // 3. Jika nomor tiket ditemukan dan belum tercatat di tiket
     if (foundNumber && (!activeTicket.ticket_number || activeTicket.ticket_number !== foundNumber)) {
+      const updateData: Record<string, unknown> = {
+        ticket_number: foundNumber,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Jika tiket dikelola manual, langsung tandai tiket terbit.
+      // Jika mode AI, biarkan bot runner mengirim salam penutup sebelum mengubah status ke ticket_issued.
+      if (activeTicket.mode !== 'ai') {
+        updateData.status = 'ticket_issued';
+        updateData.ticket_issued_at = new Date().toISOString();
+      }
+
       await supabase
         .from('tickets')
-        .update({
-          ticket_number: foundNumber,
-          status: 'ticket_issued',
-          ticket_issued_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', activeTicket.id);
 
       return NextResponse.json({
