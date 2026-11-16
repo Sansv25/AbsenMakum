@@ -580,6 +580,13 @@ async function syncActiveChat(activeTicket) {
           ) {
             return true;
           }
+          // Abaikan kartu kontak WhatsApp / link WA yang dibuat otomatis oleh Instagram
+          if (
+            ariaLabel?.includes('WhatsApp') ||
+            p.querySelector('a[href*="whatsapp.com"], a[href*="wa.me"]')
+          ) {
+            return true;
+          }
           p = p.parentElement;
         }
         return false;
@@ -599,13 +606,42 @@ async function syncActiveChat(activeTicket) {
         'Threads',
         'Phone number',
         'Phone Number',
+        'Nomor telepon',
+        'Nomor Telepon',
+        'Pesan WhatsApp',
+        'Pesan Whatsapp',
+        'Panggilan WhatsApp',
+        'Panggilan Whatsapp',
+        'Kirim pesan WhatsApp',
+        'New messages',
+        'New Messages',
+        'new messages',
+        'Pesan baru',
+        'Pesan Baru',
+        'Unread messages',
+        'Pesan belum dibaca',
+        'Today',
+        'Yesterday',
+        'Hari ini',
+        'Kemarin',
+        'Seen',
+        'Delivered',
+        'Sent',
+        'Sending...',
       ]);
 
       return nodes
         .filter((n) => {
           if (isInsideIgnoredContainer(n)) return false;
           const text = n.innerText?.trim();
-          return text && !ignored.has(text);
+          if (!text) return false;
+          const lower = text.toLowerCase();
+          if (ignored.has(text) || ignored.has(lower)) return false;
+          if (lower === 'seen' || lower.startsWith('seen ')) return false;
+          if (lower === 'sent' || lower.startsWith('sent ')) return false;
+          if (lower === 'delivered' || lower.startsWith('delivered ')) return false;
+          if (lower === 'active now' || lower.startsWith('active ')) return false;
+          return true;
         })
         .map((n) => n.innerText.trim());
     });
@@ -633,6 +669,26 @@ async function syncActiveChat(activeTicket) {
       'Auto-detected',
       'Outcome',
       'Your note',
+      'New messages',
+      'New Messages',
+      'new messages',
+      'Pesan baru',
+      'Pesan Baru',
+      'Unread messages',
+      'Pesan belum dibaca',
+      'Nomor telepon',
+      'Nomor Telepon',
+      'Phone number',
+      'Phone Number',
+      'Pesan WhatsApp',
+      'Pesan Whatsapp',
+      'Panggilan WhatsApp',
+      'Panggilan Whatsapp',
+      'Kirim pesan WhatsApp',
+      'Today',
+      'Yesterday',
+      'Hari ini',
+      'Kemarin',
     ]);
 
     // Cari posisi kemunculan pesan pembuka untuk tiket aktif saat ini di thread chat Instagram
@@ -655,6 +711,14 @@ async function syncActiveChat(activeTicket) {
       }
     }
 
+    // Ambil seluruh isi pesan keluar (yang dikirim admin atau AI) untuk tiket ini agar tidak salah dikenali sebagai balasan CS
+    const { data: outMsgs } = await supabase
+      .from('ticket_messages')
+      .select('body')
+      .eq('ticket_id', activeTicket.id)
+      .eq('direction', 'out');
+    const outBodies = new Set((outMsgs || []).map((o) => o.body?.trim()));
+
     // Kumpulkan seluruh bubble pesan CS yang masuk SETELAH pesan pembuka tiket ini
     const csBubbles = [];
     const startIndex = openingMsgIndex === 0 && !messages[0]?.includes(activeTicket.customer_id) ? 0 : openingMsgIndex + 1;
@@ -665,13 +729,56 @@ async function syncActiveChat(activeTicket) {
       if (/^\d+[smhdwy]$/i.test(m)) continue;
       if (/^\d{1,2}[:.]\d{2}$/.test(m)) continue;
       if (ignoredChatKeywords.has(m)) continue;
+      if (outBodies.has(m)) continue;
       if (m.includes('ID Pelanggan') || m.includes('Selamat Pagi/Siang Kak, izin melaporkan')) continue;
       if (m.includes(activeTicket.customer_id)) continue;
       if (activeTicket.pln_id && m.includes(activeTicket.pln_id)) continue;
+      if (m.includes(activeTicket.name) && (m.includes('Keluhan:') || m.includes('Alamat:'))) continue;
 
-      // Abaikan pesan antrean otomatis CS / bot pesan tunggu live chat / info profil kontak
+      // Abaikan jika bubble HANYA nomor telepon atau cocok dengan nomor HP pelanggan / nomor alternatif
+      const cleanMDigits = m.replace(/\D/g, '');
+      const ticketPhoneDigits = (activeTicket.phone || '').replace(/\D/g, '').slice(-8);
+      const altPhoneDigits = (activeTicket.alt_phone || '').replace(/\D/g, '').slice(-8);
+
+      if (ticketPhoneDigits && cleanMDigits.length >= 7 && cleanMDigits.includes(ticketPhoneDigits)) {
+        continue;
+      }
+      if (altPhoneDigits && cleanMDigits.length >= 7 && cleanMDigits.includes(altPhoneDigits)) {
+        continue;
+      }
+
+      // Format nomor telepon standar tanpa teks lain (misal: 0853-3807-4588 atau +62 853-3807-4588 atau +6285338074588)
+      if (/^(\+?62|0)[\s-]?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{3,5}$/.test(m)) {
+        continue;
+      }
+
+      // Abaikan pesan antrean otomatis CS / bot pesan tunggu live chat / info profil kontak / divider UI
       const lowerM = m.toLowerCase();
       if (
+        lowerM === 'seen' ||
+        lowerM.startsWith('seen ') ||
+        lowerM === 'sent' ||
+        lowerM.startsWith('sent ') ||
+        lowerM === 'delivered' ||
+        lowerM.startsWith('delivered ') ||
+        lowerM === 'active now' ||
+        lowerM.startsWith('active ') ||
+        lowerM.includes('typing...') ||
+        lowerM === 'new messages' ||
+        lowerM === 'new message' ||
+        lowerM === 'pesan baru' ||
+        lowerM === 'unread messages' ||
+        lowerM === 'pesan belum dibaca' ||
+        lowerM === 'nomor telepon' ||
+        lowerM === 'phone number' ||
+        lowerM.includes('pesan whatsapp') ||
+        lowerM.includes('panggilan whatsapp') ||
+        lowerM.includes('whatsapp message') ||
+        lowerM.includes('whatsapp call') ||
+        lowerM === 'today' ||
+        lowerM === 'yesterday' ||
+        lowerM === 'hari ini' ||
+        lowerM === 'kemarin' ||
         lowerM.includes('auto-detected') ||
         lowerM.includes('outcome') ||
         lowerM.includes('seluruh agent') ||
@@ -729,6 +836,33 @@ async function syncActiveChat(activeTicket) {
         .update({ ticket_number: directOutcome.value, updated_at: new Date().toISOString() })
         .eq('id', activeTicket.id);
       activeTicket.ticket_number = directOutcome.value;
+    }
+
+    // 2.1 JIKA TIKET INI STATUSNYA 'needs_admin' NAMUN SUDAH MENDAPATKAN NOMOR TIKET RESMI CS
+    const isActualTicketFound =
+      (directOutcome && directOutcome.type === 'ticket') ||
+      (activeTicket.ticket_number && /^[A-Z0-9]{8}$/.test(activeTicket.ticket_number));
+
+    if (activeTicket.status === 'needs_admin' && isActualTicketFound) {
+      const confirmedNumber = directOutcome?.value || activeTicket.ticket_number;
+      console.log(`\n🎉 [TIKET RESMI DIDAPATKAN] Tiket "${activeTicket.name}" sudah mendapatkan nomor tiket ${confirmedNumber}. Menyelesaikan status tiket...`);
+      const now = new Date().toISOString();
+      await supabase
+        .from('tickets')
+        .update({
+          status: 'ticket_issued',
+          ticket_issued_at: now,
+          ticket_number: confirmedNumber,
+          updated_at: now,
+        })
+        .eq('id', activeTicket.id);
+
+      await supabase
+        .from('ticketing_settings')
+        .delete()
+        .eq('key', 'pending_ai_reply');
+
+      return;
     }
 
     // 3. DETEKSI APAKAH SESI TELAH DITUTUP OLEH CS (misal: "chat akan kami akhiri", "tidak ada jawaban", dll)
