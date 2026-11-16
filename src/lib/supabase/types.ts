@@ -1,7 +1,7 @@
 // TypeScript types for database tables
 
 export type UserRole = 'master' | 'user';
-export type AppRole = 'owner' | 'admin' | 'senior' | 'magang';
+export type AppRole = 'owner' | 'admin' | 'senior' | 'magang' | 'tiket';
 export type ShiftType = 'pagi' | 'malam';
 export type JobType = 'marketer' | 'qontak' | 'tiket';
 export type AttachmentKind = 'mulai' | 'selesai' | 'ticket' | 'aktivitas';

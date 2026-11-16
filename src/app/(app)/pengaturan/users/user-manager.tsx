@@ -30,6 +30,7 @@ import {
   EyeOff,
   BarChart3,
   Layers,
+  Ticket,
 } from 'lucide-react';
 import { formatIndonesia } from '@/lib/dates';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
@@ -88,6 +89,16 @@ export const ROLE_INFO: Record<
     border: 'border-emerald-300 dark:border-emerald-800',
     badgeBg: 'bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700',
     description: 'Petugas piket aktif (menggantikan nama Petugas Piket). Absensi dihitung dalam rekapitulasi, grafik, dan laporan PDF.',
+  },
+  tiket: {
+    label: 'Tiket',
+    badgeLabel: 'Tiket',
+    icon: Ticket,
+    bg: 'bg-cyan-100 dark:bg-cyan-950/80',
+    text: 'text-cyan-800 dark:text-cyan-300',
+    border: 'border-cyan-300 dark:border-cyan-800',
+    badgeBg: 'bg-cyan-500/15 text-cyan-900 dark:text-cyan-200 border-cyan-300 dark:border-cyan-700',
+    description: 'Hak akses pembuatan tiket & antrean gangguan ICONNET. Hanya pengguna dengan role ini (atau Owner/Admin) yang diizinkan membuat tiket baru.',
   },
 };
 
@@ -702,7 +713,7 @@ export function UserManager({
                   Pilih Role (Dapat Dipilih Lebih Dari Satu):
                 </label>
 
-                {(['owner', 'admin', 'senior', 'magang'] as AppRole[]).map((roleKey) => {
+                {(['owner', 'admin', 'senior', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
                   const info = ROLE_INFO[roleKey];
                   const Icon = info.icon;
                   const isChecked = roleModalRoles.includes(roleKey);
@@ -868,7 +879,7 @@ export function UserManager({
                   Role Akun (Boleh Ditumpuk):
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(['owner', 'admin', 'senior', 'magang'] as AppRole[]).map((roleKey) => {
+                  {(['owner', 'admin', 'senior', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
                     const info = ROLE_INFO[roleKey];
                     const Icon = info.icon;
                     const isChecked = editRoles.includes(roleKey);
@@ -1005,7 +1016,7 @@ export function UserManager({
                   Role Akun (Boleh Ditumpuk):
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(['admin', 'senior', 'magang'] as AppRole[]).map((roleKey) => {
+                  {(['admin', 'senior', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
                     const info = ROLE_INFO[roleKey];
                     const Icon = info.icon;
                     const isChecked = createRoles.includes(roleKey);

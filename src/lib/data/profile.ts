@@ -12,9 +12,11 @@ export interface UserProfileInfo {
   isAdmin: boolean;
   isSenior: boolean;
   isMagang: boolean;
+  isTiket: boolean;
   isMaster: boolean; // true if isOwner || isAdmin || isSenior (general admin rights)
   canManageSettings: boolean; // isOwner || isAdmin || isSenior
   canManageAdvanced: boolean; // isOwner only (monitoring, email recap, reset data)
+  canCreateTicket: boolean; // isOwner || isAdmin || isTiket
   fullName: string | null;
   phone: string | null;
   description: string | null;
@@ -40,9 +42,11 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       isAdmin: false,
       isSenior: false,
       isMagang: true,
+      isTiket: false,
       isMaster: false,
       canManageSettings: false,
       canManageAdvanced: false,
+      canCreateTicket: false,
       fullName: null,
       phone: null,
       description: null,
@@ -83,9 +87,11 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
     const isAdmin = roles.includes('admin');
     const isSenior = roles.includes('senior');
     const isMagang = roles.includes('magang');
+    const isTiket = roles.includes('tiket');
     const isMaster = isOwner || isAdmin || isSenior || profile.role === 'master';
     const canManageSettings = isMaster;
     const canManageAdvanced = isOwner;
+    const canCreateTicket = isOwner || isAdmin || isTiket;
     const isApproved = isMaster ? true : (profile.is_approved ?? false);
 
     // Sinkronisasi self-healing jika master_email belum tercatat sebagai master/owner di db
@@ -114,9 +120,11 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       isAdmin,
       isSenior,
       isMagang,
+      isTiket,
       isMaster,
       canManageSettings,
       canManageAdvanced,
+      canCreateTicket,
       fullName: profile.full_name ?? null,
       phone: profile.phone ?? null,
       description: profile.description ?? null,
@@ -158,6 +166,8 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
   const isAdmin = defaultRoles.includes('admin');
   const isSenior = defaultRoles.includes('senior');
   const isMagang = defaultRoles.includes('magang');
+  const isTiket = defaultRoles.includes('tiket');
+  const canCreateTicket = isOwner || isAdmin || isTiket;
 
   return {
     userId: user.id,
@@ -168,9 +178,11 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
     isAdmin,
     isSenior,
     isMagang,
+    isTiket,
     isMaster: isMasterEmail,
     canManageSettings: isMasterEmail,
     canManageAdvanced: isMasterEmail,
+    canCreateTicket,
     fullName: metaFullName || null,
     phone: metaPhone || null,
     description: null,

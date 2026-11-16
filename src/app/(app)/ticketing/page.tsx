@@ -49,6 +49,7 @@ export default function TicketingDashboardPage() {
   const [aiEnabled, setAiEnabled] = useState(true);
   const [monitoringEnabled, setMonitoringEnabled] = useState(false);
   const [dispatchingQueue, setDispatchingQueue] = useState(false);
+  const [canCreateTicket, setCanCreateTicket] = useState(false);
 
   // Pending Draft in Monitoring Mode
   const [pendingDraft, setPendingDraft] = useState<{
@@ -83,6 +84,26 @@ export default function TicketingDashboardPage() {
         if (typeof d?.enabled === 'boolean') setMonitoringEnabled(d.enabled);
       })
       .catch(() => {});
+
+    // Cek izin pembuatan tiket untuk user saat ini
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        supabase
+          .from('profiles')
+          .select('role, roles')
+          .eq('id', data.user.id)
+          .single()
+          .then(({ data: profile }) => {
+            const isMasterEmail = data.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+            const roles: string[] = Array.isArray(profile?.roles) ? profile.roles : [];
+            const isOwner = roles.includes('owner') || isMasterEmail;
+            const isAdmin = roles.includes('admin') || profile?.role === 'master';
+            const isTiket = roles.includes('tiket');
+            setCanCreateTicket(isOwner || isAdmin || isTiket);
+          });
+      }
+    });
 
     const checkDraft = () => {
       fetch('/api/ticketing/ai/pending-reply')
@@ -399,13 +420,25 @@ export default function TicketingDashboardPage() {
           </div>
         </div>
 
-        <Link
-          href="/ticketing/settings"
-          className="text-xs font-semibold text-gray-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1.5 self-start sm:self-center"
-        >
-          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-          <span>Pengaturan Prompt AI</span>
-        </Link>
+        <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+          {canCreateTicket && (
+            <Link
+              href="/ticketing/new"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
+            >
+              <TicketIcon className="h-3.5 w-3.5" />
+              <span>+ Buat Tiket Baru</span>
+            </Link>
+          )}
+
+          <Link
+            href="/ticketing/settings"
+            className="text-xs font-semibold text-gray-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            <span className="hidden sm:inline">Pengaturan Prompt AI</span>
+          </Link>
+        </div>
       </div>
 
       {errorMsg && (
@@ -516,13 +549,19 @@ export default function TicketingDashboardPage() {
                   : 'Belum ada tiket keluhan di kategori ini.'}
               </p>
             </div>
-            <Link
-              href="/ticketing/new"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
-            >
-              <TicketIcon className="h-3.5 w-3.5" />
-              <span>Buat Tiket Baru Sekarang</span>
-            </Link>
+            {canCreateTicket ? (
+              <Link
+                href="/ticketing/new"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
+              >
+                <TicketIcon className="h-3.5 w-3.5" />
+                <span>Buat Tiket Baru Sekarang</span>
+              </Link>
+            ) : (
+              <p className="text-[11px] text-gray-400 dark:text-slate-500">
+                Pembuatan tiket gangguan hanya diizinkan untuk akun dengan <strong>Role Tiket</strong>.
+              </p>
+            )}
           </div>
         ) : (
           filteredTickets.map((ticket, index) => {

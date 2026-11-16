@@ -45,6 +45,7 @@ function formatRoleLabels(roles?: AppRole[], isMaster?: boolean) {
       admin: 'Admin',
       senior: 'Senior',
       magang: 'Magang',
+      tiket: 'Tiket',
     };
     return roles.map((r) => map[r] || r).join(', ');
   }

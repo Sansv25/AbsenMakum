@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   User,
   Trash2,
+  ShieldAlert,
 } from 'lucide-react';
 import { showToast } from '@/lib/swal';
 
@@ -27,6 +28,8 @@ export default function NewTicketPage() {
 
   const [pasteInput, setPasteInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingPermission, setCheckingPermission] = useState(true);
+  const [hasPermission, setHasPermission] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [selectedImages, setSelectedImages] = useState<CompressedImageResult[]>([]);
@@ -45,7 +48,7 @@ export default function NewTicketPage() {
     complaint: '',
   });
 
-  // Ambil info akun yang sedang login untuk dicatat sebagai pembuat tiket
+  // Ambil info akun yang sedang login dan periksa izin Role Tiket
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
@@ -56,9 +59,21 @@ export default function NewTicketPage() {
           .eq('id', data.user.id)
           .single()
           .then(({ data: profile }) => {
+            const isMasterEmail = data.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+            const roles: string[] = Array.isArray(profile?.roles) ? profile.roles : [];
+            const isOwner = roles.includes('owner') || isMasterEmail;
+            const isAdmin = roles.includes('admin') || profile?.role === 'master';
+            const isTiket = roles.includes('tiket');
+            const allowed = isOwner || isAdmin || isTiket;
+
+            setHasPermission(allowed);
+            setCheckingPermission(false);
+
             const displayName = profile?.full_name?.trim() || data.user.email?.split('@')[0] || 'Petugas';
             setCurrentUser({ id: data.user.id, name: displayName });
           });
+      } else {
+        setCheckingPermission(false);
       }
     });
   }, []);
@@ -253,6 +268,47 @@ Lampu indikator LOS berkedip merah sejak pagi hari, internet tidak bisa digunaka
       setLoading(false);
     }
   };
+
+  if (checkingPermission) {
+    return (
+      <div className="max-w-5xl mx-auto p-12 text-center flex flex-col items-center justify-center space-y-3 min-h-[50vh]">
+        <div className="inline-block h-8 w-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-medium text-gray-500 dark:text-slate-400">
+          Memeriksa izin role tiket...
+        </p>
+      </div>
+    );
+  }
+
+  if (!hasPermission) {
+    return (
+      <div className="max-w-md mx-auto p-6 mt-12 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-3xl shadow-xl text-center space-y-4">
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-xs">
+          <ShieldAlert className="h-7 w-7" />
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+            Akses Pembuatan Tiket Dibatasi
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-slate-400 leading-relaxed">
+            Hanya pengguna dengan <span className="font-semibold text-cyan-600 dark:text-cyan-400">Role Tiket</span> atau Administrator / Owner yang memiliki izin membuat tiket gangguan baru.
+          </p>
+          <p className="text-[11px] text-gray-400 dark:text-slate-500 pt-1">
+            Silakan hubungi Admin atau Owner untuk menambahkan <strong>Role Tiket</strong> ke akun Anda melalui menu Manajemen Akun.
+          </p>
+        </div>
+        <div className="pt-2">
+          <Link
+            href="/ticketing"
+            className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Kembali ke Dashboard Tiket</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">

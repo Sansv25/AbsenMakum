@@ -4,7 +4,7 @@ import { logout } from '@/app/(auth)/login/actions';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 import { BottomNav, Sidebar } from '@/components/ui/nav';
 import { NavigationProgress } from '@/components/ui/navigation-progress';
-import { LogOut, Crown, User as UserIcon, ShieldCheck, Star, GraduationCap } from 'lucide-react';
+import { LogOut, Crown, User as UserIcon, ShieldCheck, Star, GraduationCap, Ticket } from 'lucide-react';
 import type { AppRole } from '@/lib/supabase/types';
 
 function renderHeaderRoleBadges(roles?: AppRole[], isMaster?: boolean) {
@@ -45,6 +45,16 @@ function renderHeaderRoleBadges(roles?: AppRole[], isMaster?: boolean) {
               className="text-[10px] bg-purple-100 dark:bg-purple-950/80 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-300 font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5"
             >
               <Star className="h-2.5 w-2.5" /> Senior
+            </span>
+          );
+        }
+        if (role === 'tiket') {
+          return (
+            <span
+              key={role}
+              className="text-[10px] bg-cyan-100 dark:bg-cyan-950/80 border border-cyan-300 dark:border-cyan-800 text-cyan-800 dark:text-cyan-300 font-bold px-1.5 py-0.2 rounded-full flex items-center gap-0.5"
+            >
+              <Ticket className="h-2.5 w-2.5" /> Tiket
             </span>
           );
         }
