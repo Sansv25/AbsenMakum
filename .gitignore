@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local sessions & temp
+.session.json
+*.session.json
+bot/.session.json
+.chrome_instagram_profile/

@@ -152,15 +152,40 @@ function extractTicketOutcome(text) {
   return null;
 }
 
-// Otak AI: Menjawab Pertanyaan CS ICONNET Sesuai Data Tiket
+// Konteks Waktu WITA (UTC+8) untuk Salam Penutup Alami
+function getWitaTimeContext() {
+  const now = new Date();
+  const witaHours = (now.getUTCHours() + 8) % 24;
+  const minutes = now.getUTCMinutes().toString().padStart(2, '0');
+
+  let period = 'Malam';
+  if (witaHours >= 5 && witaHours < 11) {
+    period = 'Pagi';
+  } else if (witaHours >= 11 && witaHours < 15) {
+    period = 'Siang';
+  } else if (witaHours >= 15 && witaHours < 18) {
+    period = 'Sore';
+  }
+
+  return {
+    timeStr: `${witaHours.toString().padStart(2, '0')}:${minutes} WITA`,
+    period,
+    greeting: `Selamat ${period}`,
+  };
+}
+
+// Otak AI: Menjawab Pertanyaan CS ICONNET Sesuai Data Tiket & Deteksi Penutupan Percakapan
 async function generateAIReply(ticket, incomingMessage) {
   const isLoss = (ticket.complaint || '').toLowerCase().includes('loss') || (ticket.complaint || '').toLowerCase().includes('los');
   const statusIndikatorText = isLoss ? 'lampu indikator merah' : 'tidak ada indikator merah';
   const indikatorSentence = `Untuk kendalanya ${statusIndikatorText} Kak`;
+  const timeContext = getWitaTimeContext();
 
-  const prompt = `Kamu adalah asisten pelapor layanan pelanggan yang berkomunikasi dengan CS ICONNET lewat Instagram DM.
-PENTING: POSISIMU ADALAH PELAPOR (PELANGGAN / PEMOHON LAYANAN), BUKAN CUSTOMER SERVICE!
+  const prompt = `Kamu adalah asisten pelapor gangguan layanan yang berkomunikasi dengan CS ICONNET di Instagram DM.
+PENTING: POSISIMU ADALAH PELAPOR (PELANGGAN), BUKAN CUSTOMER SERVICE!
 Jangan pernah menawarkan bantuan seperti "Ada yang bisa dibantu?". Kamu yang meminta bantuan penanganan layanan ICONNET!
+
+WAKTU SEKARANG: ${timeContext.timeStr} (Salam penutup yang tepat: "${timeContext.greeting}")
 
 DATA TIKET PELANGGAN (Satu-satunya sumber fakta):
 - Nama: ${ticket.name}
@@ -169,16 +194,27 @@ DATA TIKET PELANGGAN (Satu-satunya sumber fakta):
 - Keluhan: ${ticket.complaint}
 - Kondisi Indikator Modem: ${statusIndikatorText.toUpperCase()}
 
-ATURAN PALING PENTING:
-1. JAWAB HANYA HAL YANG SPESIFIK DITANYAKAN CS (MAKSIMAL 1-2 KALIMAT PENDEK):
-   - Jawab secara singkat, sopan, to-the-point, dan natural seperti manusia.
+LOGIKA DETEKSI DAN JAWABAN:
+1. AKHIR PERCAKAPAN (CS memberikan nomor tiket, menyelesaikan laporan, atau menanyakan "ada lagi yang bisa dibantu / ada keluhan lain?"):
+   - Deteksi ini sebagai penutupan sesi tiket.
+   - Ekstrak nomor tiket resmi jika ada di pesan CS (kode alfanumerik 8 karakter, misal R2J9S7MA, IN123456).
+   - Susun teks balasan penutup yang sopan dan natural: ucapkan terima kasih banyak atas bantuannya, sampaikan bahwa sudah cukup dan tidak ada lagi yang perlu dibantu, lalu tutup dengan "${timeContext.greeting}!".
+   - Wajib set "is_closing": true, dan "ticket_number": "<NOMOR_TIKET_JIKA_ADA>" (atau null jika nomor belum ada tapi CS sudah konfirmasi/tanya).
+
+2. PERTANYAAN KENDALA DARI CS:
    - Jika CS meminta foto modem/SN: jawab bahwa foto saat ini belum dapat dilampirkan ("Untuk foto saat ini belum dapat kami lampirkan Kak. Mohon bantuannya Kak.").
-   - Jika CS meminta nomor WhatsApp / alternatif: jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} dan tidak ada nomor alternatif ("Untuk nomor WhatsApp aktif sama seperti di data: ${ticket.phone || '-'} Kak, tidak ada nomor alternatif lain. Mohon bantuannya Kak.").
+   - Jika CS meminta nomor WhatsApp / alternatif: jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif lain).
    - Jika CS menanyakan kondisi lampu indikator: jawab "${indikatorSentence}. Mohon bantuannya Kak."
    - Jika CS menanyakan foto DAN nomor telepon sekaligus: jawab ringkas keduanya dalam satu pesan ("${indikatorSentence}, untuk foto saat ini belum dapat kami lampirkan, dan untuk nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif). Mohon bantuannya Kak.").
+   - Wajib set "is_closing": false, dan "ticket_number": null.
 
-2. KELUARAN HANYA JSON VALID TANPA MARKDOWN:
-{"action":"reply","text":"..."}`;
+KELUARAN HANYA JSON VALID TANPA MARKDOWN:
+{
+  "action": "reply",
+  "text": "...",
+  "ticket_number": "...",
+  "is_closing": true/false
+}`;
 
   try {
     const res = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
@@ -208,7 +244,7 @@ ATURAN PALING PENTING:
       parsed = JSON.parse(cleaned);
       if (!parsed.action) parsed.action = 'reply';
     } catch {
-      parsed = { action: 'reply', text: cleaned };
+      parsed = { action: 'reply', text: cleaned, is_closing: false, ticket_number: null };
     }
     return parsed;
   } catch (err) {
@@ -216,6 +252,8 @@ ATURAN PALING PENTING:
     return {
       action: 'reply',
       text: `${indikatorSentence}, untuk foto saat ini belum dapat kami lampirkan, dan untuk nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif). Mohon bantuannya Kak.`,
+      is_closing: false,
+      ticket_number: null,
     };
   }
 }
@@ -501,49 +539,7 @@ async function syncActiveChat(activeTicket) {
 
     if (messages.length === 0) return;
 
-    // 1. Prioritas 1: Cari apakah ada nomor tiket resmi di pesan-pesan terbaru
-    let ticketNumFound = null;
-    for (let i = messages.length - 1; i >= Math.max(0, messages.length - 15); i--) {
-      const text = messages[i];
-      const outcome = extractTicketOutcome(text);
-
-      if (outcome && outcome.type === 'ticket') {
-        ticketNumFound = outcome.value;
-        if (activeTicket.ticket_number !== ticketNumFound) {
-          console.log(`\n🎉 [NOMOR TIKET TERBIT] Ditemukan Nomor Tiket Resmi: ${ticketNumFound}!`);
-
-          const now = new Date().toISOString();
-          await supabase
-            .from('tickets')
-            .update({
-              ticket_number: ticketNumFound,
-              status: 'ticket_issued',
-              ticket_issued_at: now,
-              updated_at: now,
-            })
-            .eq('id', activeTicket.id);
-
-          await supabase.from('ticket_messages').insert({
-            ticket_id: activeTicket.id,
-            direction: 'in',
-            sender: 'iconnet',
-            body: text,
-          });
-
-          // Bersihkan juga draf yang mungkin menggantung di pending_ai_reply
-          await supabase.from('ticketing_settings').upsert({
-            key: 'pending_ai_reply',
-            value: null,
-            updated_at: now,
-          });
-
-          console.log(`   ✓ Status tiket ${activeTicket.name} diperbarui ke: TIKET TERBIT\n`);
-          return;
-        }
-      }
-    }
-
-    // 2. Prioritas 2: Jika nomor tiket belum keluar, periksa apakah CS mengajukan pertanyaan yang butuh dijawab AI
+    // Filter Kata & Label Antarmuka (Abaikan label Meta, status pengiriman, dll.)
     const ignoredChatKeywords = new Set([
       'iconnet.here',
       'mitraiconnet.balinusra',
@@ -560,6 +556,9 @@ async function syncActiveChat(activeTicket) {
       'Info',
       'WhatsApp',
       'Also from Meta',
+      'Auto-detected outcome',
+      'Auto-detected',
+      'Outcome',
     ]);
 
     let lastCsMessage = '';
@@ -577,6 +576,8 @@ async function syncActiveChat(activeTicket) {
       // Abaikan pesan antrean otomatis CS / bot pesan tunggu live chat
       const lowerM = m.toLowerCase();
       if (
+        lowerM.includes('auto-detected') ||
+        lowerM.includes('outcome') ||
         lowerM.includes('seluruh agent') ||
         lowerM.includes('melayani pelanggan lain') ||
         lowerM.includes('menunggu dengan menyampaikan') ||
@@ -677,7 +678,48 @@ async function syncActiveChat(activeTicket) {
               .eq('id', activeTicket.id);
 
             lastAnsweredMessage = lastCsMessage;
-            console.log(`✅ [AI TERKIRIM] Berhasil membalas ke CS ICONNET!\n`);
+            console.log(`✅ [AI TERKIRIM] Berhasil membalas ke CS ICONNET: "${aiReply.text}"\n`);
+
+            // Cek apakah percakapan mencapai akhir sesi (closing / nomor tiket keluar)
+            const fallbackOutcome = extractTicketOutcome(lastCsMessage);
+            const detectedTicketNumber =
+              aiReply.ticket_number || (fallbackOutcome?.type === 'ticket' ? fallbackOutcome.value : null);
+            const isClosing = aiReply.is_closing || Boolean(detectedTicketNumber);
+
+            if (detectedTicketNumber) {
+              console.log(`🎉 [NOMOR TIKET RESMI] Terdeteksi Nomor Tiket: ${detectedTicketNumber}!`);
+              await supabase
+                .from('tickets')
+                .update({ ticket_number: detectedTicketNumber })
+                .eq('id', activeTicket.id);
+            }
+
+            if (isClosing) {
+              console.log(`🏁 [SESI PENUTUPAN] AI telah menyampaikan terima kasih & salam penutup ke CS ICONNET.`);
+              console.log(`⏳ Memberi jeda 35 detik agar CS menutup sesi chat sebelum memproses tiket antrean berikutnya...`);
+
+              await new Promise((r) => setTimeout(r, 35000));
+
+              const finalNow = new Date().toISOString();
+              await supabase
+                .from('tickets')
+                .update({
+                  status: 'ticket_issued',
+                  ticket_issued_at: finalNow,
+                  updated_at: finalNow,
+                  ticket_number: detectedTicketNumber || activeTicket.ticket_number,
+                })
+                .eq('id', activeTicket.id);
+
+              await supabase.from('ticketing_settings').upsert({
+                key: 'pending_ai_reply',
+                value: null,
+                updated_at: finalNow,
+              });
+
+              console.log(`✅ [SESI TUNTAS] Tiket "${activeTicket.name}" resmi selesai. Antrean baru aman diproses!\n`);
+              return;
+            }
           }
         }
       }
