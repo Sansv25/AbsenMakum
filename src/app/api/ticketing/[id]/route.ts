@@ -47,12 +47,36 @@ export async function PATCH(
       updatePayload.closed_at = new Date().toISOString();
     }
 
-    const { data: updatedTicket, error: updateError } = await supabase
+    let { data: updatedTicket, error: updateError } = await supabase
       .from('tickets')
       .update(updatePayload)
       .eq('id', ticketId)
       .select('*')
       .single();
+
+    // Fallback jika database Supabase belum memiliki kolom alt_phone
+    if (updateError && updateError.message?.includes('alt_phone')) {
+      const fallbackPayload: Record<string, unknown> = { ...updatePayload };
+      delete fallbackPayload.alt_phone;
+
+      // Jika ada isi alt_phone dan complaint juga diedit, selipkan ke complaint jika belum ada
+      if (updatePayload.alt_phone && typeof updatePayload.complaint === 'string') {
+        const altStr = String(updatePayload.alt_phone).trim();
+        if (altStr && !updatePayload.complaint.includes(altStr)) {
+          fallbackPayload.complaint = `${updatePayload.complaint}\n\nCP Alt: ${altStr}`;
+        }
+      }
+
+      const retry = await supabase
+        .from('tickets')
+        .update(fallbackPayload)
+        .eq('id', ticketId)
+        .select('*')
+        .single();
+
+      updatedTicket = retry.data;
+      updateError = retry.error;
+    }
 
     if (updateError) {
       throw new Error(updateError.message);
