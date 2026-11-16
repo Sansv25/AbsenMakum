@@ -20,11 +20,12 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   masterOnly?: boolean;
+  ticketOnly?: boolean;
 }
 
 const allNavItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/ticketing', label: 'Ticketing', icon: Ticket },
+  { href: '/ticketing', label: 'Ticketing', icon: Ticket, ticketOnly: true },
   { href: '/riwayat', label: 'Riwayat', icon: History },
   { href: '/libur', label: 'Libur', icon: CalendarOff, masterOnly: true },
   { href: '/pengaturan', label: 'Pengaturan', icon: Settings, masterOnly: true },
@@ -33,9 +34,22 @@ const allNavItems: NavItem[] = [
 
 interface NavProps {
   isMaster?: boolean;
+  canAccessTicketing?: boolean;
   userName?: string | null;
   userEmail?: string | null;
   roles?: AppRole[];
+}
+
+function getFilteredNavItems(
+  items: NavItem[],
+  isMaster: boolean,
+  canAccessTicketing: boolean
+) {
+  return items.filter((item) => {
+    if (item.masterOnly && !isMaster) return false;
+    if (item.ticketOnly && !canAccessTicketing) return false;
+    return true;
+  });
 }
 
 function formatRoleLabels(roles?: AppRole[], isMaster?: boolean) {
@@ -52,9 +66,15 @@ function formatRoleLabels(roles?: AppRole[], isMaster?: boolean) {
   return isMaster ? 'Master' : 'Magang';
 }
 
-export function BottomNav({ isMaster = false }: NavProps) {
+export function BottomNav({ isMaster = false, canAccessTicketing = false, roles }: NavProps) {
   const pathname = usePathname();
-  const baseItems = isMaster ? allNavItems : allNavItems.filter((item) => !item.masterOnly);
+  const hasTicketAccess =
+    canAccessTicketing ||
+    Boolean(roles?.includes('tiket')) ||
+    Boolean(roles?.includes('owner')) ||
+    Boolean(roles?.includes('admin'));
+
+  const baseItems = getFilteredNavItems(allNavItems, isMaster, hasTicketAccess);
   const navItems = [
     ...baseItems,
     { href: '/profil', label: 'Profil', icon: User },
@@ -86,9 +106,21 @@ export function BottomNav({ isMaster = false }: NavProps) {
   );
 }
 
-export function Sidebar({ isMaster = false, userName, userEmail, roles }: NavProps) {
+export function Sidebar({
+  isMaster = false,
+  canAccessTicketing = false,
+  userName,
+  userEmail,
+  roles,
+}: NavProps) {
   const pathname = usePathname();
-  const navItems = isMaster ? allNavItems : allNavItems.filter((item) => !item.masterOnly);
+  const hasTicketAccess =
+    canAccessTicketing ||
+    Boolean(roles?.includes('tiket')) ||
+    Boolean(roles?.includes('owner')) ||
+    Boolean(roles?.includes('admin'));
+
+  const navItems = getFilteredNavItems(allNavItems, isMaster, hasTicketAccess);
   const displayName = userName || userEmail || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'U';
 

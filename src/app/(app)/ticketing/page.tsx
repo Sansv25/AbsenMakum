@@ -100,7 +100,11 @@ export default function TicketingDashboardPage() {
             const isOwner = roles.includes('owner') || isMasterEmail;
             const isAdmin = roles.includes('admin') || profile?.role === 'master';
             const isTiket = roles.includes('tiket');
-            setCanCreateTicket(isOwner || isAdmin || isTiket);
+            const allowed = isOwner || isAdmin || isTiket;
+            setCanCreateTicket(allowed);
+            if (!allowed) {
+              window.location.href = '/';
+            }
           });
       }
     });

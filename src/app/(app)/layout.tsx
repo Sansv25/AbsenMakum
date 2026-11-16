@@ -86,13 +86,14 @@ export default async function AppLayout({
     redirect('/pending-approval');
   }
 
-  const { email, fullName, roles, canManageSettings, isMaster } = profile;
+  const { email, fullName, roles, canManageSettings, isMaster, canCreateTicket } = profile;
 
   return (
     <div className="min-h-screen w-full max-w-full flex bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 transition-colors overflow-x-hidden">
       <NavigationProgress />
       <Sidebar
         isMaster={canManageSettings}
+        canAccessTicketing={canCreateTicket}
         userName={fullName || email || undefined}
         userEmail={email ?? undefined}
         roles={roles}
@@ -167,7 +168,11 @@ export default async function AppLayout({
         <main className="flex-1 min-w-0 max-w-full pb-20 md:pb-0 overflow-x-hidden">{children}</main>
       </div>
 
-      <BottomNav isMaster={canManageSettings} />
+      <BottomNav
+        isMaster={canManageSettings}
+        canAccessTicketing={canCreateTicket}
+        roles={roles}
+      />
     </div>
   );
 }
