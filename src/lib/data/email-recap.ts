@@ -80,8 +80,6 @@ export async function getEmailRecapSettings(): Promise<EmailRecapSettings> {
       // Rekapan harian anak magang
       dailyRecipients: Array.isArray(data.daily_recipients)
         ? data.daily_recipients
-        : Array.isArray(data.recipients)
-        ? data.recipients
         : [],
       dailyIsActive: data.daily_is_active ?? true,
       dailySendTime: data.daily_send_time || '18:00',

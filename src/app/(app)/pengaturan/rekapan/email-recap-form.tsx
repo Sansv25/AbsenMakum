@@ -11,8 +11,6 @@ import {
   Send,
   Calendar,
   Key,
-  User,
-  Users,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -20,6 +18,8 @@ import {
   ShieldCheck,
   Eye,
   EyeOff,
+  Info,
+  GraduationCap,
 } from 'lucide-react';
 
 interface EmailRecapFormProps {
@@ -231,40 +231,97 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
   return (
     <form onSubmit={handleSaveSettings} className="space-y-6">
       {/* ============================================================== */}
-      {/* 1. REKAPAN ABSEN HARIAN (ANAK MAGANG)                          */}
+      {/* 0. PANDUAN DUA JALUR EMAIL REKAPAN ICONNET                     */}
       {/* ============================================================== */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border-2 border-emerald-500/30 dark:border-emerald-500/40 shadow-xs space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400">
-                <Users className="h-4 w-4" />
-              </span>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100">
-                Email Tujuan Rekapan Absen Harian (Anak Magang)
-              </h3>
+      <div className="bg-slate-50 dark:bg-slate-850/80 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 space-y-3">
+        <div className="flex items-center gap-2">
+          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
+          <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100">
+            Panduan 2 Jenis Email Rekapan ICONNET
+          </h3>
+        </div>
+        <p className="text-xs text-gray-600 dark:text-slate-400 leading-relaxed">
+          Sistem absensi ICONNET memisahkan laporan rekapan menjadi <strong>2 jalur email penerima yang berbeda</strong> agar target laporan tidak tertukar:
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+          {/* Box Magang */}
+          <div className="bg-emerald-50/70 dark:bg-emerald-950/30 p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+              <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span>1. Rekapan Magang (Harian)</span>
             </div>
-            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-              Atur email penerima khusus laporan harian kehadiran anak magang (menampilkan rincian anak magang yang hadir dan yang tidak hadir).
+            <p className="text-[11px] text-emerald-900/80 dark:text-emerald-200/80 leading-relaxed">
+              <strong>Isi:</strong> Rekap presensi harian anak magang (menampilkan siapa yang <strong>hadir</strong> beserta jam/foto bukti &amp; siapa yang <strong>tidak hadir / absen</strong>).
+            </p>
+            <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">
+              Format: Email HTML Interaktif &bull; Dikirim tiap hari kerja
             </p>
           </div>
 
-          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5" title="Aktifkan/Nonaktifkan Pengiriman Rekapan Harian">
-            <input
-              type="checkbox"
-              checked={settings.dailyIsActive}
-              onChange={(e) => setSettings({ ...settings, dailyIsActive: e.target.checked })}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-          </label>
+          {/* Box Piket */}
+          <div className="bg-blue-50/70 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200 dark:border-blue-800/60 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 dark:text-blue-300">
+              <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span>2. Rekapan Piket (Shift Pagi &amp; Sore)</span>
+            </div>
+            <p className="text-[11px] text-blue-900/80 dark:text-blue-200/80 leading-relaxed">
+              <strong>Isi:</strong> Laporan dokumen <strong>PDF resmi</strong> kegiatan petugas piket shift pagi (08.00–16.30) &amp; sore (16.30–08.00) lengkap dengan checklist tugas, foto lapangan, dan tanda tangan digital.
+            </p>
+            <p className="text-[10px] text-blue-700 dark:text-blue-400 font-semibold">
+              Format: Lampiran Dokumen PDF &bull; Dikirim Mingguan / Bulanan
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ============================================================== */}
+      {/* 1. PENERIMA REKAPAN MAGANG (ABSEN HARIAN)                      */}
+      {/* ============================================================== */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border-2 border-emerald-500/40 dark:border-emerald-500/50 shadow-xs space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400">
+                <GraduationCap className="h-4 w-4" />
+              </span>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100">
+                Penerima Rekapan Magang (Absen Harian)
+              </h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                Khusus Anak Magang
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">
+              <strong>Keterangan Penerima:</strong> Masukkan email pembimbing magang, HRD, atau supervisor yang memantau kehadiran anak magang. Laporan otomatis merinci siapa saja anak magang yang <strong>hadir</strong> dan yang <strong>tidak hadir</strong> pada hari kerja.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-slate-400 hidden sm:inline">
+              {settings.dailyIsActive ? 'Otomatis Aktif' : 'Nonaktif'}
+            </span>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0" title="Aktifkan/Nonaktifkan Pengiriman Rekapan Harian Magang">
+              <input
+                type="checkbox"
+                checked={settings.dailyIsActive}
+                onChange={(e) => setSettings({ ...settings, dailyIsActive: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+            </label>
+          </div>
         </div>
 
-        {/* Input Tambah Email Harian */}
+        {/* Input Tambah Email Magang */}
         <div className="space-y-2 pt-1">
-          <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300">
-            Daftar Alamat Email Penerima Laporan Harian
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300">
+              Daftar Alamat Email Penerima Rekapan Magang
+            </label>
+            <span className="text-xs text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+              {(settings.dailyRecipients || []).length} Penerima Magang
+            </span>
+          </div>
           <div className="flex items-center gap-2">
             <input
               type="email"
@@ -276,7 +333,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
                   handleAddDailyEmail();
                 }
               }}
-              placeholder="Masukkan email (contoh: spv.magang@iconnet.id)..."
+              placeholder="Masukkan email pembimbing / SPV magang (contoh: spv.magang@iconnet.id)..."
               className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
             <button
@@ -289,10 +346,10 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
             </button>
           </div>
 
-          {/* Chips Email Harian */}
+          {/* Chips Email Magang */}
           {(settings.dailyRecipients || []).length === 0 ? (
             <div className="p-3.5 rounded-xl border border-dashed border-gray-200 dark:border-slate-700 text-center text-xs text-gray-400 dark:text-slate-500">
-              Belum ada email khusus harian. (Jika belum diisi, laporan akan dikirim ke email piket di bawah).
+              Belum ada email khusus rekapan magang yang didaftarkan. Masukkan email di atas untuk menerima laporan absensi anak magang.
             </div>
           ) : (
             <div className="flex flex-wrap gap-2 pt-1">
@@ -321,7 +378,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100 dark:border-slate-800">
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
-              Jadwal Kirim Otomatis Harian (WITA)
+              Jadwal Kirim Otomatis Rekapan Magang (WITA)
             </label>
             <div className="relative">
               <input
@@ -346,23 +403,23 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
               {sendingDailyTest ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Mengirim Rekap...</span>
+                  <span>Mengirim Rekap Magang...</span>
                 </>
               ) : (
                 <>
                   <Send className="h-3.5 w-3.5" />
-                  <span>Kirim Tes Rekap Harian Sekarang</span>
+                  <span>Kirim Tes Rekap Magang Sekarang</span>
                 </>
               )}
             </button>
           </div>
         </div>
 
-        {/* Status Terakhir Rekapan Harian */}
+        {/* Status Terakhir Rekapan Magang */}
         {settings.dailyLastSentAt && (
           <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-800 text-[11px] text-gray-500 dark:text-slate-400 flex items-center justify-between">
             <span>
-              Pengiriman terakhir: <strong>{new Date(settings.dailyLastSentAt).toLocaleString('id-ID', { timeZone: 'Asia/Makassar' })} WITA</strong>
+              Pengiriman terakhir rekapan magang: <strong>{new Date(settings.dailyLastSentAt).toLocaleString('id-ID', { timeZone: 'Asia/Makassar' })} WITA</strong>
             </span>
             <span className="text-emerald-600 dark:text-emerald-400 font-semibold truncate max-w-[200px]">
               {settings.dailyLastStatus || 'Berhasil'}
@@ -372,109 +429,117 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
       </div>
 
       {/* ============================================================== */}
-      {/* 2. REKAPAN PIKET & SHIFT (MINGGUAN / BULANAN)                   */}
+      {/* 2. PENERIMA REKAPAN PIKET (SHIFT PAGI & SORE)                  */}
       {/* ============================================================== */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 shadow-xs flex items-center justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2">
-            <Mail className="h-4 w-4 text-blue-500" />
-            Pengiriman Rekapan Otomatis
-          </h3>
-          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-            Aktifkan untuk mengirimkan PDF rekapan kehadiran secara berkala ke email tujuan.
-          </p>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border-2 border-blue-500/40 dark:border-blue-500/50 shadow-xs space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="p-1.5 rounded-lg bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400">
+                <ShieldCheck className="h-4 w-4" />
+              </span>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100">
+                Penerima Rekapan Piket (Shift Pagi &amp; Sore)
+              </h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                Petugas Piket &amp; Shift
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">
+              <strong>Keterangan Penerima:</strong> Masukkan email manajemen (Manager, SPV, Admin Piket, PIC Area). Sistem akan mengirimkan dokumen <strong>PDF resmi rekapan piket ICONNET</strong> (Shift Pagi 08.00–16.30 WITA &amp; Shift Sore 16.30–08.00 WITA) yang mencakup checklist tugas, bukti foto lapangan, checklist inventaris, dan riwayat presensi.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] font-semibold text-gray-500 dark:text-slate-400 hidden sm:inline">
+              {settings.isActive ? 'Otomatis Aktif' : 'Nonaktif'}
+            </span>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0" title="Aktifkan/Nonaktifkan Pengiriman Rekapan Piket">
+              <input
+                type="checkbox"
+                checked={settings.isActive}
+                onChange={(e) => setSettings({ ...settings, isActive: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
         </div>
 
-        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-          <input
-            type="checkbox"
-            checked={settings.isActive}
-            onChange={(e) => setSettings({ ...settings, isActive: e.target.checked })}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-        </label>
-      </div>
-
-      {/* 2. DAFTAR EMAIL PENERIMA (MULTI-RECIPIENTS) */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 shadow-xs space-y-4">
-        <div>
+        {/* Input Tambah Email Piket */}
+        <div className="space-y-2 pt-1">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2">
-              <User className="h-4 w-4 text-indigo-500" />
-              Daftar Email Penerima Rekapan
-            </h3>
-            <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-900">
-              {settings.recipients.length} Penerima
+            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300">
+              Daftar Alamat Email Penerima Rekapan Piket (PDF)
+            </label>
+            <span className="text-xs text-blue-700 dark:text-blue-300 font-semibold bg-blue-50 dark:bg-blue-950/60 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+              {settings.recipients.length} Penerima Piket
             </span>
           </div>
-          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-            Bisa di-set masuk ke email siapa saja (Manager, SPV, Admin, PIC Area, dll).
-          </p>
-        </div>
-
-        {/* Input Tambah Email */}
-        <div className="flex items-center gap-2">
-          <input
-            type="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleAddEmail();
-              }
-            }}
-            placeholder="Ketik email penerima (contoh: spv@iconnet.id)..."
-            className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            type="button"
-            onClick={handleAddEmail}
-            className="px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 flex-shrink-0"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Tambah</span>
-          </button>
-        </div>
-
-        {/* Tags / List Email */}
-        {settings.recipients.length === 0 ? (
-          <div className="p-4 rounded-xl border border-dashed border-gray-200 dark:border-slate-700 text-center text-xs text-gray-400 dark:text-slate-500">
-            Belum ada email yang didaftarkan. Masukkan email di atas untuk menerima laporan rekapan.
+          <div className="flex items-center gap-2">
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddEmail();
+                }
+              }}
+              placeholder="Ketik email Manager / SPV Piket (contoh: spv.piket@iconnet.id)..."
+              className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddEmail}
+              className="px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shrink-0"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Tambah</span>
+            </button>
           </div>
-        ) : (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {settings.recipients.map((email) => (
-              <span
-                key={email}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-              >
-                <Mail className="h-3 w-3 text-blue-500" />
-                <span>{email}</span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveEmail(email)}
-                  className="p-0.5 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-500 hover:text-blue-700 transition-colors ml-0.5"
-                  title="Hapus email ini"
+
+          {/* Chips Email Piket */}
+          {settings.recipients.length === 0 ? (
+            <div className="p-3.5 rounded-xl border border-dashed border-gray-200 dark:border-slate-700 text-center text-xs text-gray-400 dark:text-slate-500">
+              Belum ada email khusus rekapan piket yang didaftarkan. Masukkan email di atas untuk menerima laporan PDF piket.
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {settings.recipients.map((email) => (
+                <span
+                  key={email}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
                 >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+                  <Mail className="h-3 w-3 text-blue-500" />
+                  <span>{email}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveEmail(email)}
+                    className="p-0.5 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 text-blue-500 hover:text-blue-700 transition-colors ml-0.5"
+                    title="Hapus email ini"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* 3. FREKUENSI & JADWAL REKAPAN */}
+      {/* ============================================================== */}
+      {/* 3. PERIODE & FREKUENSI REKAPAN PIKET (PDF)                    */}
+      {/* ============================================================== */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-emerald-500" />
-            Pilihan Periode &amp; Frekuensi Rekapan
+            <Calendar className="h-4 w-4 text-blue-500" />
+            Pilihan Periode &amp; Frekuensi Rekapan Piket (PDF)
           </h3>
           <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-            Tentukan apakah ingin menerima laporan mingguan, bulanan, atau keduanya.
+            Tentukan jadwal pengiriman otomatis dokumen PDF rekapan piket ke email penerima piket di atas.
           </p>
         </div>
 
@@ -700,15 +765,15 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
           </div>
         )}
 
-        {/* KARTU TEST KIRIM SEKARANG */}
+        {/* KARTU TEST KIRIM REKAPAN PIKET SEKARANG */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-850 p-4 rounded-2xl border border-blue-100 dark:border-slate-700 space-y-3">
           <div>
             <h4 className="text-xs font-bold text-gray-900 dark:text-slate-100 flex items-center gap-1.5">
               <Send className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-              Uji Coba Kirim PDF Rekapan Sekarang
+              Uji Coba Kirim PDF Rekapan Piket Sekarang
             </h4>
             <p className="text-[11px] text-gray-600 dark:text-slate-400 mt-0.5">
-              Kirimkan dokumen PDF rekapan detik ini juga ke seluruh email penerima di atas untuk memastikan Brevo bekerja normal.
+              Kirimkan dokumen PDF rekapan piket detik ini juga ke seluruh email penerima piket di atas untuk memastikan Brevo bekerja normal.
             </p>
           </div>
 
@@ -724,7 +789,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
               ) : (
                 <FileText className="h-3.5 w-3.5 text-emerald-500" />
               )}
-              <span>{sendingTest === 'mingguan' ? 'Mengirim PDF...' : 'Kirim Rekap Mingguan (PDF)'}</span>
+              <span>{sendingTest === 'mingguan' ? 'Mengirim PDF Piket...' : 'Kirim Rekap Piket Mingguan (PDF)'}</span>
             </button>
 
             <button
@@ -738,7 +803,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
               ) : (
                 <FileText className="h-3.5 w-3.5 text-blue-500" />
               )}
-              <span>{sendingTest === 'bulanan' ? 'Mengirim PDF...' : 'Kirim Rekap Bulanan (PDF)'}</span>
+              <span>{sendingTest === 'bulanan' ? 'Mengirim PDF Piket...' : 'Kirim Rekap Piket Bulanan (PDF)'}</span>
             </button>
           </div>
         </div>
