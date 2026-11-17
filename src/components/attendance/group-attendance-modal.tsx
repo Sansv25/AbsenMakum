@@ -198,6 +198,7 @@ export function GroupAttendanceModal({
           work_date: workDate,
           photo_storage_path: storagePath,
           note: note.trim() || null,
+          target_user_ids: selectedUserIds,
         }),
       });
 
@@ -562,8 +563,7 @@ export function GroupAttendanceModal({
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  💡 Tips: Jika memilih nama rekan di atas, tombol kirim baru akan aktif setelah rekan
-                  tersebut men-scan QR.
+                  💡 Tips: Hanya rekan yang Anda centang (checklist) yang diizinkan untuk men-scan QR.
                 </p>
               </div>
             </>

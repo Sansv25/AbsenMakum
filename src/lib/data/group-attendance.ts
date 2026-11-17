@@ -2,6 +2,31 @@ import { createClient } from '@/lib/supabase/server';
 import crypto from 'crypto';
 import type { GroupAttendanceSession, GroupMemberInfo } from '@/lib/types/attendance-feed';
 
+export interface GroupSessionMeta {
+  text?: string | null;
+  target_user_ids?: string[] | null;
+}
+
+export function encodeGroupMeta(meta: GroupSessionMeta): string {
+  return `__GRP_META__${JSON.stringify(meta)}`;
+}
+
+export function decodeGroupMeta(raw?: string | null): { text: string | null; target_user_ids: string[] | null } {
+  if (!raw) return { text: null, target_user_ids: null };
+  if (typeof raw === 'string' && raw.startsWith('__GRP_META__')) {
+    try {
+      const parsed = JSON.parse(raw.slice('__GRP_META__'.length));
+      return {
+        text: parsed.text || null,
+        target_user_ids: Array.isArray(parsed.target_user_ids) ? parsed.target_user_ids : null,
+      };
+    } catch {
+      // fallback
+    }
+  }
+  return { text: raw, target_user_ids: null };
+}
+
 /**
  * Membuat sesi baru untuk Absen Bersama Pagi via QR Code
  */
@@ -9,6 +34,7 @@ export async function createGroupAttendanceSession(payload: {
   work_date: string;
   photo_storage_path?: string | null;
   note?: string | null;
+  target_user_ids?: string[] | null;
 }): Promise<{ session: GroupAttendanceSession | null; error?: string }> {
   const supabase = await createClient();
   const {
@@ -24,12 +50,21 @@ export async function createGroupAttendanceSession(payload: {
   // Masa kedaluwarsa 3 menit dari sekarang
   const expires_at = new Date(Date.now() + 3 * 60 * 1000).toISOString();
 
+  // Kemas target checklist ke dalam metadata jika dipilih
+  const hasTargets = Array.isArray(payload.target_user_ids) && payload.target_user_ids.length > 0;
+  const rawNote = hasTargets
+    ? encodeGroupMeta({
+        text: payload.note || null,
+        target_user_ids: payload.target_user_ids || null,
+      })
+    : payload.note || null;
+
   const insertPayload: Record<string, unknown> = {
     initiator_id: user.id,
     work_date: payload.work_date,
     qr_token,
     photo_storage_path: payload.photo_storage_path || null,
-    note: payload.note || null,
+    note: rawNote,
     status: 'pending',
     expires_at,
   };
@@ -106,6 +141,8 @@ export async function createGroupAttendanceSession(payload: {
     photo_url = signData?.signedUrl || null;
   }
 
+  const meta = decodeGroupMeta(data.note);
+
   return {
     session: {
       id: data.id,
@@ -114,7 +151,8 @@ export async function createGroupAttendanceSession(payload: {
       qr_token: data.qr_token,
       photo_storage_path: data.photo_storage_path,
       photo_url,
-      note: data.note,
+      note: meta.text || null,
+      target_user_ids: payload.target_user_ids || meta.target_user_ids || null,
       status: data.status as 'pending' | 'completed' | 'expired',
       expires_at: data.expires_at,
       created_at: data.created_at,
@@ -216,6 +254,27 @@ export async function joinGroupAttendanceByToken(
     };
   }
 
+  const initiatorProf = Array.isArray(sessionData.profiles) ? sessionData.profiles[0] : sessionData.profiles;
+  const initiatorName = initiatorProf?.full_name || 'Inisiator';
+
+  // Validasi checklist target: Jika inisiator memilih daftar rekan tertentu, akun di luar checklist DILARANG scan!
+  const meta = decodeGroupMeta(sessionData.note);
+  const rawTargetIds = (sessionData as Record<string, unknown>).target_user_ids || meta.target_user_ids;
+  const targetUserIds: string[] = Array.isArray(rawTargetIds) ? (rawTargetIds as string[]) : [];
+
+  if (targetUserIds.length > 0) {
+    const isInitiator = user.id.toLowerCase() === sessionData.initiator_id.toLowerCase();
+    const isTarget = targetUserIds.some((id) => String(id).toLowerCase() === user.id.toLowerCase());
+
+    if (!isInitiator && !isTarget) {
+      return {
+        success: false,
+        message: `Maaf, Anda tidak termasuk dalam daftar rekan yang dipilih oleh ${initiatorName} untuk sesi absen bersama ini.`,
+        error: 'not_selected_member',
+      };
+    }
+  }
+
   // Masukkan user ini ke daftar anggota terverifikasi
   const { error: joinErr } = await supabase
     .from('group_attendance_members')
@@ -235,9 +294,6 @@ export async function joinGroupAttendanceByToken(
       error: joinErr.message,
     };
   }
-
-  const initiatorProf = Array.isArray(sessionData.profiles) ? sessionData.profiles[0] : sessionData.profiles;
-  const initiatorName = initiatorProf?.full_name || 'Rekan Anda';
 
   return {
     success: true,
@@ -311,6 +367,10 @@ export async function getGroupSessionStatus(
     photo_url = signData?.signedUrl || null;
   }
 
+  const meta = decodeGroupMeta(sessionData.note);
+  const rawTargetIds = (sessionData as Record<string, unknown>).target_user_ids || meta.target_user_ids;
+  const targetUserIds: string[] | null = Array.isArray(rawTargetIds) ? (rawTargetIds as string[]) : null;
+
   return {
     session: {
       id: sessionData.id,
@@ -319,7 +379,8 @@ export async function getGroupSessionStatus(
       qr_token: sessionData.qr_token,
       photo_storage_path: sessionData.photo_storage_path,
       photo_url,
-      note: sessionData.note,
+      note: meta.text || null,
+      target_user_ids: targetUserIds,
       status: sessionData.status as 'pending' | 'completed' | 'expired',
       expires_at: sessionData.expires_at,
       created_at: sessionData.created_at,
@@ -367,12 +428,13 @@ export async function finalizeGroupAttendanceSession(
     .update({ status: 'completed' })
     .eq('id', sessionId);
 
-  // 3. Publikasikan kartu pesan ke feed chat absensi (simpan catatan inisiator jika ada)
+  // 3. Publikasikan kartu pesan ke feed chat absensi (simpan catatan inisiator bersih jika ada)
+  const cleanNote = decodeGroupMeta(session.note).text;
   const { error: insertErr } = await supabase.from('attendance_feed').insert({
     user_id: user.id,
     work_date: session.work_date,
     feed_type: 'group_attendance',
-    message: session.note ? session.note.trim() : null,
+    message: cleanNote ? cleanNote.trim() : null,
     media_paths: session.photo_storage_path ? [session.photo_storage_path] : [],
     group_session_id: session.id,
   });

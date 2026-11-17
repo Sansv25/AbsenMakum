@@ -42,6 +42,7 @@ export interface GroupAttendanceSession {
   photo_storage_path: string | null;
   photo_url?: string | null;
   note: string | null;
+  target_user_ids?: string[] | null;
   status: 'pending' | 'completed' | 'expired';
   expires_at: string;
   created_at: string;

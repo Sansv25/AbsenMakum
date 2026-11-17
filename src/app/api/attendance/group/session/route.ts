@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { work_date, photo_storage_path, note } = body;
+    const { work_date, photo_storage_path, note, target_user_ids } = body;
 
     if (!work_date) {
       return NextResponse.json({ error: 'work_date wajib disertakan.' }, { status: 400 });
@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       work_date,
       photo_storage_path,
       note,
+      target_user_ids: Array.isArray(target_user_ids) ? target_user_ids : undefined,
     });
 
     if (result.error || !result.session) {
