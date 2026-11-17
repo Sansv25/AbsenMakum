@@ -463,7 +463,10 @@ export async function sendRecapEmailNow(
     const resData = await res.json().catch(() => null);
 
     if (!res.ok) {
-      const errMsg = resData?.message || resData?.error || `HTTP ${res.status}`;
+      let errMsg = resData?.message || resData?.error || `HTTP ${res.status}`;
+      if (errMsg.toLowerCase().includes('unrecognised ip') || errMsg.toLowerCase().includes('authorised_ips')) {
+        errMsg = `Brevo memblokir IP server (${errMsg}). Silakan buka https://app.brevo.com/security/authorised_ips lalu nonaktifkan batasan IP atau masukkan IP tersebut ke daftar Authorized IPs.`;
+      }
       // Update status gagal
       await supabase
         .from('email_recap_settings')
@@ -715,7 +718,10 @@ export async function sendDailyRecapEmailNow(
     const resData = await res.json().catch(() => null);
 
     if (!res.ok) {
-      const errMsg = resData?.message || resData?.error || `HTTP ${res.status}`;
+      let errMsg = resData?.message || resData?.error || `HTTP ${res.status}`;
+      if (errMsg.toLowerCase().includes('unrecognised ip') || errMsg.toLowerCase().includes('authorised_ips')) {
+        errMsg = `Brevo memblokir IP server (${errMsg}). Silakan buka https://app.brevo.com/security/authorised_ips lalu nonaktifkan batasan IP atau tambahkan IP tersebut ke daftar Authorized IPs.`;
+      }
       return { success: false, error: errMsg };
     }
 
