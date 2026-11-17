@@ -1,6 +1,71 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+function extractTicketOutcome(text: string): { type: string; value: string } | null {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+
+  // 1. Cek nomor tiket resmi alfanumerik (6 s/d 12 karakter, wajib ada angka)
+  const ticketRegex = /(?:id\s*tiket|nomor\s*tiket|no\.?\s*tiket|tiket|nomor\s*pelaporan|no\.?\s*pelaporan)\s*[:#]?\s*([A-Z0-9]{6,12})\b/i;
+  const match = text.match(ticketRegex);
+  if (match && match[1] && /\d/.test(match[1])) {
+    return { type: 'ticket', value: match[1].toUpperCase() };
+  }
+
+  // Standalone kode tiket (mis. A2000842, IN123456, R2J92BW3)
+  const standaloneMatch = text.match(/\b([A-Z][A-Z0-9]{6,10})\b/);
+  if (standaloneMatch && standaloneMatch[1] && /\d/.test(standaloneMatch[1])) {
+    const val = standaloneMatch[1].toUpperCase();
+    const blacklist = new Set(['ICONNET', 'WHATSAPP', 'INSTAGRAM', 'INTERNET', 'MODEMNYA', 'PELAPORAN']);
+    if (!blacklist.has(val)) {
+      return { type: 'ticket', value: val };
+    }
+  }
+
+  // 2. Cek status tagihan / isolir pelanggan
+  if (
+    /\b(?:terisolir|isolir)\b/i.test(text) ||
+    /(?:belum\s*(?:melakukan\s*)?pembayaran|tagihan\s*(?:belum\s*dibayar|tertunggak|menunggak))/i.test(text) ||
+    /(?:ada\s*tagihan|menunggu\s*pembayaran)/i.test(text)
+  ) {
+    return { type: 'billing', value: 'Belum Bayar / Tagihan Tertunggak' };
+  }
+
+  // 3. Cek hasil restart sistem / refresh port oleh CS ICONNET
+  if (
+    lower.includes('perbaikan melalui sistem') ||
+    lower.includes('perbaikan sistem') ||
+    lower.includes('restart dari sistem') ||
+    lower.includes('dibantu restart') ||
+    lower.includes('restart sistem') ||
+    lower.includes('refresh sistem') ||
+    lower.includes('5-10 menit') ||
+    lower.includes('5 hingga 10 menit') ||
+    lower.includes('menunggu 5') ||
+    lower.includes('10 menit setelah itu bisa mencoba')
+  ) {
+    return { type: 'restart', value: 'Perbaikan Sistem (Tunggu 5-10 Menit)' };
+  }
+
+  // 4. Cek gangguan massal / pemeliharaan jaringan
+  if (lower.includes('gangguan massal') || lower.includes('pemeliharaan jaringan') || lower.includes('maintenance')) {
+    return { type: 'mass_outage', value: 'Gangguan Massal di Area' };
+  }
+
+  // 5. Cek penutupan sepihak oleh CS
+  if (
+    lower.includes('chat akan kami akhiri') ||
+    lower.includes('percakapan kami akhiri') ||
+    lower.includes('sesi kami akhiri') ||
+    (lower.includes('terima kasih telah menghubungi') &&
+      (lower.includes('selamat pagi') || lower.includes('selamat siang') || lower.includes('selamat sore') || lower.includes('selamat malam')))
+  ) {
+    return { type: 'closed_by_cs', value: 'Sesi Diakhiri oleh CS ICONNET' };
+  }
+
+  return null;
+}
+
 export async function POST() {
   try {
     const supabase = await createClient();
@@ -18,41 +83,38 @@ export async function POST() {
       });
     }
 
-    // 2. Periksa apakah pesan masuk terbaru mengandung nomor tiket
+    // 2. Periksa pesan masuk terbaru
     const { data: incomingMsgs } = await supabase
       .from('ticket_messages')
       .select('*')
       .eq('ticket_id', activeTicket.id)
       .eq('direction', 'in')
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(10);
 
-    const ticketRegex = /(?:nomor\s*tiket|no\s*tiket|id\s*tiket|tiket\s*keluhan)[\s:]*([A-Z0-9]{8})\b/i;
-    let foundNumber: string | null = null;
+    const combinedIncoming = (incomingMsgs || [])
+      .map((m) => m.body || '')
+      .filter(Boolean)
+      .reverse()
+      .join('\n');
 
-    if (incomingMsgs) {
-      for (const msg of incomingMsgs) {
-        if (!msg.body) continue;
-        const match = msg.body.match(ticketRegex);
-        if (match && match[1]) {
-          foundNumber = match[1].toUpperCase();
-          break;
-        }
-      }
-    }
+    const outcome = extractTicketOutcome(combinedIncoming);
 
-    // 3. Jika nomor tiket ditemukan dan belum tercatat di tiket
-    if (foundNumber && (!activeTicket.ticket_number || activeTicket.ticket_number !== foundNumber)) {
+    // 3. Jika outcome ditemukan dan berbeda dari yang tersimpan
+    if (outcome && (!activeTicket.ticket_number || activeTicket.ticket_number !== outcome.value)) {
       const updateData: Record<string, unknown> = {
-        ticket_number: foundNumber,
+        ticket_number: outcome.value,
         updated_at: new Date().toISOString(),
       };
 
-      // Jika tiket dikelola manual, langsung tandai tiket terbit.
-      // Jika mode AI, biarkan bot runner mengirim salam penutup sebelum mengubah status ke ticket_issued.
-      if (activeTicket.mode !== 'ai') {
-        updateData.status = 'ticket_issued';
-        updateData.ticket_issued_at = new Date().toISOString();
+      if (outcome.type === 'ticket') {
+        if (activeTicket.mode !== 'ai') {
+          updateData.status = 'ticket_issued';
+          updateData.ticket_issued_at = new Date().toISOString();
+        }
+      } else {
+        // Jika outcome adalah restart sistem, gangguan massal, tagihan, atau CS mengakhiri chat
+        updateData.status = 'closed';
       }
 
       await supabase
@@ -62,8 +124,8 @@ export async function POST() {
 
       return NextResponse.json({
         success: true,
-        ticket_number: foundNumber,
-        message: `Nomor tiket ${foundNumber} berhasil dicatat!`,
+        ticket_number: outcome.value,
+        message: `Output tiket berhasil dicatat: "${outcome.value}"`,
       });
     }
 
