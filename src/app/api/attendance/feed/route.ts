@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAttendanceFeedMessages, createAttendanceFeedMessage } from '@/lib/data/attendance-feed';
-import type { ShiftType } from '@/lib/supabase/types';
+import type { FeedType } from '@/lib/types/attendance-feed';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,16 +8,12 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const work_date = searchParams.get('work_date');
-    const shift_type = searchParams.get('shift_type') as ShiftType;
 
-    if (!work_date || !shift_type) {
-      return NextResponse.json(
-        { error: 'work_date dan shift_type wajib disertakan.' },
-        { status: 400 }
-      );
+    if (!work_date) {
+      return NextResponse.json({ error: 'work_date wajib disertakan.' }, { status: 400 });
     }
 
-    const result = await getAttendanceFeedMessages(work_date, shift_type);
+    const result = await getAttendanceFeedMessages(work_date);
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
@@ -32,19 +28,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { work_date, shift_type, feed_type, message, media_paths, group_session_id } = body;
+    const { work_date, feed_type, message, media_paths, group_session_id } = body;
 
-    if (!work_date || !shift_type || !feed_type) {
+    if (!work_date || !feed_type) {
       return NextResponse.json(
-        { error: 'work_date, shift_type, dan feed_type wajib diisi.' },
+        { error: 'work_date dan feed_type wajib diisi.' },
         { status: 400 }
       );
     }
 
     const result = await createAttendanceFeedMessage({
       work_date,
-      shift_type,
-      feed_type,
+      feed_type: feed_type as FeedType,
       message,
       media_paths,
       group_session_id,

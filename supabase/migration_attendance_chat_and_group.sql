@@ -1,22 +1,22 @@
 -- ==============================================================================
--- Migration: Sistem Chat Feed Absensi & Absen Bersama via QR Google Lens
+-- Migration: Sistem Chat Absen Pagi & Absen Bersama via QR Google Lens
+-- 100% Mandiri - KHUSUS PAGI (Tidak ada relasi dengan Absen Piket Shift)
 -- ==============================================================================
 
--- 1. TABEL FEED CHAT AKTIVITAS & ABSENSI
+-- 1. TABEL FEED CHAT ABSEN PAGI
 CREATE TABLE IF NOT EXISTS public.attendance_feed (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  work_date date NOT NULL,
-  shift_type text NOT NULL CHECK (shift_type IN ('pagi', 'malam')),
+  work_date date NOT NULL DEFAULT CURRENT_DATE,
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  feed_type text NOT NULL DEFAULT 'activity' CHECK (feed_type IN ('mulai', 'selesai', 'kegiatan', 'group_attendance', 'text')),
+  feed_type text NOT NULL DEFAULT 'absen_pagi' CHECK (feed_type IN ('absen_pagi', 'group_attendance', 'chat')),
   message text,
   media_paths text[] DEFAULT '{}',
   group_session_id uuid,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Index untuk performa query feed per hari dan shift
-CREATE INDEX IF NOT EXISTS idx_attendance_feed_date_shift ON public.attendance_feed (work_date, shift_type, created_at DESC);
+-- Index untuk performa query feed per tanggal
+CREATE INDEX IF NOT EXISTS idx_attendance_feed_date ON public.attendance_feed (work_date, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_attendance_feed_user ON public.attendance_feed (user_id);
 
 -- RLS untuk attendance_feed
@@ -54,8 +54,7 @@ CREATE POLICY "Pembuat atau admin/owner dapat menghapus pesan feed"
 CREATE TABLE IF NOT EXISTS public.group_attendance_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   initiator_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  work_date date NOT NULL,
-  shift_type text NOT NULL CHECK (shift_type IN ('pagi', 'malam')),
+  work_date date NOT NULL DEFAULT CURRENT_DATE,
   qr_token text UNIQUE NOT NULL,
   photo_storage_path text,
   note text,

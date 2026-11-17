@@ -95,10 +95,10 @@ export default function JoinGroupAttendancePage() {
             <div className="space-y-2">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
                 <Sparkles className="h-3.5 w-3.5" />
-                Terverifikasi Hadir
+                Terverifikasi Hadir Pagi
               </div>
               <h1 className="text-xl font-black text-gray-900 dark:text-slate-100 tracking-tight">
-                Absen Bersama Berhasil!
+                Absen Pagi Bersama Berhasil!
               </h1>
               <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed px-2">
                 {message}
@@ -107,16 +107,16 @@ export default function JoinGroupAttendancePage() {
 
             <div className="p-3 rounded-2xl bg-gray-50 dark:bg-slate-800/50 border border-gray-100 dark:border-slate-800 text-[11px] text-gray-500 dark:text-slate-400 flex items-center justify-center gap-2">
               <ShieldCheck className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-              <span>Kehadiran Anda telah dicatat secara otomatis via Google Lens.</span>
+              <span>Kehadiran pagi Anda telah dicatat secara otomatis via Google Lens.</span>
             </div>
 
             <div className="pt-2 flex flex-col gap-2">
               <Link
                 href="/absen-chat"
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md transition-all active:scale-98"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs shadow-md transition-all active:scale-98"
               >
                 <MessagesSquare className="h-4 w-4" />
-                Buka Feed Chat Absen
+                Buka Feed Absen Pagi
               </Link>
               <Link
                 href="/"

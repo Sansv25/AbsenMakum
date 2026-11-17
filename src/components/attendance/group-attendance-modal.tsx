@@ -18,8 +18,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
 import { compressImage, isImageFile } from '@/lib/image';
 import { showAlert, showToast } from '@/lib/swal';
-import { todayWITA } from '@/lib/dates';
-import type { ShiftType } from '@/lib/supabase/types';
+import { todayWITA, formatIndonesia } from '@/lib/dates';
 import type { GroupAttendanceSession, GroupMemberInfo } from '@/lib/types/attendance-feed';
 
 interface ProfileItem {
@@ -32,7 +31,6 @@ interface GroupAttendanceModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialDate?: string;
-  initialShift?: ShiftType;
   onSuccess?: () => void;
 }
 
@@ -40,12 +38,10 @@ export function GroupAttendanceModal({
   isOpen,
   onClose,
   initialDate,
-  initialShift = 'malam',
   onSuccess,
 }: GroupAttendanceModalProps) {
   const [step, setStep] = useState<'form' | 'qr'>('form');
   const [workDate, setWorkDate] = useState<string>(initialDate || todayWITA());
-  const [shiftType, setShiftType] = useState<ShiftType>(initialShift);
   const [note, setNote] = useState<string>('');
 
   // Foto group
@@ -74,7 +70,6 @@ export function GroupAttendanceModal({
 
     setStep('form');
     setWorkDate(initialDate || todayWITA());
-    setShiftType(initialShift);
     setPhotoFile(null);
     setPhotoPreview(null);
     setNote('');
@@ -113,7 +108,7 @@ export function GroupAttendanceModal({
     }
 
     loadInitialData();
-  }, [isOpen, initialDate, initialShift]);
+  }, [isOpen, initialDate]);
 
   // Handle pilih foto
   async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -148,7 +143,7 @@ export function GroupAttendanceModal({
   // Buat sesi dan generate QR code
   async function handleCreateSession() {
     if (!photoFile) {
-      showAlert('Foto Wajib Diisi', 'Silakan unggah atau ambil foto selfie bersama tim terlebih dahulu.', 'warning');
+      showAlert('Foto Wajib Diisi', 'Silakan ambil foto selfie bersama rekan terlebih dahulu.', 'warning');
       return;
     }
 
@@ -162,9 +157,9 @@ export function GroupAttendanceModal({
     try {
       const supabase = createClient();
 
-      // 1. Upload foto ke Storage bucket 'evidence'
+      // 1. Upload foto ke Storage bucket 'evidence' di folder khusus absen-pagi
       const fileId = crypto.randomUUID();
-      const storagePath = `${currentUserId}/${workDate}/${shiftType}/group-${fileId}.jpg`;
+      const storagePath = `${currentUserId}/absen-pagi/${workDate}/group-${fileId}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('evidence')
@@ -183,7 +178,6 @@ export function GroupAttendanceModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           work_date: workDate,
-          shift_type: shiftType,
           photo_storage_path: storagePath,
           note: note.trim() || null,
         }),
@@ -199,7 +193,7 @@ export function GroupAttendanceModal({
       setMembers(createdSession.members || []);
       setTimeLeft(180);
       setStep('qr');
-      showToast('QR Code Absen Bersama berhasil dibuat!', 'success');
+      showToast('QR Code Absen Bersama Pagi siap di-scan!', 'success');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem';
       showAlert('Gagal Membuat Sesi', msg, 'error');
@@ -241,7 +235,6 @@ export function GroupAttendanceModal({
           filter: `session_id=eq.${session.id}`,
         },
         async () => {
-          // Begitu ada yang scan, refresh daftar member
           try {
             if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
               navigator.vibrate(200);
@@ -279,7 +272,7 @@ export function GroupAttendanceModal({
     };
   }, [step, session]);
 
-  // Finalisasi sesi absen bersama
+  // Finalisasi sesi absen bersama pagi
   async function handleFinalizeSession() {
     if (!session) return;
 
@@ -296,7 +289,7 @@ export function GroupAttendanceModal({
         throw new Error(json.error || 'Gagal memfinalisasi absen bersama');
       }
 
-      showToast('Absen bersama berhasil dikirim ke feed absensi!', 'success');
+      showToast('Absen bersama pagi berhasil diterbitkan ke feed!', 'success');
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
@@ -337,17 +330,17 @@ export function GroupAttendanceModal({
         {/* Header Modal */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <Users className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Absen Bersama (QR Code)
+                Absen Bersama Pagi (QR Code)
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {step === 'form'
-                  ? 'Foto bersama & tentukan anggota tim'
-                  : 'Rekan scan QR pakai Google Lens'}
+                  ? 'Foto bersama & tentukan rekan yang hadir'
+                  : 'Rekan scan QR pakai Google Lens / Kamera HP'}
               </p>
             </div>
           </div>
@@ -366,7 +359,7 @@ export function GroupAttendanceModal({
               {/* 1. Upload Foto Bersama */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                  1. Foto Bersama Tim <span className="text-rose-500">*</span>
+                  1. Foto Bersama Rekan Pagi Ini <span className="text-rose-500">*</span>
                 </label>
                 <input
                   ref={fileInputRef}
@@ -403,62 +396,36 @@ export function GroupAttendanceModal({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isCompressing}
-                    className="w-full h-44 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center justify-center p-4 transition group"
+                    className="w-full h-44 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-amber-500 dark:hover:border-amber-500 bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center justify-center p-4 transition group"
                   >
-                    <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                    <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                       <Camera className="w-6 h-6" />
                     </div>
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      {isCompressing ? 'Mengompres Foto...' : 'Ambil Foto / Pilih dari Galeri'}
+                      {isCompressing ? 'Mengompres Foto...' : 'Ambil Selfie Bersama / Galeri'}
                     </span>
                     <span className="text-xs text-slate-400 mt-1">
-                      Pastikan wajah rekan yang ikut absen terlihat jelas
+                      Pastikan wajah rekan-rekan yang hadir terlihat jelas
                     </span>
                   </button>
                 )}
               </div>
 
-              {/* 2. Informasi Shift & Tanggal */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Tanggal Kerja
-                  </label>
+              {/* 2. Informasi Tanggal */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Tanggal Absen Pagi
+                </label>
+                <div className="flex items-center gap-2">
                   <input
                     type="date"
                     value={workDate}
                     onChange={(e) => setWorkDate(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Pilihan Shift
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => setShiftType('pagi')}
-                      className={`py-1.5 text-xs font-semibold rounded-lg transition ${
-                        shiftType === 'pagi'
-                          ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      Shift Pagi
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShiftType('malam')}
-                      className={`py-1.5 text-xs font-semibold rounded-lg transition ${
-                        shiftType === 'malam'
-                          ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-slate-500 hover:text-slate-800'
-                      }`}
-                    >
-                      Shift Malam
-                    </button>
-                  </div>
+                  <span className="text-xs text-slate-500 shrink-0">
+                    {formatIndonesia(workDate)}
+                  </span>
                 </div>
               </div>
 
@@ -469,22 +436,22 @@ export function GroupAttendanceModal({
                 </label>
                 <input
                   type="text"
-                  placeholder="Contoh: Piket malam monitoring NOC & lapangan"
+                  placeholder="Contoh: Datang pagi di kantor / briefing pagi"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
               </div>
 
-              {/* 4. Pilih Rekan yang Terdaftar (Fitur Sesuai Permintaan User) */}
+              {/* 4. Pilih Rekan yang Terdaftar */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    2. Pilih Rekan yang Terdaftar{' '}
+                    2. Pilih Rekan yang Ikut Absen{' '}
                     <span className="text-slate-400 font-normal lowercase">(opsional)</span>
                   </label>
                   {selectedUserIds.length > 0 && (
-                    <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-full">
+                    <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full">
                       {selectedUserIds.length} dipilih
                     </span>
                   )}
@@ -494,7 +461,7 @@ export function GroupAttendanceModal({
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
-                    placeholder="Cari nama rekan kerja..."
+                    placeholder="Cari nama rekan..."
                     value={searchMember}
                     onChange={(e) => setSearchMember(e.target.value)}
                     className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-slate-100"
@@ -515,7 +482,7 @@ export function GroupAttendanceModal({
                           onClick={() => toggleMember(p.id)}
                           className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs cursor-pointer transition select-none ${
                             isSelected
-                              ? 'bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-100 font-semibold'
+                              ? 'bg-amber-50 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100 font-semibold'
                               : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                           }`}
                         >
@@ -523,7 +490,7 @@ export function GroupAttendanceModal({
                             <div
                               className={`w-4 h-4 rounded border flex items-center justify-center transition ${
                                 isSelected
-                                  ? 'bg-blue-600 border-blue-600 text-white'
+                                  ? 'bg-amber-600 border-amber-600 text-white'
                                   : 'border-slate-300 dark:border-slate-600'
                               }`}
                             >
@@ -532,7 +499,7 @@ export function GroupAttendanceModal({
                             <span className="truncate">{p.full_name || p.email}</span>
                           </div>
                           {isSelected && (
-                            <span className="text-[10px] text-blue-600 dark:text-blue-400">
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400">
                               Harus scan
                             </span>
                           )}
@@ -542,8 +509,8 @@ export function GroupAttendanceModal({
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  💡 Tips: Jika memilih rekan di atas, tombol kirim baru akan aktif setelah rekan
-                  tersebut scan QR.
+                  💡 Tips: Jika memilih nama rekan di atas, tombol kirim baru akan aktif setelah rekan
+                  tersebut men-scan QR.
                 </p>
               </div>
             </>
@@ -551,7 +518,7 @@ export function GroupAttendanceModal({
             /* Step 2: Tampilan QR Code Aktif & Realtime Listener */
             <div className="flex flex-col items-center space-y-4 text-center">
               {/* Badge Petunjuk Google Lens */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-semibold">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-semibold">
                 <QrCode className="w-4 h-4" />
                 Scan pakai Google Lens / Kamera HP
               </div>
@@ -574,7 +541,7 @@ export function GroupAttendanceModal({
                 {timeLeft === 0 && (
                   <button
                     onClick={handleCreateSession}
-                    className="ml-2 text-xs text-blue-600 underline font-semibold flex items-center gap-1"
+                    className="ml-2 text-xs text-amber-600 underline font-semibold flex items-center gap-1"
                   >
                     <RefreshCw className="w-3 h-3" /> Buat Baru
                   </button>
@@ -585,8 +552,8 @@ export function GroupAttendanceModal({
               <div className="w-full bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 text-left">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <Users className="w-4 h-4 text-blue-600" />
-                    Peserta Terverifikasi ({members.length})
+                    <Users className="w-4 h-4 text-amber-600" />
+                    Rekan Terverifikasi Hadir ({members.length})
                   </span>
                   <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
                     Realtime Sync ⚡
@@ -606,7 +573,7 @@ export function GroupAttendanceModal({
                       </div>
                     </div>
                     <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
-                      <CheckCircle2 className="w-3 h-3" /> Hadir
+                      <CheckCircle2 className="w-3 h-3" /> Hadir Pagi
                     </span>
                   </div>
 
@@ -628,7 +595,7 @@ export function GroupAttendanceModal({
                           </div>
                         </div>
                         <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3" /> Hadir
+                          <CheckCircle2 className="w-3 h-3" /> Hadir Pagi
                         </span>
                       </div>
                     ))}
@@ -683,7 +650,7 @@ export function GroupAttendanceModal({
                 type="button"
                 onClick={handleCreateSession}
                 disabled={!photoFile || isCreatingSession}
-                className="px-5 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow transition flex items-center gap-2"
+                className="px-5 py-2.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow transition flex items-center gap-2"
               >
                 {isCreatingSession ? (
                   <>
@@ -717,7 +684,7 @@ export function GroupAttendanceModal({
                   </>
                 ) : (
                   <>
-                    <Send className="w-4 h-4" /> Kirim Absen Bersama ({members.length} Orang)
+                    <Send className="w-4 h-4" /> Kirim Absen Pagi ({members.length} Orang)
                   </>
                 )}
               </button>

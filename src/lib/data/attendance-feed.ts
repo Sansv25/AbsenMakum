@@ -1,13 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
 import type { AttendanceFeedMessage, FeedType, GroupMemberInfo } from '@/lib/types/attendance-feed';
-import type { ShiftType } from '@/lib/supabase/types';
 
 /**
- * Mengambil daftar pesan feed chat absensi untuk tanggal & shift tertentu
+ * Mengambil daftar pesan feed chat absen pagi untuk tanggal tertentu
  */
 export async function getAttendanceFeedMessages(
-  work_date: string,
-  shift_type: ShiftType
+  work_date: string
 ): Promise<{ messages: AttendanceFeedMessage[]; error?: string }> {
   const supabase = await createClient();
 
@@ -16,7 +14,6 @@ export async function getAttendanceFeedMessages(
     .select(`
       id,
       work_date,
-      shift_type,
       user_id,
       feed_type,
       message,
@@ -32,7 +29,6 @@ export async function getAttendanceFeedMessages(
       )
     `)
     .eq('work_date', work_date)
-    .eq('shift_type', shift_type)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -80,7 +76,7 @@ export async function getAttendanceFeedMessages(
     }
   }
 
-  // Generate signed URLs untuk gambar
+  // Generate signed URLs untuk gambar bukti absen
   const formattedMessages: AttendanceFeedMessage[] = await Promise.all(
     rawMessages.map(async (msg) => {
       const media_paths = (msg.media_paths || []) as string[];
@@ -102,7 +98,6 @@ export async function getAttendanceFeedMessages(
       return {
         id: msg.id,
         work_date: msg.work_date,
-        shift_type: msg.shift_type as ShiftType,
         user_id: msg.user_id,
         feed_type: msg.feed_type as FeedType,
         message: msg.message,
@@ -128,11 +123,10 @@ export async function getAttendanceFeedMessages(
 }
 
 /**
- * Menambahkan pesan baru ke feed chat absensi
+ * Menambahkan pesan / absen baru ke feed chat absen pagi
  */
 export async function createAttendanceFeedMessage(payload: {
   work_date: string;
-  shift_type: ShiftType;
   feed_type: FeedType;
   message?: string | null;
   media_paths?: string[];
@@ -152,7 +146,6 @@ export async function createAttendanceFeedMessage(payload: {
     .insert({
       user_id: user.id,
       work_date: payload.work_date,
-      shift_type: payload.shift_type,
       feed_type: payload.feed_type,
       message: payload.message?.trim() || null,
       media_paths: payload.media_paths || [],
@@ -161,7 +154,6 @@ export async function createAttendanceFeedMessage(payload: {
     .select(`
       id,
       work_date,
-      shift_type,
       user_id,
       feed_type,
       message,
@@ -199,7 +191,6 @@ export async function createAttendanceFeedMessage(payload: {
     message: {
       id: data.id,
       work_date: data.work_date,
-      shift_type: data.shift_type as ShiftType,
       user_id: data.user_id,
       feed_type: data.feed_type as FeedType,
       message: data.message,

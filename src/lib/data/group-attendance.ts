@@ -1,14 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
 import crypto from 'crypto';
-import type { ShiftType } from '@/lib/supabase/types';
 import type { GroupAttendanceSession, GroupMemberInfo } from '@/lib/types/attendance-feed';
 
 /**
- * Membuat sesi baru untuk Absen Bersama via QR Code
+ * Membuat sesi baru untuk Absen Bersama Pagi via QR Code
  */
 export async function createGroupAttendanceSession(payload: {
   work_date: string;
-  shift_type: ShiftType;
   photo_storage_path?: string | null;
   note?: string | null;
 }): Promise<{ session: GroupAttendanceSession | null; error?: string }> {
@@ -31,7 +29,6 @@ export async function createGroupAttendanceSession(payload: {
     .insert({
       initiator_id: user.id,
       work_date: payload.work_date,
-      shift_type: payload.shift_type,
       qr_token,
       photo_storage_path: payload.photo_storage_path || null,
       note: payload.note || null,
@@ -42,7 +39,6 @@ export async function createGroupAttendanceSession(payload: {
       id,
       initiator_id,
       work_date,
-      shift_type,
       qr_token,
       photo_storage_path,
       note,
@@ -84,7 +80,6 @@ export async function createGroupAttendanceSession(payload: {
       id: data.id,
       initiator_id: data.initiator_id,
       work_date: data.work_date,
-      shift_type: data.shift_type as ShiftType,
       qr_token: data.qr_token,
       photo_storage_path: data.photo_storage_path,
       photo_url,
@@ -144,7 +139,6 @@ export async function joinGroupAttendanceByToken(
       id,
       initiator_id,
       work_date,
-      shift_type,
       qr_token,
       photo_storage_path,
       note,
@@ -216,7 +210,7 @@ export async function joinGroupAttendanceByToken(
 
   return {
     success: true,
-    message: `Berhasil! Anda telah terverifikasi hadir bersama ${initiatorName} untuk Shift ${sessionData.shift_type.toUpperCase()}.`,
+    message: `Berhasil! Anda telah terverifikasi hadir absen pagi bersama ${initiatorName}.`,
   };
 }
 
@@ -234,7 +228,6 @@ export async function getGroupSessionStatus(
       id,
       initiator_id,
       work_date,
-      shift_type,
       qr_token,
       photo_storage_path,
       note,
@@ -292,7 +285,6 @@ export async function getGroupSessionStatus(
       id: sessionData.id,
       initiator_id: sessionData.initiator_id,
       work_date: sessionData.work_date,
-      shift_type: sessionData.shift_type as ShiftType,
       qr_token: sessionData.qr_token,
       photo_storage_path: sessionData.photo_storage_path,
       photo_url,
@@ -313,7 +305,8 @@ export async function getGroupSessionStatus(
 }
 
 /**
- * Menyelesaikan sesi absen bersama, menerbitkan ke chat feed, dan mencatat kehadiran shift
+ * Menyelesaikan sesi absen bersama pagi dan menerbitkan ke chat feed.
+ * CATATAN PENTING: 100% Mandiri, TIDAK menyentuh atau mencampuri tabel piket (attendances/attachments).
  */
 export async function finalizeGroupAttendanceSession(
   sessionId: string
@@ -346,64 +339,22 @@ export async function finalizeGroupAttendanceSession(
   // 3. Susun daftar nama peserta
   const memberNames = (session.members || []).map((m) => m.full_name || 'Rekan').join(', ');
   const totalCount = session.members?.length || 1;
-  const feedMessageText = `📸 Absen Bersama (${totalCount} Petugas Hadir):\n${memberNames}${
+  const feedMessageText = `📸 Absen Bersama Pagi (${totalCount} Petugas Hadir):\n${memberNames}${
     session.note ? `\n\nCatatan: ${session.note}` : ''
   }`;
 
-  // 4. Publikasikan kartu pesan ke feed chat absensi
-  await supabase.from('attendance_feed').insert({
+  // 4. Publikasikan kartu pesan ke feed chat absensi pagi (Mandiri tanpa relasi ke piket)
+  const { error: insertErr } = await supabase.from('attendance_feed').insert({
     user_id: user.id,
     work_date: session.work_date,
-    shift_type: session.shift_type,
     feed_type: 'group_attendance',
     message: feedMessageText,
     media_paths: session.photo_storage_path ? [session.photo_storage_path] : [],
     group_session_id: session.id,
   });
 
-  // 5. Sinkronisasi kehadiran ke tabel attendances & attachments untuk semua peserta yang hadir
-  for (const member of session.members || []) {
-    try {
-      // Cek apakah sudah ada baris attendance untuk user ini di tanggal & shift tersebut
-      const { data: existingAtt } = await supabase
-        .from('attendances')
-        .select('id')
-        .eq('user_id', member.user_id)
-        .eq('work_date', session.work_date)
-        .eq('shift_type', session.shift_type)
-        .maybeSingle();
-
-      let attId = existingAtt?.id;
-      if (!attId) {
-        const { data: newAtt } = await supabase
-          .from('attendances')
-          .insert({
-            user_id: member.user_id,
-            work_date: session.work_date,
-            shift_type: session.shift_type,
-            job_type: 'marketer',
-            note: session.note || `Absen Bersama via QR Code (${memberNames})`,
-          })
-          .select('id')
-          .single();
-        attId = newAtt?.id;
-      }
-
-      // Lampirkan foto bersama ke attachments jika ada
-      if (attId && session.photo_storage_path) {
-        await supabase.from('attachments').insert({
-          attendance_id: attId,
-          user_id: member.user_id,
-          storage_path: session.photo_storage_path,
-          kind: 'mulai',
-          file_size: 150000,
-          mime_type: 'image/jpeg',
-          original_filename: `absen_bersama_${session.work_date}_${session.shift_type}.jpg`,
-        });
-      }
-    } catch {
-      // Lanjutkan untuk anggota berikutnya
-    }
+  if (insertErr) {
+    return { success: false, error: insertErr.message };
   }
 
   return { success: true };

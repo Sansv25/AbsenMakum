@@ -10,15 +10,13 @@ import {
   CheckCircle2,
   Calendar,
   RefreshCw,
-  LogOut,
-  LogIn,
+  Sun,
   MessageSquare,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { compressImage, isImageFile } from '@/lib/image';
 import { showAlert } from '@/lib/swal';
 import { formatIndonesia } from '@/lib/dates';
-import { shiftLabel, type ShiftType } from '@/lib/shifts';
 import { RoleBadgeGroup } from '@/components/ui/nav';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { GroupAttendanceModal } from './group-attendance-modal';
@@ -27,8 +25,6 @@ import type { AppRole } from '@/lib/supabase/types';
 
 interface AttendanceChatClientProps {
   initialDate: string;
-  initialShift: ShiftType;
-  availableShifts: ShiftType[];
   currentUserId: string;
   currentUserName: string;
   currentUserRoles: AppRole[];
@@ -38,8 +34,6 @@ interface AttendanceChatClientProps {
 
 export function AttendanceChatClient({
   initialDate,
-  initialShift,
-  availableShifts,
   currentUserId,
   currentUserName,
   currentUserRoles,
@@ -47,13 +41,12 @@ export function AttendanceChatClient({
   initialMessages,
 }: AttendanceChatClientProps) {
   const [workDate, setWorkDate] = useState<string>(initialDate);
-  const [shiftType, setShiftType] = useState<ShiftType>(initialShift);
   const [messages, setMessages] = useState<AttendanceFeedMessage[]>(initialMessages);
   const [loading, setLoading] = useState<boolean>(false);
 
   // Input chat state
   const [inputText, setInputText] = useState<string>('');
-  const [feedType, setFeedType] = useState<FeedType>('kegiatan');
+  const [feedType, setFeedType] = useState<FeedType>('absen_pagi');
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
@@ -80,11 +73,11 @@ export function AttendanceChatClient({
     scrollToBottom(false);
   }, [scrollToBottom]);
 
-  // Muat daftar pesan saat workDate atau shiftType berubah
-  const loadMessages = useCallback(async (date: string, shift: ShiftType) => {
+  // Muat daftar pesan saat workDate berubah
+  const loadMessages = useCallback(async (date: string) => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/attendance/feed?work_date=${date}&shift_type=${shift}`);
+      const res = await fetch(`/api/attendance/feed?work_date=${date}`);
       if (res.ok) {
         const json = await res.json();
         setMessages(json.messages || []);
@@ -98,15 +91,15 @@ export function AttendanceChatClient({
   }, [scrollToBottom]);
 
   useEffect(() => {
-    loadMessages(workDate, shiftType);
-  }, [workDate, shiftType, loadMessages]);
+    loadMessages(workDate);
+  }, [workDate, loadMessages]);
 
   // Realtime subscription ke tabel attendance_feed
   useEffect(() => {
     const supabase = createClient();
 
     const channel = supabase
-      .channel(`chat_feed_${workDate}_${shiftType}`)
+      .channel(`chat_feed_${workDate}`)
       .on(
         'postgres_changes',
         {
@@ -116,8 +109,7 @@ export function AttendanceChatClient({
           filter: `work_date=eq.${workDate}`,
         },
         () => {
-          // Muat ulang daftar pesan terformat untuk mendapatkan signed URL & relasi
-          loadMessages(workDate, shiftType);
+          loadMessages(workDate);
         }
       )
       .subscribe();
@@ -125,7 +117,7 @@ export function AttendanceChatClient({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [workDate, shiftType, loadMessages]);
+  }, [workDate, loadMessages]);
 
   // Pilih file foto
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -157,7 +149,7 @@ export function AttendanceChatClient({
     }
   }
 
-  // Kirim pesan chat / absensi
+  // Kirim absen pagi / pesan chat
   async function handleSendMessage(e?: React.FormEvent) {
     if (e) e.preventDefault();
     if (isSending || isCompressing) return;
@@ -175,7 +167,7 @@ export function AttendanceChatClient({
       // 1. Upload foto jika ada
       if (attachedFile) {
         const fileId = crypto.randomUUID();
-        storagePath = `${currentUserId}/${workDate}/${shiftType}/${feedType}-${fileId}.jpg`;
+        storagePath = `${currentUserId}/absen-pagi/${workDate}/${fileId}.jpg`;
 
         const { error: uploadError } = await supabase.storage
           .from('evidence')
@@ -195,7 +187,6 @@ export function AttendanceChatClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           work_date: workDate,
-          shift_type: shiftType,
           feed_type: feedType,
           message: trimmed || null,
           media_paths: storagePath ? [storagePath] : [],
@@ -210,10 +201,10 @@ export function AttendanceChatClient({
       // 3. Reset form
       setInputText('');
       clearAttachment();
-      setFeedType('kegiatan');
+      setFeedType('absen_pagi');
 
       // Refresh list
-      await loadMessages(workDate, shiftType);
+      await loadMessages(workDate);
       scrollToBottom(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mengirim';
@@ -230,9 +221,27 @@ export function AttendanceChatClient({
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto bg-slate-50 dark:bg-slate-950 border-x border-slate-200 dark:border-slate-800 shadow-sm relative">
-      {/* 1. Header Chat & Navigasi Shift */}
+      {/* 1. Header Absen Pagi */}
       <div className="shrink-0 p-3 sm:p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <Sun className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+              Absen Pagi & Feed
+              <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                Khusus Pagi
+              </span>
+            </h1>
+            <p className="text-[11px] text-slate-500">
+              {formatIndonesia(workDate)}
+            </p>
+          </div>
+        </div>
+
+        {/* Date Picker & Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end">
           {/* Date Picker */}
           <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
@@ -244,47 +253,26 @@ export function AttendanceChatClient({
             />
           </div>
 
-          {/* Shift Switcher */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-            {availableShifts.map((s) => {
-              const active = shiftType === s;
-              return (
-                <button
-                  key={s}
-                  onClick={() => setShiftType(s)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition ${
-                    active
-                      ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {shiftLabel(s)}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* User Info & Action Button */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end">
           <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 mr-1">
             <span>
-              Sebagai: <strong className="text-slate-800 dark:text-slate-200">{currentUserName}</strong>
+              <strong className="text-slate-800 dark:text-slate-200">{currentUserName}</strong>
             </span>
             <RoleBadgeGroup roles={currentUserRoles} isMaster={isMaster} />
           </div>
+
           <button
             onClick={() => setGroupModalOpen(true)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-md transition transform active:scale-95"
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 rounded-xl shadow-md transition transform active:scale-95"
           >
             <Users className="w-4 h-4" />
             <span>Absen Bareng (QR)</span>
           </button>
+
           <button
-            onClick={() => loadMessages(workDate, shiftType)}
+            onClick={() => loadMessages(workDate)}
             disabled={loading}
             className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            title="Segarkan Chat"
+            title="Segarkan Feed"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -299,29 +287,28 @@ export function AttendanceChatClient({
         {/* Info Banner Tanggal */}
         <div className="flex items-center justify-center my-1">
           <span className="text-[11px] font-medium text-slate-500 bg-slate-200/60 dark:bg-slate-800/80 px-3 py-1 rounded-full border border-slate-300/40 dark:border-slate-700/60">
-            {formatIndonesia(workDate)} • {shiftLabel(shiftType)}
+            🌅 Absen Pagi • {formatIndonesia(workDate)}
           </span>
         </div>
 
         {/* Empty State */}
         {messages.length === 0 && !loading && (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
-              <MessageSquare className="w-7 h-7" />
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
+              <Sun className="w-7 h-7" />
             </div>
             <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
-              Belum Ada Percakapan Absensi
+              Belum Ada yang Absen Pagi Hari Ini
             </h4>
             <p className="text-xs text-slate-500 max-w-sm mb-4">
-              Jadikan absen lebih asyik! Kirim foto selfie, update aktivitas lapangan, atau klik{' '}
-              <span className="font-semibold text-blue-600">Absen Bareng</span> untuk verifikasi foto
-              tim via QR Code.
+              Jadilah yang pertama check-in pagi! Unggah foto selfie kehadiran Anda atau gunakan{' '}
+              <span className="font-semibold text-amber-600">Absen Bareng</span> jika datang bersama rekan kantor.
             </p>
             <button
               onClick={() => setGroupModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 rounded-xl transition"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 rounded-xl transition"
             >
-              <Users className="w-4 h-4" /> Buka QR Absen Bersama
+              <Users className="w-4 h-4" /> Buka QR Absen Bersama Pagi
             </button>
           </div>
         )}
@@ -336,23 +323,23 @@ export function AttendanceChatClient({
             timeZone: 'Asia/Makassar',
           });
 
-          // A. SPECIAL CARD: Absen Bersama (Group Attendance)
+          // A. SPECIAL CARD: Absen Bersama Pagi (Group Attendance)
           if (msg.feed_type === 'group_attendance') {
             const photoUrl = msg.media_urls?.[0];
             return (
               <div
                 key={msg.id}
-                className="mx-auto max-w-lg bg-gradient-to-b from-blue-50 to-white dark:from-slate-900 dark:to-slate-950 border border-blue-200 dark:border-blue-900/60 rounded-3xl p-4 shadow-md space-y-3"
+                className="mx-auto max-w-lg bg-gradient-to-b from-amber-50 to-white dark:from-slate-900 dark:to-slate-950 border border-amber-200 dark:border-amber-900/60 rounded-3xl p-4 shadow-md space-y-3"
               >
                 {/* Header Card */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm">
+                    <div className="w-7 h-7 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-sm">
                       <Users className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-blue-900 dark:text-blue-200">
-                        Absen Bersama (QR Verified)
+                      <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                        Absen Bersama Pagi (QR Verified)
                       </div>
                       <div className="text-[10px] text-slate-500">
                         Inisiator: {senderName} • {timeStr} WITA
@@ -360,7 +347,7 @@ export function AttendanceChatClient({
                     </div>
                   </div>
                   <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Sah
+                    <CheckCircle2 className="w-3 h-3" /> Hadir Pagi
                   </span>
                 </div>
 
@@ -373,7 +360,7 @@ export function AttendanceChatClient({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={photoUrl}
-                      alt="Foto Absen Bersama"
+                      alt="Foto Absen Bersama Pagi"
                       className="w-full h-52 object-cover group-hover:scale-105 transition duration-300"
                     />
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold backdrop-blur-[2px]">
@@ -385,12 +372,12 @@ export function AttendanceChatClient({
                 {/* Anggota yang Hadir */}
                 <div className="bg-white/80 dark:bg-slate-900/80 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 space-y-2">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-blue-600" />
-                    Daftar Petugas Hadir ({(msg.group_members?.length || 0) + 1}):
+                    <Users className="w-3.5 h-3.5 text-amber-600" />
+                    Rekan Terverifikasi Hadir ({(msg.group_members?.length || 0) + 1}):
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {/* Inisiator Badge */}
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-xl">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-xl">
                       👑 {senderName}
                     </span>
                     {/* Rekan Scan */}
@@ -416,35 +403,26 @@ export function AttendanceChatClient({
             );
           }
 
-          // B. CHECK-IN / CHECK-OUT CARDS (mulai / selesai)
-          if (msg.feed_type === 'mulai' || msg.feed_type === 'selesai') {
-            const isMulai = msg.feed_type === 'mulai';
+          // B. CARD: Absen Mandiri Pagi (absen_pagi)
+          if (msg.feed_type === 'absen_pagi') {
             const photoUrl = msg.media_urls?.[0];
             return (
               <div
                 key={msg.id}
-                className={`max-w-sm ${isMe ? 'ml-auto' : 'mr-auto'} rounded-2xl p-3.5 shadow-sm border ${
-                  isMulai
-                    ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60'
-                    : 'bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-900/60'
-                }`}
+                className={`max-w-sm ${isMe ? 'ml-auto' : 'mr-auto'} rounded-2xl p-3.5 shadow-sm border bg-amber-50/60 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/60`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span
-                    className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                      isMulai
-                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
-                        : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'
-                    }`}
-                  >
-                    {isMulai ? <LogIn className="w-3 h-3" /> : <LogOut className="w-3 h-3" />}
-                    {isMulai ? 'Mulai Kerja' : 'Selesai Kerja'}
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                    <Sun className="w-3 h-3 text-amber-600" /> Hadir Pagi
                   </span>
                   <span className="text-[10px] text-slate-400">{timeStr} WITA</span>
                 </div>
 
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
-                  {isMe ? 'Anda' : senderName}
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {isMe ? 'Anda' : senderName}
+                  </span>
+                  <RoleBadgeGroup roles={msg.user?.roles} />
                 </div>
 
                 {photoUrl && (
@@ -455,8 +433,8 @@ export function AttendanceChatClient({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={photoUrl}
-                      alt="Foto Absen"
-                      className="w-full h-40 object-cover group-hover:scale-105 transition"
+                      alt="Foto Absen Pagi"
+                      className="w-full h-44 object-cover group-hover:scale-105 transition"
                     />
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10px] font-medium">
                       Perbesar
@@ -473,7 +451,7 @@ export function AttendanceChatClient({
             );
           }
 
-          // C. REGULAR CHAT / KEGIATAN FEED
+          // C. REGULAR CHAT / PESAN
           const photoUrl = msg.media_urls?.[0];
           return (
             <div
@@ -506,7 +484,7 @@ export function AttendanceChatClient({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={photoUrl}
-                      alt="Foto Kegiatan"
+                      alt="Lampiran"
                       className="w-full max-h-56 object-cover group-hover:scale-105 transition"
                     />
                   </div>
@@ -537,7 +515,7 @@ export function AttendanceChatClient({
         {/* Preview Lampiran Gambar jika dipilih */}
         {attachedPreview && (
           <div className="mb-2 relative inline-block">
-            <div className="relative rounded-xl overflow-hidden border-2 border-blue-500 w-20 h-20 bg-slate-950">
+            <div className="relative rounded-xl overflow-hidden border-2 border-amber-500 w-20 h-20 bg-slate-950">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={attachedPreview} alt="Preview" className="w-full h-full object-cover" />
               <button
@@ -548,46 +526,37 @@ export function AttendanceChatClient({
                 <X className="w-3 h-3" />
               </button>
             </div>
-            <span className="block text-[10px] text-blue-600 dark:text-blue-400 font-medium mt-0.5">
-              ✓ Foto Terlampir
+            <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
+              ✓ Foto Selfie Siap
             </span>
           </div>
         )}
 
-        {/* Action Pills: Mode Pesan */}
+        {/* Action Pills: Mode Absen Pagi vs Chat */}
         <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-1 text-xs">
           <button
             type="button"
-            onClick={() => setFeedType('kegiatan')}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition ${
-              feedType === 'kegiatan'
-                ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800'
+            onClick={() => setFeedType('absen_pagi')}
+            className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 transition ${
+              feedType === 'absen_pagi'
+                ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-800 shadow-xs'
                 : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
-            💬 Chat / Laporan
+            <Sun className="w-3.5 h-3.5 text-amber-600" />
+            Absen Pagi (Selfie)
           </button>
           <button
             type="button"
-            onClick={() => setFeedType('mulai')}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition ${
-              feedType === 'mulai'
-                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+            onClick={() => setFeedType('chat')}
+            className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 transition ${
+              feedType === 'chat'
+                ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shadow-xs'
                 : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
-            🟢 Absen Mulai
-          </button>
-          <button
-            type="button"
-            onClick={() => setFeedType('selesai')}
-            className={`px-2.5 py-1 rounded-lg font-semibold transition ${
-              feedType === 'selesai'
-                ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800'
-                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            🔴 Absen Selesai
+            <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+            Obrolan / Catatan
           </button>
         </div>
 
@@ -598,6 +567,7 @@ export function AttendanceChatClient({
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            capture="user"
             className="hidden"
             onChange={handleFileChange}
           />
@@ -607,11 +577,11 @@ export function AttendanceChatClient({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isCompressing}
-            className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition"
-            title="Lampirkan Foto"
+            className="w-10 h-10 shrink-0 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center transition"
+            title="Ambil Foto Selfie Pagi"
           >
             {isCompressing ? (
-              <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+              <RefreshCw className="w-5 h-5 animate-spin text-amber-600" />
             ) : (
               <Camera className="w-5 h-5" />
             )}
@@ -623,20 +593,18 @@ export function AttendanceChatClient({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder={
-              feedType === 'mulai'
-                ? 'Catatan absen mulai (opsional)...'
-                : feedType === 'selesai'
-                ? 'Catatan absen selesai (opsional)...'
-                : 'Tulis pesan, laporan aktivitas, kendala...'
+              feedType === 'absen_pagi'
+                ? 'Keterangan absen pagi (misal: Hadir di kantor / standby)...'
+                : 'Tulis pesan obrolan atau catatan...'
             }
-            className="flex-1 px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
 
           {/* Send Button */}
           <button
             type="submit"
             disabled={isSending || isCompressing || (!inputText.trim() && !attachedFile)}
-            className="w-10 h-10 shrink-0 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-md transition"
+            className="w-10 h-10 shrink-0 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-md transition"
           >
             {isSending ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -647,14 +615,13 @@ export function AttendanceChatClient({
         </form>
       </div>
 
-      {/* Modal Absen Bersama (QR Code) */}
+      {/* Modal Absen Bersama Pagi (QR Code) */}
       <GroupAttendanceModal
         isOpen={groupModalOpen}
         onClose={() => setGroupModalOpen(false)}
         initialDate={workDate}
-        initialShift={shiftType}
         onSuccess={() => {
-          loadMessages(workDate, shiftType);
+          loadMessages(workDate);
         }}
       />
 
@@ -663,7 +630,7 @@ export function AttendanceChatClient({
         <ImageLightbox
           open={lightboxOpen}
           close={() => setLightboxOpen(false)}
-          slides={[{ src: lightboxSrc, title: 'Lampiran Absensi' }]}
+          slides={[{ src: lightboxSrc, title: 'Foto Absen Pagi' }]}
         />
       )}
     </div>
