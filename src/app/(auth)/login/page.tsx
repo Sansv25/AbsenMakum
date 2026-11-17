@@ -37,6 +37,7 @@ function LoginContent() {
   const [showPassword, setShowPassword] = useState(false);
   const [gisReady, setGisReady] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
+  const rawNonceRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (errorParam) {
@@ -44,42 +45,25 @@ function LoginContent() {
     }
   }, [errorParam]);
 
-  const handleGoogleCredentialResponse = useCallback(async (response: { credential?: string }) => {
-    if (!response?.credential) return;
+  const handleGoogleLogin = useCallback(async () => {
     setError(null);
     setGoogleLoading(true);
-
     try {
       const supabase = createClient();
-      const { data, error: idTokenErr } = await supabase.auth.signInWithIdToken({
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        token: response.credential,
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          },
+        },
       });
-
-      if (idTokenErr) {
-        setError(idTokenErr.message || 'Gagal login via Google.');
+      if (oauthError) {
+        setError(oauthError.message || 'Gagal login via Google.');
         setGoogleLoading(false);
-        return;
-      }
-
-      if (data?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('phone, is_approved, role')
-          .eq('id', data.user.id)
-          .maybeSingle();
-
-        const isMaster =
-          profile?.role === 'master' ||
-          data.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
-
-        if (!profile?.phone || profile.phone.trim() === '') {
-          window.location.href = '/complete-profile';
-        } else if (!isMaster && (profile?.is_approved === false || !profile)) {
-          window.location.href = '/pending-approval';
-        } else {
-          window.location.href = '/';
-        }
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
@@ -88,18 +72,92 @@ function LoginContent() {
     }
   }, []);
 
-  const initGoogle = useCallback(() => {
+  const handleGoogleCredentialResponse = useCallback(
+    async (response: { credential?: string }) => {
+      if (!response?.credential) return;
+      setError(null);
+      setGoogleLoading(true);
+
+      try {
+        const supabase = createClient();
+        const { data, error: idTokenErr } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: response.credential,
+          nonce: rawNonceRef.current || undefined,
+        });
+
+        if (idTokenErr) {
+          console.warn('signInWithIdToken failed, falling back to signInWithOAuth:', idTokenErr.message);
+          // Fallback otomatis ke Google OAuth redirect jika ID token / nonce gagal
+          await handleGoogleLogin();
+          return;
+        }
+
+        if (data?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('phone, is_approved, role')
+            .eq('id', data.user.id)
+            .maybeSingle();
+
+          const isMaster =
+            profile?.role === 'master' ||
+            data.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+
+          if (!profile?.phone || profile.phone.trim() === '') {
+            window.location.href = '/complete-profile';
+          } else if (!isMaster && (profile?.is_approved === false || !profile)) {
+            window.location.href = '/pending-approval';
+          } else {
+            window.location.href = '/';
+          }
+        }
+      } catch (err: unknown) {
+        console.warn('Error in handleGoogleCredentialResponse, fallback to OAuth:', err);
+        await handleGoogleLogin();
+      }
+    },
+    [handleGoogleLogin]
+  );
+
+  const initGoogle = useCallback(async () => {
     if (typeof window === 'undefined' || !window.google?.accounts?.id) return;
     const clientId =
       process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
       '265734214863-3qgdbt7hu9jqh41bg5raoq7vrf5nibvq.apps.googleusercontent.com';
 
-    window.google.accounts.id.initialize({
+    let hashedNonce: string | undefined;
+    try {
+      if (window.crypto?.subtle) {
+        const array = new Uint8Array(32);
+        window.crypto.getRandomValues(array);
+        const rawNonce = btoa(String.fromCharCode(...array));
+        rawNonceRef.current = rawNonce;
+
+        const encoder = new TextEncoder();
+        const encodedNonce = encoder.encode(rawNonce);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', encodedNonce);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        hashedNonce = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch (e) {
+      console.warn('Could not generate crypto nonce:', e);
+    }
+
+    const initOptions: Record<string, unknown> = {
       client_id: clientId,
       callback: handleGoogleCredentialResponse,
       auto_select: false,
       cancel_on_tap_outside: true,
-    });
+    };
+
+    if (hashedNonce) {
+      initOptions.nonce = hashedNonce;
+    }
+
+    window.google.accounts.id.initialize(
+      initOptions as unknown as Parameters<typeof window.google.accounts.id.initialize>[0]
+    );
 
     if (googleBtnRef.current) {
       googleBtnRef.current.innerHTML = '';
@@ -127,33 +185,6 @@ function LoginContent() {
       initGoogle();
     }
   }, [initGoogle]);
-
-  async function handleGoogleLogin() {
-    setError(null);
-    setGoogleLoading(true);
-    try {
-      const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback`;
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'select_account',
-          },
-        },
-      });
-      if (oauthError) {
-        setError(oauthError.message || 'Gagal login via Google.');
-        setGoogleLoading(false);
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
-      setError(message);
-      setGoogleLoading(false);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

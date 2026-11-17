@@ -23,86 +23,9 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [gisReady, setGisReady] = useState(false);
   const googleBtnRef = useRef<HTMLDivElement>(null);
+  const rawNonceRef = useRef<string | null>(null);
 
-  const handleGoogleCredentialResponse = useCallback(async (response: { credential?: string }) => {
-    if (!response?.credential) return;
-    setError(null);
-    setGoogleLoading(true);
-
-    try {
-      const supabase = createClient();
-      const { data, error: idTokenErr } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: response.credential,
-      });
-
-      if (idTokenErr) {
-        setError(idTokenErr.message || 'Gagal mendaftar via Google.');
-        setGoogleLoading(false);
-        return;
-      }
-
-      if (data?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('phone, is_approved, role')
-          .eq('id', data.user.id)
-          .maybeSingle();
-
-        const isMaster =
-          profile?.role === 'master' ||
-          data.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
-
-        if (!profile?.phone || profile.phone.trim() === '') {
-          window.location.href = '/complete-profile';
-        } else if (!isMaster && (profile?.is_approved === false || !profile)) {
-          window.location.href = '/pending-approval';
-        } else {
-          window.location.href = '/';
-        }
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
-      setError(message);
-      setGoogleLoading(false);
-    }
-  }, []);
-
-  const initGoogle = useCallback(() => {
-    if (typeof window === 'undefined' || !window.google?.accounts?.id) return;
-    const clientId =
-      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-      '265734214863-3qgdbt7hu9jqh41bg5raoq7vrf5nibvq.apps.googleusercontent.com';
-
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: handleGoogleCredentialResponse,
-      auto_select: false,
-      cancel_on_tap_outside: true,
-    });
-
-    if (googleBtnRef.current) {
-      googleBtnRef.current.innerHTML = '';
-      window.google.accounts.id.renderButton(googleBtnRef.current, {
-        type: 'standard',
-        theme: 'outline',
-        size: 'large',
-        text: 'signup_with',
-        shape: 'rectangular',
-        logo_alignment: 'left',
-        width: 320,
-      });
-    }
-    setGisReady(true);
-  }, [handleGoogleCredentialResponse]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
-      initGoogle();
-    }
-  }, [initGoogle]);
-
-  async function handleGoogleSignUp() {
+  const handleGoogleSignUp = useCallback(async () => {
     setError(null);
     setGoogleLoading(true);
     try {
@@ -127,7 +50,115 @@ export default function RegisterPage() {
       setError(message);
       setGoogleLoading(false);
     }
-  }
+  }, []);
+
+  const handleGoogleCredentialResponse = useCallback(
+    async (response: { credential?: string }) => {
+      if (!response?.credential) return;
+      setError(null);
+      setGoogleLoading(true);
+
+      try {
+        const supabase = createClient();
+        const { data, error: idTokenErr } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: response.credential,
+          nonce: rawNonceRef.current || undefined,
+        });
+
+        if (idTokenErr) {
+          console.warn('signInWithIdToken failed, falling back to signInWithOAuth:', idTokenErr.message);
+          // Fallback otomatis ke OAuth jika One Tap / idToken gagal
+          await handleGoogleSignUp();
+          return;
+        }
+
+        if (data?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('phone, is_approved, role')
+            .eq('id', data.user.id)
+            .maybeSingle();
+
+          const isMaster =
+            profile?.role === 'master' ||
+            data.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+
+          if (!profile?.phone || profile.phone.trim() === '') {
+            window.location.href = '/complete-profile';
+          } else if (!isMaster && (profile?.is_approved === false || !profile)) {
+            window.location.href = '/pending-approval';
+          } else {
+            window.location.href = '/';
+          }
+        }
+      } catch (err: unknown) {
+        console.warn('Error in handleGoogleCredentialResponse, fallback to OAuth:', err);
+        await handleGoogleSignUp();
+      }
+    },
+    [handleGoogleSignUp]
+  );
+
+  const initGoogle = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.google?.accounts?.id) return;
+    const clientId =
+      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+      '265734214863-3qgdbt7hu9jqh41bg5raoq7vrf5nibvq.apps.googleusercontent.com';
+
+    let hashedNonce: string | undefined;
+    try {
+      if (window.crypto?.subtle) {
+        const array = new Uint8Array(32);
+        window.crypto.getRandomValues(array);
+        const rawNonce = btoa(String.fromCharCode(...array));
+        rawNonceRef.current = rawNonce;
+
+        const encoder = new TextEncoder();
+        const encodedNonce = encoder.encode(rawNonce);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', encodedNonce);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        hashedNonce = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch (e) {
+      console.warn('Could not generate crypto nonce:', e);
+    }
+
+    const initOptions: Record<string, unknown> = {
+      client_id: clientId,
+      callback: handleGoogleCredentialResponse,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    };
+
+    if (hashedNonce) {
+      initOptions.nonce = hashedNonce;
+    }
+
+    window.google.accounts.id.initialize(
+      initOptions as unknown as Parameters<typeof window.google.accounts.id.initialize>[0]
+    );
+
+    if (googleBtnRef.current) {
+      googleBtnRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'signup_with',
+        shape: 'rectangular',
+        logo_alignment: 'left',
+        width: 320,
+      });
+    }
+    setGisReady(true);
+  }, [handleGoogleCredentialResponse]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      initGoogle();
+    }
+  }, [initGoogle]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
