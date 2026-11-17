@@ -48,23 +48,25 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
     }
 
     if (settings.recipients.includes(email)) {
-      showAlert('Email Sudah Ada', 'Alamat email ini sudah terdaftar di daftar penerima.', 'info');
+      showAlert('Email Sudah Ada', 'Alamat email ini sudah terdaftar di daftar penerima piket.', 'info');
       return;
     }
 
-    setSettings((prev) => ({
-      ...prev,
-      recipients: [...prev.recipients, email],
-    }));
+    const updated = [...settings.recipients, email];
+    const newSettings = { ...settings, recipients: updated };
+    setSettings(newSettings);
     setNewEmail('');
+    // Simpan otomatis ke database agar tidak hilang saat di-refresh
+    saveRecapSettingsAction(newSettings).catch(() => {});
   }
 
   // Hapus email penerima piket
   function handleRemoveEmail(emailToRemove: string) {
-    setSettings((prev) => ({
-      ...prev,
-      recipients: prev.recipients.filter((e) => e !== emailToRemove),
-    }));
+    const updated = settings.recipients.filter((e) => e !== emailToRemove);
+    const newSettings = { ...settings, recipients: updated };
+    setSettings(newSettings);
+    // Simpan otomatis ke database agar tidak hilang saat di-refresh
+    saveRecapSettingsAction(newSettings).catch(() => {});
   }
 
   // Tambah email penerima rekapan harian (anak magang)
@@ -80,23 +82,25 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
 
     const currentList = settings.dailyRecipients || [];
     if (currentList.includes(email)) {
-      showAlert('Email Sudah Ada', 'Alamat email ini sudah terdaftar di daftar penerima rekapan harian.', 'info');
+      showAlert('Email Sudah Ada', 'Alamat email ini sudah terdaftar di daftar penerima rekapan magang.', 'info');
       return;
     }
 
-    setSettings((prev) => ({
-      ...prev,
-      dailyRecipients: [...currentList, email],
-    }));
+    const updated = [...currentList, email];
+    const newSettings = { ...settings, dailyRecipients: updated };
+    setSettings(newSettings);
     setNewDailyEmail('');
+    // Simpan otomatis ke database agar tidak hilang saat di-refresh
+    saveRecapSettingsAction(newSettings).catch(() => {});
   }
 
   // Hapus email penerima rekapan harian
   function handleRemoveDailyEmail(emailToRemove: string) {
-    setSettings((prev) => ({
-      ...prev,
-      dailyRecipients: (prev.dailyRecipients || []).filter((e) => e !== emailToRemove),
-    }));
+    const updated = (settings.dailyRecipients || []).filter((e) => e !== emailToRemove);
+    const newSettings = { ...settings, dailyRecipients: updated };
+    setSettings(newSettings);
+    // Simpan otomatis ke database agar tidak hilang saat di-refresh
+    saveRecapSettingsAction(newSettings).catch(() => {});
   }
 
   // Simpan pengaturan
@@ -176,23 +180,29 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
 
   // Test kirim Rekap Absensi Harian Magang Sekarang
   async function handleSendDailyTest() {
-    const dailyList = settings.dailyRecipients && settings.dailyRecipients.length > 0
-      ? settings.dailyRecipients
-      : settings.recipients;
+    const dailyList = settings.dailyRecipients || [];
 
-    if (!dailyList || dailyList.length === 0) {
-      showAlert('Email Penerima Kosong', 'Tambahkan minimal 1 alamat email penerima rekapan harian terlebih dahulu.', 'warning');
+    if (dailyList.length === 0) {
+      showAlert(
+        'Email Penerima Magang Belum Diisi',
+        'Tambahkan minimal 1 alamat email pada daftar Penerima Rekapan Magang terlebih dahulu.',
+        'warning'
+      );
       return;
     }
 
     if (!settings.senderEmail.trim()) {
-      showAlert('Email Pengirim Kosong', 'Harap isi alamat Email Pengirim (Sender Email) yang terdaftar di akun Brevo Anda.', 'warning');
+      showAlert(
+        'Email Pengirim Kosong',
+        'Harap isi alamat Email Pengirim (Sender Email) yang terdaftar di akun Brevo Anda pada bagian Konfigurasi Brevo di bawah.',
+        'warning'
+      );
       return;
     }
 
     const confirmed = await showConfirm(
       'Kirim Rekapan Absen Harian Hari Ini?',
-      `Sistem akan mengompilasi data kehadiran anak magang hari ini (hadir vs tidak hadir) dan mengirimkannya ke ${dailyList.length} email tujuan (${dailyList.join(', ')}).`,
+      `Sistem akan mengompilasi data kehadiran anak magang hari ini (hadir vs tidak hadir) dan mengirimkannya HANYA ke ${dailyList.length} email tujuan rekapan magang:\n\n${dailyList.join('\n')}`,
       'Ya, Kirim Sekarang'
     );
 
@@ -202,11 +212,11 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
 
     try {
       await saveRecapSettingsAction(settings);
-      const res = await sendDailyRecapNowAction();
+      const res = await sendDailyRecapNowAction(undefined, dailyList);
       if (res.success) {
         showAlert(
-          'Rekapan Harian Berhasil Dikirim! 🚀',
-          res.message || 'Laporan rekapan absensi anak magang hari ini telah dikirim ke seluruh email tujuan.',
+          'Rekapan Magang Berhasil Dikirim! 🚀',
+          res.message || 'Laporan rekapan absensi anak magang hari ini telah dikirim ke email tujuan.',
           'success'
         );
         setSettings((prev) => ({
@@ -217,7 +227,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
       } else {
         showAlert(
           'Pengiriman Gagal',
-          `Gagal mengirim rekapan: ${res.error}`,
+          `Gagal mengirim rekapan magang: ${res.error}`,
           'error'
         );
       }

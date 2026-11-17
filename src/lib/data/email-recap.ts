@@ -55,13 +55,65 @@ export async function getEmailRecapSettings(): Promise<EmailRecapSettings> {
       .limit(1)
       .maybeSingle();
 
+    // Ambil backup pengaturan harian magang dari ticketing_settings (selalu ada & persisten)
+    let dailyBackup: {
+      dailyRecipients?: string[];
+      dailyIsActive?: boolean;
+      dailySendTime?: string;
+      dailyLastSentAt?: string | null;
+      dailyLastStatus?: string | null;
+    } | null = null;
+
+    try {
+      const { data: backupData } = await supabase
+        .from('ticketing_settings')
+        .select('value')
+        .eq('key', 'daily_recap_email_settings')
+        .maybeSingle();
+
+      if (backupData?.value && typeof backupData.value === 'object' && !Array.isArray(backupData.value)) {
+        const val = backupData.value as Record<string, unknown>;
+        dailyBackup = {
+          dailyRecipients: Array.isArray(val.dailyRecipients) ? (val.dailyRecipients as string[]) : undefined,
+          dailyIsActive: typeof val.dailyIsActive === 'boolean' ? val.dailyIsActive : undefined,
+          dailySendTime: typeof val.dailySendTime === 'string' ? val.dailySendTime : undefined,
+          dailyLastSentAt: typeof val.dailyLastSentAt === 'string' ? val.dailyLastSentAt : null,
+          dailyLastStatus: typeof val.dailyLastStatus === 'string' ? val.dailyLastStatus : null,
+        };
+      }
+    } catch {
+      // Abaikan jika tabel ticketing_settings belum siap
+    }
+
     if (error || !data) {
       return {
         ...DEFAULT_SETTINGS,
         brevoApiKey: process.env.BREVO_API_KEY || '',
         senderEmail: process.env.BREVO_SENDER_EMAIL || '',
+        dailyRecipients: dailyBackup?.dailyRecipients || [],
+        dailyIsActive: dailyBackup?.dailyIsActive ?? true,
+        dailySendTime: dailyBackup?.dailySendTime || '18:00',
+        dailyLastSentAt: dailyBackup?.dailyLastSentAt || null,
+        dailyLastStatus: dailyBackup?.dailyLastStatus || null,
       };
     }
+
+    // Prioritaskan kolom tabel jika ada data, fallback ke dailyBackup di ticketing_settings
+    const dailyRecipients =
+      Array.isArray(data.daily_recipients) && data.daily_recipients.length > 0
+        ? data.daily_recipients
+        : Array.isArray(dailyBackup?.dailyRecipients)
+        ? dailyBackup.dailyRecipients
+        : [];
+
+    const dailyIsActive =
+      data.daily_is_active !== undefined
+        ? data.daily_is_active
+        : dailyBackup?.dailyIsActive ?? true;
+
+    const dailySendTime = data.daily_send_time || dailyBackup?.dailySendTime || '18:00';
+    const dailyLastSentAt = data.daily_last_sent_at || dailyBackup?.dailyLastSentAt || null;
+    const dailyLastStatus = data.daily_last_status || dailyBackup?.dailyLastStatus || null;
 
     return {
       id: data.id,
@@ -78,13 +130,11 @@ export async function getEmailRecapSettings(): Promise<EmailRecapSettings> {
       updatedAt: data.updated_at,
 
       // Rekapan harian anak magang
-      dailyRecipients: Array.isArray(data.daily_recipients)
-        ? data.daily_recipients
-        : [],
-      dailyIsActive: data.daily_is_active ?? true,
-      dailySendTime: data.daily_send_time || '18:00',
-      dailyLastSentAt: data.daily_last_sent_at,
-      dailyLastStatus: data.daily_last_status,
+      dailyRecipients,
+      dailyIsActive,
+      dailySendTime,
+      dailyLastSentAt,
+      dailyLastStatus,
     };
   } catch {
     return {
@@ -120,14 +170,39 @@ export async function saveEmailRecapSettings(
       updated_at: new Date().toISOString(),
     };
 
+    const finalDailyRecipients =
+      settings.dailyRecipients !== undefined ? settings.dailyRecipients : current.dailyRecipients;
+    const finalDailyIsActive =
+      settings.dailyIsActive !== undefined ? settings.dailyIsActive : current.dailyIsActive;
+    const finalDailySendTime = settings.dailySendTime ?? current.dailySendTime;
+
+    // 1. Simpan selalu ke ticketing_settings agar persisten dan tidak pernah hilang saat refresh
+    try {
+      await supabase
+        .from('ticketing_settings')
+        .upsert({
+          key: 'daily_recap_email_settings',
+          value: {
+            dailyRecipients: finalDailyRecipients,
+            dailyIsActive: finalDailyIsActive,
+            dailySendTime: finalDailySendTime,
+            dailyLastSentAt: current.dailyLastSentAt,
+            dailyLastStatus: current.dailyLastStatus,
+          },
+          updated_at: new Date().toISOString(),
+        });
+    } catch (e) {
+      console.warn('Backup daily settings error:', e);
+    }
+
+    // 2. Simpan ke email_recap_settings
     const updatedWithDaily = {
       ...updatedBase,
-      daily_recipients: settings.dailyRecipients ?? current.dailyRecipients,
-      daily_is_active: settings.dailyIsActive ?? current.dailyIsActive,
-      daily_send_time: settings.dailySendTime ?? current.dailySendTime,
+      daily_recipients: finalDailyRecipients,
+      daily_is_active: finalDailyIsActive,
+      daily_send_time: finalDailySendTime,
     };
 
-    // Coba simpan dengan kolom daily terlebih dahulu
     const { error: fullErr } = await supabase
       .from('email_recap_settings')
       .upsert({
@@ -139,25 +214,20 @@ export async function saveEmailRecapSettings(
       return { success: true };
     }
 
-    // Jika kolom daily belum dimigrasi di Postgres, fallback simpan base
-    if (fullErr.message.includes('daily_')) {
-      const { error: fallbackErr } = await supabase
-        .from('email_recap_settings')
-        .upsert({
-          id: current.id || DEFAULT_SETTINGS.id,
-          ...updatedBase,
-        });
+    // Jika kolom daily belum ada di email_recap_settings, simpan base ke email_recap_settings
+    // (dailyRecipients sudah aman tersimpan di ticketing_settings!)
+    const { error: fallbackErr } = await supabase
+      .from('email_recap_settings')
+      .upsert({
+        id: current.id || DEFAULT_SETTINGS.id,
+        ...updatedBase,
+      });
 
-      if (fallbackErr) {
-        return { success: false, error: fallbackErr.message };
-      }
-      return {
-        success: true,
-        error: 'Pengaturan dasar tersimpan. Jalankan migration_daily_email_recap.sql di Supabase untuk mengaktifkan kolom email harian.',
-      };
+    if (fallbackErr) {
+      return { success: false, error: fallbackErr.message };
     }
 
-    return { success: false, error: fullErr.message };
+    return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Gagal menyimpan pengaturan email.';
     return { success: false, error: msg };
@@ -430,7 +500,8 @@ export async function sendRecapEmailNow(
  * Mengirimkan email rekapan absensi harian anak magang via Brevo
  */
 export async function sendDailyRecapEmailNow(
-  targetDate?: string
+  targetDate?: string,
+  overrideRecipients?: string[]
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   const { isMaster } = await getCurrentUserProfile();
   if (!isMaster) {
@@ -438,15 +509,19 @@ export async function sendDailyRecapEmailNow(
   }
 
   const settings = await getEmailRecapSettings();
-  const recipients =
-    settings.dailyRecipients && settings.dailyRecipients.length > 0
-      ? settings.dailyRecipients
-      : settings.recipients;
 
-  if (!recipients || recipients.length === 0) {
+  // Prioritaskan daftar email magang khusus. JANGAN PERNAH fallback ke email piket (settings.recipients)!
+  const recipients =
+    Array.isArray(overrideRecipients) && overrideRecipients.length > 0
+      ? overrideRecipients
+      : Array.isArray(settings.dailyRecipients) && settings.dailyRecipients.length > 0
+      ? settings.dailyRecipients
+      : [];
+
+  if (recipients.length === 0) {
     return {
       success: false,
-      error: 'Belum ada alamat email tujuan rekapan harian yang dikonfigurasi. Atur email tujuan di Pengaturan Rekapan.',
+      error: 'Belum ada alamat email tujuan rekapan magang yang dikonfigurasi. Harap tambahkan minimal 1 email pada daftar Penerima Rekapan Magang.',
     };
   }
 
@@ -646,7 +721,7 @@ export async function sendDailyRecapEmailNow(
 
     const successMsg = `Rekap harian berhasil dikirim ke ${recipients.length} email (${recipients.join(', ')})`;
 
-    // Update status ke database jika kolom sudah ada
+    // Update status ke database dan ticketing_settings backup
     try {
       const supabase = await createClient();
       await supabase
@@ -656,6 +731,26 @@ export async function sendDailyRecapEmailNow(
           daily_last_status: successMsg,
         })
         .eq('id', settings.id);
+
+      // Update backup juga
+      const { data: bData } = await supabase
+        .from('ticketing_settings')
+        .select('value')
+        .eq('key', 'daily_recap_email_settings')
+        .maybeSingle();
+
+      const curVal = (bData?.value && typeof bData.value === 'object' ? bData.value : {}) as Record<string, unknown>;
+      await supabase
+        .from('ticketing_settings')
+        .upsert({
+          key: 'daily_recap_email_settings',
+          value: {
+            ...curVal,
+            dailyLastSentAt: new Date().toISOString(),
+            dailyLastStatus: successMsg,
+          },
+          updated_at: new Date().toISOString(),
+        });
     } catch {
       // Abaikan jika kolom database belum dimigrasi
     }
