@@ -145,7 +145,8 @@ function extractTicketOutcome(text) {
   if (
     /\b(?:terisolir|isolir)\b/i.test(text) ||
     /(?:belum\s*(?:melakukan\s*)?pembayaran|tagihan\s*(?:belum\s*dibayar|tertunggak|menunggak))/i.test(text) ||
-    /(?:ada\s*tagihan|menunggu\s*pembayaran)/i.test(text)
+    /(?:ada\s*tagihan|menunggu\s*pembayaran)/i.test(text) ||
+    /(?:melakukan\s*pembayaran|lakukan\s*pembayaran)/i.test(text)
   ) {
     return { type: 'billing', value: 'Belum Bayar / Tagihan Tertunggak' };
   }
@@ -278,7 +279,17 @@ Pesan CS: "Sudah kami bantu perbaikan/refresh dari sistem kami, mohon tunggu 5-1
 Jawaban Kamu:
 Set is_closing = true, ticket_number = "Perbaikan Sistem (Tunggu 5-10 Menit)", text = "Baik Kak, terima kasih atas bantuannya. Kami tunggu prosesnya. ${timeContext.greeting}!"
 
-PENTING: DILARANG KERAS MENGIRIM SALAM PENUTUP ATAU SET "is_closing": true KECUALI CS SUDAH MEMBERIKAN NOMOR TIKET RESMI ATAU TINDAKAN PENYELESAIAN JELAS!
+Contoh 7 (CS menginfokan layanan terisolir / ada tagihan tertunggak):
+Pesan CS: "Status layanan internet terisolir. Silakan dapat melakukan pembayaran agar dapat kami bantu tindak lanjut kendala yang dialami ya kak."
+Jawaban Kamu:
+Set is_closing = true, ticket_number = "Belum Bayar / Tagihan Tertunggak", text = "Baik Kak, terima kasih atas informasinya. Akan kami sampaikan ke pelanggan untuk melakukan pembayaran terlebih dahulu. Terima kasih atas bantuannya Kak. ${timeContext.greeting}!"
+
+Contoh 8 (CS menginfokan gangguan massal / pemeliharaan area):
+Pesan CS: "Saat ini sedang ada gangguan massal / pemeliharaan di area pelanggan."
+Jawaban Kamu:
+Set is_closing = true, ticket_number = "Gangguan Massal di Area", text = "Baik Kak, terima kasih atas informasinya. Kami tunggu proses normalisasi jaringannya Kak. Terima kasih bantuannya Kak. ${timeContext.greeting}!"
+
+PENTING: DILARANG KERAS MENGIRIM SALAM PENUTUP ATAU SET "is_closing": true KECUALI CS SUDAH MEMBERIKAN NOMOR TIKET RESMI ATAU TINDAKAN PENYELESAIAN JELAS (SEPERTI ISOLIR / GANGGUAN MASSAL / RESTART)!
 
 KELUARAN HANYA JSON VALID TANPA MARKDOWN:
 {
@@ -447,21 +458,30 @@ async function launchChrome(headless = true) {
 let persistentBrowser = null;
 let persistentPage = null;
 
+async function scrollChatToBottom(page) {
+  try {
+    await page.evaluate(() => {
+      const scrollContainers = [
+        document.querySelector('div[role="grid"]'),
+        document.querySelector('div[role="main"] div[style*="overflow"]'),
+        ...Array.from(document.querySelectorAll('div')).filter(
+          (d) => d.scrollHeight > d.clientHeight && d.clientHeight > 150
+        ),
+      ];
+      for (const c of scrollContainers) {
+        if (c) c.scrollTop = c.scrollHeight;
+      }
+    });
+  } catch {}
+}
+
 async function getDirectThreadPage() {
   if (persistentBrowser && persistentPage) {
     try {
       if (!persistentPage.isClosed()) {
         await persistentPage.evaluate(() => 1);
         if (persistentPage.url().includes('/direct/t/')) {
-          // Cukup scroll ke bawah untuk memastikan pesan baru langsung terlihat di DOM
-          await persistentPage.evaluate(() => {
-            const allDivs = Array.from(document.querySelectorAll('div'));
-            for (const d of allDivs) {
-              if (d.scrollHeight > d.clientHeight && d.clientHeight > 200) {
-                d.scrollTop = d.scrollHeight;
-              }
-            }
-          });
+          await scrollChatToBottom(persistentPage);
           return persistentPage;
         }
       }
@@ -500,14 +520,7 @@ async function getDirectThreadPage() {
   } catch {}
 
   // Scroll ke paling bawah
-  await persistentPage.evaluate(() => {
-    const allDivs = Array.from(document.querySelectorAll('div'));
-    for (const d of allDivs) {
-      if (d.scrollHeight > d.clientHeight && d.clientHeight > 200) {
-        d.scrollTop = d.scrollHeight;
-      }
-    }
-  });
+  await scrollChatToBottom(persistentPage);
 
   return persistentPage;
 }
@@ -667,6 +680,14 @@ async function syncActiveChat(activeTicket) {
     const messages = await page.evaluate(() => {
       // Abaikan sidebar navigasi, panel rincian/info di sebelah kanan, dan dialog
       const isInsideIgnoredContainer = (el) => {
+        // Abaikan jika el berada di dalam tombol / kartu kontak WhatsApp itu sendiri
+        if (
+          el.closest('a[href*="whatsapp.com"], a[href*="wa.me"]') ||
+          el.closest('[aria-label*="WhatsApp" i]')
+        ) {
+          return true;
+        }
+
         let p = el.parentElement;
         while (p && p !== document.body) {
           const tag = p.tagName;
@@ -680,13 +701,6 @@ async function syncActiveChat(activeTicket) {
               ariaLabel === 'Rincian' ||
               ariaLabel === 'Info' ||
               ariaLabel === 'Thread details')
-          ) {
-            return true;
-          }
-          // Abaikan kartu kontak WhatsApp / link WA yang dibuat otomatis oleh Instagram
-          if (
-            ariaLabel?.includes('WhatsApp') ||
-            p.querySelector('a[href*="whatsapp.com"], a[href*="wa.me"]')
           ) {
             return true;
           }
@@ -798,9 +812,26 @@ async function syncActiveChat(activeTicket) {
     let openingMsgIndex = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
       const text = messages[i];
-      if (text.includes(activeTicket.customer_id)) {
+      const isOurOpeningReport =
+        text.includes(activeTicket.customer_id) &&
+        (text.includes('ID Pelanggan') ||
+         text.includes('Nama Pelanggan') ||
+         text.includes('Keluhan:') ||
+         text.includes('izin melaporkan'));
+      if (isOurOpeningReport) {
         openingMsgIndex = i;
         break;
+      }
+    }
+
+    // Jika format lengkap tidak tampak (misal kepotong karena virtual scroll), cari kemunculan pertama customer_id dari atas
+    if (openingMsgIndex === -1) {
+      for (let i = 0; i < messages.length; i++) {
+        const text = messages[i];
+        if (text.includes(activeTicket.customer_id)) {
+          openingMsgIndex = i;
+          break;
+        }
       }
     }
 
@@ -833,9 +864,14 @@ async function syncActiveChat(activeTicket) {
       if (/^\d{1,2}[:.]\d{2}$/.test(m)) continue;
       if (ignoredChatKeywords.has(m)) continue;
       if (outBodies.has(m)) continue;
-      if (m.includes('ID Pelanggan') || m.includes('Selamat Pagi/Siang Kak, izin melaporkan')) continue;
-      if (m.includes(activeTicket.customer_id)) continue;
-      if (activeTicket.pln_id && m.includes(activeTicket.pln_id)) continue;
+      // Abaikan jika ini adalah format laporan pembuka kita sendiri
+      if (
+        (m.includes('ID Pelanggan') && (m.includes('Keluhan:') || m.includes('Nama Pelanggan:'))) ||
+        m.includes('Selamat Pagi/Siang Kak, izin melaporkan')
+      ) {
+        continue;
+      }
+      if (activeTicket.pln_id && m.includes(activeTicket.pln_id) && m.includes('ID PLN')) continue;
       if (m.includes(activeTicket.name) && (m.includes('Keluhan:') || m.includes('Alamat:'))) continue;
 
       // Abaikan jika bubble HANYA nomor telepon atau cocok dengan nomor HP pelanggan / nomor alternatif
@@ -907,6 +943,8 @@ async function syncActiveChat(activeTicket) {
     }
 
     if (csBubbles.length === 0) return;
+
+    console.log(`\n📬 [CHAT TERKINI] ${csBubbles.length} pesan CS terdeteksi: "${csBubbles[csBubbles.length - 1].slice(0, 75)}..."`);
 
     // 1. Simpan bubble pesan CS baru ke tabel ticket_messages agar admin melihat isi chat CS di Web
     for (const bubble of csBubbles) {
@@ -1005,6 +1043,84 @@ async function syncActiveChat(activeTicket) {
         .eq('key', 'pending_ai_reply');
 
       console.log(`✅ [TIKET SELESAI] Tiket "${activeTicket.name}" resmi ticket_issued dengan nomor ${confirmedNumber}. Antrean baru aman diproses!\n`);
+      return;
+    }
+
+    // 2.2 JIKA LAYANAN TERISOLIR (BELUM BAYAR) ATAU GANGGUAN MASSAL TERDETEKSI
+    const isSpecialResolution =
+      directOutcome && (directOutcome.type === 'billing' || directOutcome.type === 'mass_outage');
+
+    if (isSpecialResolution) {
+      console.log(`\n📌 [RESOLUSI NON-TIKET] Terdeteksi status khusus: "${directOutcome.value}"`);
+
+      // Cek apakah kita sudah pernah mengirimkan ucapan konfirmasi/penutup untuk tiket ini
+      const { data: outMsgs } = await supabase
+        .from('ticket_messages')
+        .select('body')
+        .eq('ticket_id', activeTicket.id)
+        .eq('direction', 'out');
+
+      const hasSentAck = (outMsgs || []).some(
+        (m) =>
+          (m.body || '').toLowerCase().includes('terima kasih') ||
+          (m.body || '').toLowerCase().includes('kami sampaikan') ||
+          (m.body || '').toLowerCase().includes('kami infokan')
+      );
+
+      // Cek apakah sesi chat sudah diakhiri oleh CS
+      const isAlreadyClosedByCs =
+        combinedCsText.toLowerCase().includes('chat akan kami akhiri') ||
+        combinedCsText.toLowerCase().includes('percakapan kami akhiri') ||
+        combinedCsText.toLowerCase().includes('sesi kami akhiri') ||
+        (combinedCsText.toLowerCase().includes('terima kasih telah menghubungi') &&
+          (combinedCsText.toLowerCase().includes('selamat pagi') ||
+           combinedCsText.toLowerCase().includes('selamat siang') ||
+           combinedCsText.toLowerCase().includes('selamat sore') ||
+           combinedCsText.toLowerCase().includes('selamat malam')));
+
+      if (!hasSentAck && !isAlreadyClosedByCs) {
+        const timeCtx = getWitaTimeContext();
+        let replyMsg = `Baik Kak, terima kasih atas informasinya. Akan kami koordinasikan ke pelanggan. ${timeCtx.greeting}!`;
+        if (directOutcome.type === 'billing') {
+          replyMsg = `Baik Kak, terima kasih atas informasinya. Akan kami informasikan ke pelanggan terkait pembayaran. Terima kasih banyak Kak. ${timeCtx.greeting}!`;
+        } else if (directOutcome.type === 'mass_outage') {
+          replyMsg = `Baik Kak, terima kasih atas informasinya terkait pemeliharaan/gangguan massal. Kami tunggu proses normalisasinya Kak. ${timeCtx.greeting}!`;
+        }
+
+        console.log(`💬 [KIRIM BALASAN RESOLUSI] Mengirim balasan ke CS: "${replyMsg}"`);
+        try {
+          await sendMessageToDirectThread(page, replyMsg);
+          await supabase.from('ticket_messages').insert({
+            ticket_id: activeTicket.id,
+            direction: 'out',
+            sender: 'ai',
+            body: replyMsg,
+          });
+          console.log(`✓ Balasan resolusi terkirim.`);
+        } catch (e) {
+          console.warn('⚠️ Gagal mengirim balasan resolusi:', e.message);
+        }
+
+        console.log(`⏳ [JEDA PENUTUPAN SESI] Memberi jeda 30 detik agar CS menutup percakapan...`);
+        await new Promise((r) => setTimeout(r, 30000));
+      }
+
+      const now = new Date().toISOString();
+      await supabase
+        .from('tickets')
+        .update({
+          status: 'closed',
+          ticket_number: directOutcome.value,
+          updated_at: now,
+        })
+        .eq('id', activeTicket.id);
+
+      await supabase
+        .from('ticketing_settings')
+        .delete()
+        .eq('key', 'pending_ai_reply');
+
+      console.log(`✅ [TIKET SELESAI] Tiket "${activeTicket.name}" resmi closed dengan resolusi "${directOutcome.value}". Antrean baru dapat berjalan!\n`);
       return;
     }
 
