@@ -61,6 +61,7 @@ export default function TicketingDashboardPage() {
   const [monitoringEnabled, setMonitoringEnabled] = useState(false);
   const [dispatchingQueue, setDispatchingQueue] = useState(false);
   const [canCreateTicket, setCanCreateTicket] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   // Pending Draft in Monitoring Mode
   const [pendingDraft, setPendingDraft] = useState<{
@@ -112,6 +113,7 @@ export default function TicketingDashboardPage() {
             const isAdmin = roles.includes('admin') || profile?.role === 'master';
             const isTiket = roles.includes('tiket');
             const allowed = isOwner || isAdmin || isTiket;
+            setIsOwner(isOwner);
             setCanCreateTicket(allowed);
             if (!allowed) {
               window.location.href = '/';
@@ -247,6 +249,7 @@ export default function TicketingDashboardPage() {
   }, [tickets, autoQueueEnabled, dispatchingQueue, loading, fetchTickets]);
 
   const handleToggleAutoQueue = async () => {
+    if (!isOwner) return;
     const nextVal = !autoQueueEnabled;
     setAutoQueueEnabled(nextVal);
     await fetch('/api/ticketing/queue/settings', {
@@ -257,6 +260,7 @@ export default function TicketingDashboardPage() {
   };
 
   const handleToggleAi = async () => {
+    if (!isOwner) return;
     const nextVal = !aiEnabled;
     setAiEnabled(nextVal);
     await fetch('/api/ticketing/ai/settings', {
@@ -267,6 +271,7 @@ export default function TicketingDashboardPage() {
   };
 
   const handleToggleMonitoring = async () => {
+    if (!isOwner) return;
     const nextVal = !monitoringEnabled;
     setMonitoringEnabled(nextVal);
     await fetch('/api/ticketing/ai/monitoring', {
@@ -480,6 +485,7 @@ export default function TicketingDashboardPage() {
         onToggleMonitoring={handleToggleMonitoring}
         syncing={syncing}
         onSync={handleSyncChat}
+        isOwner={isOwner}
       />
 
       {/* AI Approval Floating Banner */}

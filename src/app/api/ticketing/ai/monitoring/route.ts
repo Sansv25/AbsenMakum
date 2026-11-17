@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserProfile } from '@/lib/data/profile';
 
 export async function GET() {
   try {
@@ -21,6 +22,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const { isOwner } = await getCurrentUserProfile();
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: 'Hanya akun dengan role Owner yang berhak mengubah mode monitoring tiket.' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const enabled = Boolean(body.enabled);
 

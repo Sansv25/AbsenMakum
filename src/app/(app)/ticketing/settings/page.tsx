@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Shield,
   Layers,
+  Lock,
 } from 'lucide-react';
 
 export default function TicketingSettingsPage() {
@@ -20,6 +21,7 @@ export default function TicketingSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   // Settings state
   const [prompt, setPrompt] = useState('');
@@ -35,6 +37,21 @@ export default function TicketingSettingsPage() {
       setErrorMsg(null);
       try {
         const supabase = createClient();
+
+        // Cek profil user
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role, roles')
+            .eq('id', authData.user.id)
+            .single();
+          const isMasterEmail = authData.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+          const roles: string[] = Array.isArray(profile?.roles) ? profile.roles : [];
+          const userIsOwner = roles.includes('owner') || isMasterEmail;
+          setIsOwner(userIsOwner);
+        }
+
         const { data, error } = await supabase.from('ticketing_settings').select('*');
 
         if (error) throw new Error(error.message);
@@ -69,6 +86,11 @@ export default function TicketingSettingsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOwner) {
+      setErrorMsg('Hanya akun dengan role Owner yang berhak menyimpan perubahan pengaturan.');
+      return;
+    }
+
     setSaving(true);
     setErrorMsg(null);
     setSaveSuccess(false);
@@ -123,6 +145,14 @@ export default function TicketingSettingsPage() {
         </div>
       </div>
 
+      {/* Non-Owner Notice */}
+      {!loading && !isOwner && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-xs text-amber-800 dark:text-amber-300 font-semibold flex items-center gap-2.5 shadow-xs">
+          <Lock className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>Mode Hanya Lihat: Hanya akun dengan role Owner yang berhak mengubah konfigurasi prompt AI dan sakelar otomasi tiket.</span>
+        </div>
+      )}
+
       {/* Status Alerts */}
       {errorMsg && (
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl text-xs text-rose-800 dark:text-rose-300 font-semibold flex items-center gap-2 shadow-xs">
@@ -153,12 +183,19 @@ export default function TicketingSettingsPage() {
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <label className="flex items-start gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition">
+              <label
+                className={`flex items-start gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 transition ${
+                  isOwner
+                    ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer'
+                    : 'cursor-not-allowed opacity-80'
+                }`}
+              >
                 <input
                   type="checkbox"
+                  disabled={!isOwner}
                   checked={autoQueueEnabled}
                   onChange={(e) => setAutoQueueEnabled(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
                 />
                 <div>
                   <span className="text-xs font-bold text-slate-900 dark:text-white block">
@@ -170,12 +207,19 @@ export default function TicketingSettingsPage() {
                 </div>
               </label>
 
-              <label className="flex items-start gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition">
+              <label
+                className={`flex items-start gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 transition ${
+                  isOwner
+                    ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer'
+                    : 'cursor-not-allowed opacity-80'
+                }`}
+              >
                 <input
                   type="checkbox"
+                  disabled={!isOwner}
                   checked={aiEnabled}
                   onChange={(e) => setAiEnabled(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
                 />
                 <div>
                   <span className="text-xs font-bold text-slate-900 dark:text-white block">
@@ -187,12 +231,19 @@ export default function TicketingSettingsPage() {
                 </div>
               </label>
 
-              <label className="flex items-start gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition">
+              <label
+                className={`flex items-start gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 transition ${
+                  isOwner
+                    ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer'
+                    : 'cursor-not-allowed opacity-80'
+                }`}
+              >
                 <input
                   type="checkbox"
+                  disabled={!isOwner}
                   checked={monitoringEnabled}
                   onChange={(e) => setMonitoringEnabled(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
                 />
                 <div>
                   <span className="text-xs font-bold text-slate-900 dark:text-white block">
@@ -219,9 +270,10 @@ export default function TicketingSettingsPage() {
             <div>
               <textarea
                 rows={12}
+                disabled={!isOwner}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                className="w-full font-mono text-xs px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full font-mono text-xs px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed"
                 placeholder="Tulis sistem prompt AI..."
               />
               <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
@@ -261,9 +313,10 @@ export default function TicketingSettingsPage() {
                   type="number"
                   min={1}
                   max={50}
+                  disabled={!isOwner}
                   value={maxTurns}
                   onChange={(e) => setMaxTurns(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed"
                 />
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                   Jika giliran AI melampaui batas ini, status tiket otomatis berpindah ke <strong>Butuh Admin</strong>.
@@ -276,10 +329,11 @@ export default function TicketingSettingsPage() {
                 </label>
                 <input
                   type="text"
+                  disabled={!isOwner}
                   value={closingGreeting}
                   onChange={(e) => setClosingGreeting(e.target.value)}
                   placeholder="Terima kasih Kak, tidak ada lagi yang perlu dibantu..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed"
                 />
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                   Pesan yang diucapkan saat nomor tiket sudah resmi diterbitkan oleh ICONNET.
@@ -290,23 +344,30 @@ export default function TicketingSettingsPage() {
 
           {/* Submit Button */}
           <div className="flex justify-end pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-6 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-md shadow-blue-500/20 disabled:opacity-50 flex items-center gap-2"
-            >
-              {saving ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Menyimpan...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Simpan Perubahan</span>
-                </>
-              )}
-            </button>
+            {isOwner ? (
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-6 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-md shadow-blue-500/20 disabled:opacity-50 flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Simpan Perubahan</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-semibold border border-slate-200 dark:border-slate-700 cursor-not-allowed select-none">
+                <Lock className="w-4 h-4" />
+                <span>Hanya Owner yang dapat mengubah</span>
+              </div>
+            )}
           </div>
         </form>
       )}
