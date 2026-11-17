@@ -35,7 +35,9 @@ export default async function RekapHarianPage({ searchParams }: RekapHarianPageP
     redirect('/profil');
   }
 
-  const { isMaster, isOwner } = profile;
+  const { isMaster, isOwner, isAdmin, isSenior } = profile;
+  // Tombol hubungi WhatsApp hanya diizinkan untuk role senior, admin, dan owner
+  const canContactWA = isOwner || isAdmin || isSenior;
 
   const today = todayWITA();
   const params = await searchParams;
@@ -52,6 +54,7 @@ export default async function RekapHarianPage({ searchParams }: RekapHarianPageP
       initialDate={workDate}
       initialRecap={recap}
       isMaster={isMaster || isOwner}
+      canContactWA={canContactWA}
       emailRecipientsCount={
         (emailSettings.dailyRecipients && emailSettings.dailyRecipients.length > 0)
           ? emailSettings.dailyRecipients.length

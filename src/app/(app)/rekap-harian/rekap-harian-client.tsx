@@ -30,6 +30,7 @@ interface RekapHarianClientProps {
   initialDate: string;
   initialRecap: DailyAttendanceRecapResult;
   isMaster: boolean;
+  canContactWA?: boolean;
   emailRecipientsCount: number;
 }
 
@@ -37,6 +38,7 @@ export function RekapHarianClient({
   initialDate,
   initialRecap,
   isMaster,
+  canContactWA = false,
   emailRecipientsCount,
 }: RekapHarianClientProps) {
   const router = useRouter();
@@ -504,7 +506,7 @@ export function RekapHarianClient({
 
                     <p className="text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5">
                       {rec.user.email}
-                      {rec.user.phone && ` • ${rec.user.phone}`}
+                      {canContactWA && rec.user.phone && ` • ${rec.user.phone}`}
                     </p>
 
                     {/* Catatan / Keterangan Kehadiran */}
@@ -554,8 +556,8 @@ export function RekapHarianClient({
                         </div>
                       )}
                     </>
-                  ) : (
-                    /* Jika Belum Hadir: Tombol Hubungi WhatsApp */
+                  ) : canContactWA ? (
+                    /* Jika Belum Hadir: Tombol Hubungi WhatsApp HANYA untuk role Senior, Admin, dan Owner */
                     waPhone ? (
                       <a
                         href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
@@ -576,7 +578,7 @@ export function RekapHarianClient({
                         Belum ada nomor WA
                       </span>
                     )
-                  )}
+                  ) : null}
                 </div>
               </div>
             );
