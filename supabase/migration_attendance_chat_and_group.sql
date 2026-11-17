@@ -3,8 +3,13 @@
 -- 100% Mandiri - KHUSUS PAGI (Tidak ada relasi dengan Absen Piket Shift)
 -- ==============================================================================
 
+-- 0. HAPUS TABEL LAMA JIKA TERLANJUR DIBUAT DENGAN KOLOM shift_type
+DROP TABLE IF EXISTS public.group_attendance_members CASCADE;
+DROP TABLE IF EXISTS public.group_attendance_sessions CASCADE;
+DROP TABLE IF EXISTS public.attendance_feed CASCADE;
+
 -- 1. TABEL FEED CHAT ABSEN PAGI
-CREATE TABLE IF NOT EXISTS public.attendance_feed (
+CREATE TABLE public.attendance_feed (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   work_date date NOT NULL DEFAULT CURRENT_DATE,
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -51,7 +56,7 @@ CREATE POLICY "Pembuat atau admin/owner dapat menghapus pesan feed"
   );
 
 -- 2. TABEL SESI ABSEN BERSAMA VIA QR (Google Lens & Kamera HP)
-CREATE TABLE IF NOT EXISTS public.group_attendance_sessions (
+CREATE TABLE public.group_attendance_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   initiator_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   work_date date NOT NULL DEFAULT CURRENT_DATE,
@@ -87,7 +92,7 @@ CREATE POLICY "Inisiator dapat mengupdate status sesi"
   USING (auth.uid() = initiator_id);
 
 -- 3. TABEL ANGGOTA YANG BERGABUNG VIA SCAN QR (Google Lens)
-CREATE TABLE IF NOT EXISTS public.group_attendance_members (
+CREATE TABLE public.group_attendance_members (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id uuid NOT NULL REFERENCES public.group_attendance_sessions(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -136,5 +141,5 @@ BEGIN
   END IF;
 EXCEPTION
   WHEN OTHERS THEN
-    NULL; -- Abaikan jika publication sudah aktif
+    NULL;
 END $$;
