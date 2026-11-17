@@ -38,7 +38,7 @@ export function ExportView({
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2">
             <FileDown className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            Pusat Export &amp; Rekapitulasi Laporan
+            Export Rekapan
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mt-1">
             {canAccessPiket && isMagang

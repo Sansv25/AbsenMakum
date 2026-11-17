@@ -191,15 +191,15 @@ function getNavigationSections(
     sections.push({
       title: 'Manajemen & Rekapan',
       items: [
-        { href: '/libur', label: 'Libur & Shift', icon: CalendarOff, masterOnly: true },
+        { href: '/libur', label: 'Hari Libur Nasional', icon: CalendarOff, masterOnly: true },
         { href: '/pengaturan', label: 'Pengaturan & User', icon: Settings, masterOnly: true },
-        { href: '/export', label: 'Export Rekapan PDF', icon: FileDown },
+        { href: '/export', label: 'Export Rekapan', icon: FileDown },
       ],
     });
   } else {
     sections.push({
       title: 'Laporan',
-      items: [{ href: '/export', label: 'Export Rekapan PDF', icon: FileDown }],
+      items: [{ href: '/export', label: 'Export Rekapan', icon: FileDown }],
     });
   }
 
