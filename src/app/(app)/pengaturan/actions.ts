@@ -58,3 +58,37 @@ export async function resetAllAttendanceDataAction() {
     return { error: msg };
   }
 }
+
+/**
+ * Server Action: Membersihkan pesan obrolan (feed_type = 'chat') yang lebih lama dari 168 jam (7 hari).
+ */
+export async function cleanupOldChatAction(
+  hours: number = 168
+): Promise<{ deletedCount: number; error?: string }> {
+  const profile = await getCurrentUserProfile();
+  if (!profile.canManageSettings) {
+    return { deletedCount: 0, error: 'Hanya Admin, Senior, atau Owner yang diizinkan membersihkan obrolan.' };
+  }
+
+  const { cleanupOldChatMessages } = await import('@/lib/data/attendance-feed');
+  const res = await cleanupOldChatMessages(hours);
+
+  revalidatePath('/absen-chat');
+  return res;
+}
+
+/**
+ * Server Action: Membersihkan seluruh pesan obrolan chat (feed_type = 'chat') tanpa menghapus kartu presensi.
+ */
+export async function cleanupAllChatAction(): Promise<{ deletedCount: number; error?: string }> {
+  const profile = await getCurrentUserProfile();
+  if (!profile.canManageSettings) {
+    return { deletedCount: 0, error: 'Hanya Admin, Senior, atau Owner yang diizinkan membersihkan obrolan.' };
+  }
+
+  const { cleanupOldChatMessages } = await import('@/lib/data/attendance-feed');
+  const res = await cleanupOldChatMessages(0);
+
+  revalidatePath('/absen-chat');
+  return res;
+}
