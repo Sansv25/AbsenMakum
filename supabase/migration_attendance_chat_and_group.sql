@@ -129,6 +129,8 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.attendance_feed;
   END IF;
 
+  ALTER TABLE public.attendance_feed REPLICA IDENTITY FULL;
+
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables 
     WHERE pubname = 'supabase_realtime' AND tablename = 'group_attendance_sessions'

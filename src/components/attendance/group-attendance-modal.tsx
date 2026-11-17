@@ -290,6 +290,20 @@ export function GroupAttendanceModal({
       }
 
       showToast('Absen bersama pagi berhasil diterbitkan ke feed!', 'success');
+
+      // Siarkan broadcast event agar HP rekan lain langsung menampilkan obrolan baru
+      try {
+        const supabase = createClient();
+        const broadcastChannel = supabase.channel(`attendance_chat_${workDate}`);
+        await broadcastChannel.send({
+          type: 'broadcast',
+          event: 'new_chat',
+          payload: { senderId: currentUserId, time: Date.now() },
+        });
+      } catch {
+        // Fallback
+      }
+
       onSuccess?.();
       onClose();
     } catch (err: unknown) {

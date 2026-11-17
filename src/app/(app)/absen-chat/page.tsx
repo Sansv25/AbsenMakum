@@ -21,7 +21,7 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
     redirect('/login');
   }
 
-  await getCurrentUserProfile();
+  const myProfile = await getCurrentUserProfile();
 
   const today = todayWITA();
   const params = await searchParams;
@@ -30,11 +30,25 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
   // Ambil pesan awal absen pagi di server
   const { messages } = await getAttendanceFeedMessages(workDate);
 
+  // Ambil daftar user untuk fitur @ tag / mention
+  const { data: rawProfiles } = await supabase
+    .from('profiles')
+    .select('id, full_name, email')
+    .order('full_name');
+
+  const availableProfiles = (rawProfiles || []).map((p) => ({
+    id: p.id,
+    full_name: p.full_name || p.email || 'Petugas',
+    email: p.email || null,
+  }));
+
   return (
     <AttendanceChatClient
       initialDate={workDate}
       currentUserId={user.id}
+      currentUserName={myProfile.fullName || user.email || 'Petugas'}
       initialMessages={messages}
+      availableProfiles={availableProfiles}
     />
   );
 }
