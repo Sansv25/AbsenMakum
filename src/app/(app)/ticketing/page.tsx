@@ -24,6 +24,14 @@ import {
   Sparkles,
   Pencil,
   Trash2,
+  Phone,
+  MapPin,
+  Zap,
+  LayoutGrid,
+  List as ListIcon,
+  MessageSquare,
+  Clock,
+  ExternalLink,
 } from 'lucide-react';
 
 export default function TicketingDashboardPage() {
@@ -31,9 +39,10 @@ export default function TicketingDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Filter & Search
+  // Filter & Search & View Mode
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [syncing, setSyncing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -481,9 +490,10 @@ export default function TicketingDashboardPage() {
         processing={processingDraft}
       />
 
-      {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2 rounded-2xl border border-gray-200/80 dark:border-slate-800 shadow-2xs">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+      {/* Filter Tabs, Search Bar & View Mode Toggle */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-2xl border border-gray-200/80 dark:border-slate-800 shadow-2xs">
+        {/* Status Tabs with smooth invisible scrollbar */}
+        <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pb-1 sm:pb-0">
           {statusTabs.map((tab) => {
             const count =
               tab.key === 'all'
@@ -517,20 +527,53 @@ export default function TicketingDashboardPage() {
           })}
         </div>
 
-        <div className="relative min-w-[220px]">
-          <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari nama, ID, tiket, pembuat..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        {/* Search Bar & View Switcher */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-[180px] sm:min-w-[240px]">
+            <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari nama, ID, tiket, pembuat..."
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Toggle View Mode: Card Lengkap vs Menu List */}
+          <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-slate-800 rounded-xl shrink-0">
+            <button
+              type="button"
+              onClick={() => setViewMode('card')}
+              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                viewMode === 'card'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-slate-400'
+              }`}
+              title="Tampilan Kartu Lengkap (Besar & Lega)"
+            >
+              <LayoutGrid className="h-4 w-4" />
+              <span className="hidden sm:inline">Kartu Lengkap</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                viewMode === 'list'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-slate-400'
+              }`}
+              title="Tampilan Menu List"
+            >
+              <ListIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Menu List</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Ticket Cards Grid / List */}
-      <div className="space-y-3">
+      <div className={viewMode === 'card' ? 'grid grid-cols-1 gap-4' : 'space-y-2.5'}>
         {loading ? (
           <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-gray-200/80 dark:border-slate-800 space-y-2">
             <div className="inline-block h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -567,7 +610,10 @@ export default function TicketingDashboardPage() {
               </p>
             )}
           </div>
-        ) : (
+        ) : viewMode === 'card' ? (
+          /* ========================================================================= */
+          /* TAMPILAN KARTU LENGKAP (VERSI LEBIH BESAR, LEGA, DAN MENAMPUNG DETAIL)     */
+          /* ========================================================================= */
           filteredTickets.map((ticket, index) => {
             const isQueued = ticket.status === 'queued';
             const hasTicketNo = !!ticket.ticket_number;
@@ -575,11 +621,277 @@ export default function TicketingDashboardPage() {
             return (
               <div
                 key={ticket.id}
-                className="group bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 hover:border-blue-300 dark:hover:border-slate-700 rounded-2xl p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 hover:border-blue-400 dark:hover:border-slate-700 rounded-3xl p-4 sm:p-6 shadow-xs hover:shadow-md transition-all space-y-4"
               >
-                {/* Left info */}
-                <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                  {/* Reorder buttons if queued */}
+                {/* Header: Avatar, Nama, Status Badges, dan Action Buttons */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-slate-800/80">
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    {/* Urutan antrean (jika status antrean) */}
+                    {isQueued && statusFilter === 'queued' && (
+                      <div className="flex flex-col gap-1 items-center flex-shrink-0 pt-0.5 bg-gray-50 dark:bg-slate-800 p-1.5 rounded-xl border border-gray-200 dark:border-slate-700">
+                        <button
+                          type="button"
+                          disabled={index === 0}
+                          onClick={() => handleMoveQueue(ticket.id, 'up')}
+                          className="p-1 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-30 transition"
+                          title="Naikkan urutan antrean"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </button>
+                        <span className="text-[10px] font-bold text-gray-500 font-mono">
+                          #{index + 1}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={index === filteredTickets.length - 1}
+                          onClick={() => handleMoveQueue(ticket.id, 'down')}
+                          className="p-1 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-30 transition"
+                          title="Turunkan urutan antrean"
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 text-white font-extrabold text-base flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
+                      {ticket.name.trim().charAt(0).toUpperCase()}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-base sm:text-lg font-bold text-gray-950 dark:text-white tracking-tight break-words">
+                        {ticket.name}
+                      </h2>
+
+                      {/* Badges Bar: Status, Mode, Pembuat, Waktu */}
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                        <span
+                          className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${getStatusBadgeClass(
+                            ticket.status as TicketStatus
+                          )}`}
+                        >
+                          {getStatusLabel(ticket.status as TicketStatus)}
+                        </span>
+
+                        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 flex items-center gap-1">
+                          <Sparkles className="h-3 w-3 text-purple-500" />
+                          <span>{getModeLabel(ticket.mode)}</span>
+                        </span>
+
+                        {ticket.creator_name && (
+                          <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-700 flex items-center gap-1">
+                            <User className="h-3 w-3 text-gray-400" />
+                            <span>Dibuat: {ticket.creator_name}</span>
+                          </span>
+                        )}
+
+                        <span className="text-[11px] font-medium text-gray-500 dark:text-slate-400 flex items-center gap-1 ml-1">
+                          <Clock className="h-3 w-3 text-gray-400" />
+                          <span>{formatDateWITA(ticket.created_at)}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Action: Edit, Delete, Detail Chat */}
+                  <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setEditingTicket(ticket);
+                      }}
+                      className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition shadow-2xs"
+                      title="Edit Tiket & Output"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeletingTicket(ticket);
+                      }}
+                      className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-gray-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition shadow-2xs"
+                      title={ticket.status === 'queued' ? 'Hapus dari Antrean' : 'Hapus Tiket'}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+
+                    <Link
+                      href={`/ticketing/${ticket.id}`}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      <span>Detail &amp; Chat</span>
+                      <ChevronRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </div>
+
+                {/* DETAIL GRID: INFORMASI LENGKAP DALAM KOTAK LEGA */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-gray-50/90 dark:bg-slate-850/80 p-3.5 sm:p-4 rounded-2xl border border-gray-200/60 dark:border-slate-800/80 text-xs">
+                  {/* ID Pelanggan */}
+                  <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-gray-100 dark:border-slate-750 shadow-2xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-400 block tracking-wider">
+                        ID Pelanggan
+                      </span>
+                      <span className="font-mono font-bold text-gray-900 dark:text-slate-100 text-sm">
+                        {ticket.customer_id}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => handleCopyTicketNumber(ticket.customer_id, `cust-${ticket.id}`, e)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition"
+                      title="Salin ID Pelanggan"
+                    >
+                      {copiedId === `cust-${ticket.id}` ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* No Telepon / WA */}
+                  <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-gray-100 dark:border-slate-755 shadow-2xs">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-400 block tracking-wider flex items-center gap-1">
+                        <Phone className="h-2.5 w-2.5 text-emerald-500" />
+                        <span>No. Telepon / WA</span>
+                      </span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-sm">
+                        {ticket.phone || '-'}
+                      </span>
+                    </div>
+                    {ticket.phone && (
+                      <a
+                        href={`https://wa.me/${ticket.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition"
+                        title="Buka WhatsApp"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* ID PLN (Jika ada) */}
+                  {ticket.pln_id && (
+                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-gray-100 dark:border-slate-750 shadow-2xs">
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-400 block tracking-wider flex items-center gap-1">
+                          <Zap className="h-2.5 w-2.5 text-amber-500" />
+                          <span>ID PLN</span>
+                        </span>
+                        <span className="font-mono font-bold text-gray-900 dark:text-slate-100 text-sm">
+                          {ticket.pln_id}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyTicketNumber(ticket.pln_id!, `pln-${ticket.id}`, e)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition"
+                        title="Salin ID PLN"
+                      >
+                        {copiedId === `pln-${ticket.id}` ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Alamat Lengkap (Jika ada) */}
+                  {ticket.address && (
+                    <div className="col-span-1 sm:col-span-2 lg:col-span-3 bg-white dark:bg-slate-800 p-2.5 sm:p-3 rounded-xl border border-gray-100 dark:border-slate-750 flex items-start gap-2 shadow-2xs">
+                      <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
+                      <span className="text-gray-700 dark:text-slate-300 font-medium leading-relaxed">
+                        {ticket.address}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* KELUHAN PELANGGAN */}
+                <div className="bg-amber-50/70 dark:bg-slate-850 p-3.5 sm:p-4 rounded-2xl border border-amber-200/60 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-900 dark:text-amber-400 mb-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Keluhan Pelanggan:</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-gray-800 dark:text-slate-200 leading-relaxed font-normal whitespace-pre-wrap">
+                    {ticket.complaint}
+                  </p>
+                </div>
+
+                {/* OUTPUT / KESIMPULAN / NOMOR TIKET */}
+                {hasTicketNo && (
+                  <div
+                    className={`p-3.5 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 ${
+                      /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
+                        ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800/80 text-emerald-950 dark:text-emerald-100'
+                        : ticket.ticket_number!.toLowerCase().includes('bayar')
+                        ? 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800/80 text-amber-950 dark:text-amber-100'
+                        : 'bg-sky-50/90 dark:bg-sky-950/40 border-sky-300 dark:border-sky-800/80 text-sky-950 dark:text-sky-100'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider block opacity-75">
+                        {/^[A-Z0-9]{8}$/.test(ticket.ticket_number!) ? 'Nomor Tiket Resmi' : 'Output / Kesimpulan Tiket'}
+                      </span>
+                      <span
+                        className={`font-bold text-sm sm:text-base block mt-0.5 break-words ${
+                          /^[A-Z0-9]{8}$/.test(ticket.ticket_number!) ? 'font-mono text-emerald-700 dark:text-emerald-300 tracking-wider' : ''
+                        }`}
+                      >
+                        {ticket.ticket_number}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => handleCopyTicketNumber(ticket.ticket_number!, ticket.id, e)}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-current rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs shrink-0 hover:bg-gray-50 dark:hover:bg-slate-800"
+                      title="Salin Output"
+                    >
+                      {copiedId === ticket.id ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          <span className="text-emerald-600">Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          <span>Salin</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          /* ========================================================================= */
+          /* TAMPILAN MENU LIST (DAFTAR BARIS RINGKAS & PRAKTIS)                       */
+          /* ========================================================================= */
+          filteredTickets.map((ticket, index) => {
+            const isQueued = ticket.status === 'queued';
+            const hasTicketNo = !!ticket.ticket_number;
+
+            return (
+              <div
+                key={ticket.id}
+                className="bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 hover:border-blue-400 dark:hover:border-slate-700 rounded-2xl p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-3.5"
+              >
+                {/* Info Utama: Avatar, Nama, ID, Telepon, Tanggal */}
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {/* Urutan antrean */}
                   {isQueued && statusFilter === 'queued' && (
                     <div className="flex flex-col gap-1 items-center flex-shrink-0 pt-0.5">
                       <button
@@ -587,9 +899,9 @@ export default function TicketingDashboardPage() {
                         disabled={index === 0}
                         onClick={() => handleMoveQueue(ticket.id, 'up')}
                         className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-30 transition"
-                        title="Naikkan urutan antrean"
+                        title="Naikkan antrean"
                       >
-                        <ArrowUp className="h-3.5 w-3.5" />
+                        <ArrowUp className="h-3 w-3" />
                       </button>
                       <span className="text-[10px] font-bold text-gray-400 font-mono">
                         #{index + 1}
@@ -599,49 +911,37 @@ export default function TicketingDashboardPage() {
                         disabled={index === filteredTickets.length - 1}
                         onClick={() => handleMoveQueue(ticket.id, 'down')}
                         className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-30 transition"
-                        title="Turunkan urutan antrean"
+                        title="Turunkan antrean"
                       >
-                        <ArrowDown className="h-3.5 w-3.5" />
+                        <ArrowDown className="h-3 w-3" />
                       </button>
                     </div>
                   )}
 
-                  {/* Customer Avatar */}
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white font-bold text-sm flex items-center justify-center flex-shrink-0 shadow-2xs mt-0.5">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                     {ticket.name.trim().charAt(0).toUpperCase()}
                   </div>
 
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-gray-900 dark:text-slate-100 truncate">
+                      <span className="text-sm font-bold text-gray-900 dark:text-slate-100">
                         {ticket.name}
                       </span>
-
-                      {/* Status badge */}
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusBadgeClass(
-                          ticket.status as TicketStatus
-                        )}`}
-                      >
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusBadgeClass(ticket.status as TicketStatus)}`}>
                         {getStatusLabel(ticket.status as TicketStatus)}
                       </span>
-
-                      {/* Mode AI badge */}
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
                         {getModeLabel(ticket.mode)}
                       </span>
-
-                      {/* Creator attribution badge */}
                       {ticket.creator_name && (
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700 flex items-center gap-1">
-                          <User className="h-2.5 w-2.5 text-gray-400" />
-                          <span>Dibuat: {ticket.creator_name}</span>
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700">
+                          Dibuat: {ticket.creator_name}
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500 dark:text-slate-400">
-                      <span>ID: <strong className="text-gray-700 dark:text-slate-200">{ticket.customer_id}</strong></span>
+                      <span>ID: <strong className="text-gray-700 dark:text-slate-200 font-mono">{ticket.customer_id}</strong></span>
                       {ticket.phone && (
                         <>
                           <span>&bull;</span>
@@ -649,66 +949,28 @@ export default function TicketingDashboardPage() {
                         </>
                       )}
                       <span>&bull;</span>
-                      <span className="text-gray-400">{formatDateWITA(ticket.created_at)}</span>
+                      <span>{formatDateWITA(ticket.created_at)}</span>
                     </div>
 
-                    <p className="text-xs text-gray-600 dark:text-slate-300 line-clamp-1 text-ellipsis pr-4">
+                    <p className="text-xs text-gray-600 dark:text-slate-300 line-clamp-1 text-ellipsis">
+                      <span className="font-semibold text-gray-700 dark:text-slate-200">Keluhan: </span>
                       {ticket.complaint}
                     </p>
                   </div>
                 </div>
 
-                {/* Right action / Ticket Number highlight */}
-                <div className="flex items-center gap-3 self-end sm:self-center flex-shrink-0">
+                {/* Right: Output Badge & Action Buttons */}
+                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap sm:flex-nowrap">
                   {hasTicketNo && (
-                    <div
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-2xs max-w-xs ${
-                        /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
-                          ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800'
-                          : ticket.ticket_number!.toLowerCase().includes('bayar')
-                          ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-800'
-                          : 'bg-sky-50 dark:bg-sky-950/50 border-sky-300 dark:border-sky-800'
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <span
-                          className={`text-[9px] uppercase tracking-wider font-bold block ${
-                            /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
-                              ? 'text-emerald-800 dark:text-emerald-300'
-                              : ticket.ticket_number!.toLowerCase().includes('bayar')
-                              ? 'text-amber-800 dark:text-amber-300'
-                              : 'text-sky-800 dark:text-sky-300'
-                          }`}
-                        >
-                          {/^[A-Z0-9]{8}$/.test(ticket.ticket_number!) ? 'Nomor Tiket' : 'Output / Kesimpulan'}
-                        </span>
-                        <span
-                          className={`font-semibold text-xs tracking-tight line-clamp-1 ${
-                            /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
-                              ? 'font-mono font-extrabold text-sm text-emerald-950 dark:text-emerald-200 tracking-wider'
-                              : ticket.ticket_number!.toLowerCase().includes('bayar')
-                              ? 'text-amber-950 dark:text-amber-200'
-                              : 'text-sky-950 dark:text-sky-200'
-                          }`}
-                        >
-                          {ticket.ticket_number}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-300 dark:border-sky-800 text-sky-900 dark:text-sky-200 text-xs">
+                      <span className="font-bold font-mono">{ticket.ticket_number}</span>
                       <button
                         type="button"
                         onClick={(e) => handleCopyTicketNumber(ticket.ticket_number!, ticket.id, e)}
-                        className={`p-1.5 rounded-lg transition shrink-0 ${
-                          /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
-                            ? 'hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300'
-                            : 'hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300'
-                        }`}
-                        title="Salin Nomor Tiket / Output"
+                        className="p-1 hover:bg-sky-100 dark:hover:bg-sky-900 rounded transition"
+                        title="Salin"
                       >
-                        {copiedId === ticket.id ? (
-                          <Check className="h-4 w-4 text-emerald-600 animate-scale" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
+                        {copiedId === ticket.id ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
                       </button>
                     </div>
                   )}
@@ -720,8 +982,8 @@ export default function TicketingDashboardPage() {
                       e.stopPropagation();
                       setEditingTicket(ticket);
                     }}
-                    className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition shadow-2xs"
-                    title="Edit Tiket & Output"
+                    className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 transition shadow-2xs"
+                    title="Edit Tiket"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
@@ -733,15 +995,15 @@ export default function TicketingDashboardPage() {
                       e.stopPropagation();
                       setDeletingTicket(ticket);
                     }}
-                    className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-gray-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 transition shadow-2xs"
-                    title={ticket.status === 'queued' ? 'Hapus dari Antrean' : 'Hapus Tiket'}
+                    className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-gray-600 dark:text-slate-300 hover:text-rose-600 transition shadow-2xs"
+                    title="Hapus Tiket"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
 
                   <Link
                     href={`/ticketing/${ticket.id}`}
-                    className="inline-flex items-center gap-1 px-3.5 py-2 bg-gray-100 hover:bg-blue-600 hover:text-white dark:bg-slate-800 dark:hover:bg-blue-600 text-gray-700 dark:text-slate-200 rounded-xl text-xs font-bold transition shadow-2xs min-h-[38px]"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
                   >
                     <span>Detail &amp; Chat</span>
                     <ChevronRight className="h-3.5 w-3.5" />
