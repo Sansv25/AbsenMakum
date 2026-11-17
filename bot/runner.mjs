@@ -836,7 +836,10 @@ async function syncActiveChat(activeTicket) {
 
       function isTimestampOrMeta(t) {
         if (!t) return true;
-        const s = t.replace(/\s+/g, ' ').trim();
+        const s = t
+          .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+          .replace(/[\s\u202F\u00A0]+/g, ' ')
+          .trim();
         if (!s) return true;
         if (/^\d+$/.test(s)) return true;
         if (/^\d+[smhdwy]$/i.test(s)) return true;
@@ -1365,7 +1368,7 @@ async function syncActiveChat(activeTicket) {
     if (
       lastCsMessage &&
       lastCsMessage !== lastAnsweredMessage &&
-      activeTicket.status === 'in_conversation' &&
+      ['in_conversation', 'needs_admin'].includes(activeTicket.status) &&
       activeTicket.mode === 'ai' &&
       (activeTicket.ai_turns || 0) < 12
     ) {
@@ -1391,7 +1394,12 @@ async function syncActiveChat(activeTicket) {
         const isClosingReply = hasKnownOutcome && Boolean(aiReply.is_closing);
 
         if (isMonitoring && !isClosingReply) {
-          console.log(`🔔 [MODE MONITORING AKTIF] Balasan AI menunggu approval admin di Web!\n`);
+          const isDraftUpdate = activeTicket.status === 'needs_admin';
+          if (isDraftUpdate) {
+            console.log(`🔄 [DRAF AI DIPERBARUI] Mendeteksi pesan/pertanyaan baru dari CS, draf balasan AI berhasil diperbarui otomatis!\n`);
+          } else {
+            console.log(`🔔 [MODE MONITORING AKTIF] Balasan AI menunggu approval admin di Web!\n`);
+          }
           await supabase.from('ticketing_settings').upsert({
             key: 'pending_ai_reply',
             value: {
@@ -1401,11 +1409,15 @@ async function syncActiveChat(activeTicket) {
               incoming_text: lastCsMessage,
               created_at: new Date().toISOString(),
             },
+            updated_at: new Date().toISOString(),
           });
-          await supabase
-            .from('tickets')
-            .update({ status: 'needs_admin', updated_at: new Date().toISOString() })
-            .eq('id', activeTicket.id);
+          if (!isDraftUpdate) {
+            await supabase
+              .from('tickets')
+              .update({ status: 'needs_admin', updated_at: new Date().toISOString() })
+              .eq('id', activeTicket.id);
+            activeTicket.status = 'needs_admin';
+          }
 
           lastAnsweredMessage = lastCsMessage;
         } else {

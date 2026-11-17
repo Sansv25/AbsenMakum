@@ -167,9 +167,11 @@ function TicketDetailContent() {
         .then((d) => {
           if (d?.pending && d.pending.ticket_id === ticketId) {
             setPendingDraft(d.pending);
+            lastDraftCreatedAtRef.current = d.pending.created_at;
             setEditedDraftText(d.pending.reply_text || '');
           } else {
             setPendingDraft(null);
+            lastDraftCreatedAtRef.current = null;
             setEditedDraftText('');
           }
         })
@@ -182,11 +184,33 @@ function TicketDetailContent() {
     }
   }, [ticketId]);
 
+  const lastDraftCreatedAtRef = useRef<string | null>(null);
+
+  // Fungsi sinkronisasi draf AI balasan
+  const fetchPendingDraft = useCallback(async () => {
+    if (!ticketId) return;
+    try {
+      const res = await fetch('/api/ticketing/ai/pending-reply');
+      const d = await res.json();
+      if (d?.pending && d.pending.ticket_id === ticketId) {
+        setPendingDraft(d.pending);
+        // Otomatis ganti draf ke jawaban baru jika CS mengirim pertanyaan baru
+        if (d.pending.created_at !== lastDraftCreatedAtRef.current) {
+          lastDraftCreatedAtRef.current = d.pending.created_at;
+          setEditedDraftText(d.pending.reply_text || '');
+        }
+      } else {
+        setPendingDraft(null);
+        lastDraftCreatedAtRef.current = null;
+      }
+    } catch {}
+  }, [ticketId]);
+
   useEffect(() => {
     loadTicketAndImages();
   }, [loadTicketAndImages]);
 
-  // Realtime subscription for ticket & messages
+  // Realtime subscription for ticket, messages, and pending reply
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -210,6 +234,7 @@ function TicketDetailContent() {
           setTimeout(() => {
             chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
           }, 100);
+          fetchPendingDraft();
         }
       )
       .on(
@@ -220,39 +245,85 @@ function TicketDetailContent() {
           setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ticketing_settings', filter: 'key=eq.pending_ai_reply' },
+        () => {
+          fetchPendingDraft();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [ticketId, loadTicketAndImages]);
+  }, [ticketId, loadTicketAndImages, fetchPendingDraft]);
 
-  // Background polling for active ticket sync
-  const currentStatus = ticket?.status;
+  // Auto-sync aktif berkala (Polling 2.5s) agar chat & draf AI PASTI update live tanpa perlu refresh manual
   useEffect(() => {
-    if (!currentStatus || (currentStatus !== 'in_conversation' && currentStatus !== 'needs_admin')) {
-      return;
-    }
+    if (!ticketId) return;
 
     let isPolling = false;
     const interval = setInterval(async () => {
       if (isPolling) return;
       isPolling = true;
+
       try {
-        const res = await fetch('/api/ticketing/sync-chat', { method: 'POST' });
-        const data = await res.json();
-        if (data?.ticket_number) {
-          await loadTicketAndImages();
+        const supabase = createClient();
+
+        // 1. Ambil pesan chat terbaru langsung dari database
+        const { data: latestMsgs } = await supabase
+          .from('ticket_messages')
+          .select('*')
+          .eq('ticket_id', ticketId)
+          .order('created_at', { ascending: true });
+
+        if (latestMsgs) {
+          setMessages((prev) => {
+            const hasNewLength = prev.length !== latestMsgs.length;
+            const hasDifferentLast =
+              prev.length > 0 &&
+              latestMsgs.length > 0 &&
+              (prev[prev.length - 1]?.id !== latestMsgs[latestMsgs.length - 1]?.id ||
+               prev[prev.length - 1]?.ig_mid !== latestMsgs[latestMsgs.length - 1]?.ig_mid);
+
+            if (hasNewLength || hasDifferentLast) {
+              setTimeout(() => {
+                chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+              return latestMsgs as Message[];
+            }
+            return prev;
+          });
+        }
+
+        // 2. Ambil draf AI terbaru jika ada chat CS baru
+        await fetchPendingDraft();
+
+        // 3. Cek perubahan status tiket atau nomor tiket yang terbit
+        const { data: currentTicketData } = await supabase
+          .from('tickets')
+          .select('status, ticket_number')
+          .eq('id', ticketId)
+          .maybeSingle();
+
+        if (currentTicketData && ticket) {
+          if (
+            currentTicketData.status !== ticket.status ||
+            currentTicketData.ticket_number !== ticket.ticket_number
+          ) {
+            setTicket((prev) => (prev ? { ...prev, ...currentTicketData } : null));
+          }
         }
       } catch (err) {
-        console.error('Silent background sync error:', err);
+        console.error('Silent auto-sync error:', err);
       } finally {
         isPolling = false;
       }
-    }, 15000);
+    }, 2500);
 
     return () => clearInterval(interval);
-  }, [currentStatus, loadTicketAndImages]);
+  }, [ticketId, ticket, fetchPendingDraft]);
 
   // Handle Start Ticket (Manual Send in HP)
   const handleStartTicket = async () => {
