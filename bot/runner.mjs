@@ -61,10 +61,10 @@ function loadEnv() {
     path.resolve(__dirname, '..', '.env.local'),
   ];
 
-  let supabaseUrl = 'https://osaliefiqfydqibwfafl.supabase.co';
-  let supabaseAnonKey = '';
-  let serviceRoleKey = '';
-  let nvidiaApiKey = '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';
+  let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://osaliefiqfydqibwfafl.supabase.co';
+  let supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  let serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  let nvidiaApiKey = process.env.NVIDIA_NIM_API_KEY || '';
 
   for (const p of envPaths) {
     if (fs.existsSync(p)) {
