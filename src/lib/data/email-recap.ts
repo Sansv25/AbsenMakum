@@ -556,7 +556,7 @@ export async function sendDailyRecapEmailNow(
   const hadirList = recap.records.filter((r) => r.isHadir);
   const tidakHadirList = recap.records.filter((r) => !r.isHadir);
 
-  // Baris tabel Hadir
+  // Baris tabel Hadir (Hanya: No, Nama, Status, Jam)
   const hadirRows =
     hadirList.length > 0
       ? hadirList
@@ -565,19 +565,17 @@ export async function sendDailyRecapEmailNow(
         <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
           <td style="padding: 10px 12px; font-size: 13px; text-align: center; color: #64748b;">${idx + 1}</td>
           <td style="padding: 10px 12px; font-size: 13px; font-weight: bold; color: #0f172a;">${r.user.full_name}</td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #166534; font-weight: bold;">
-            <span style="background: #dcfce7; padding: 3px 8px; border-radius: 9999px;">✓ Hadir</span>
+          <td style="padding: 10px 12px; font-size: 12px; color: #166534; font-weight: bold; text-align: center;">
+            <span style="background: #dcfce7; padding: 4px 10px; border-radius: 9999px;">✓ Hadir</span>
           </td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #0f172a; font-weight: 600;">${r.attendanceTime || '-'}</td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #475569;">${r.methodLabel || '-'}</td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #64748b;">${r.message || '-'}</td>
+          <td style="padding: 10px 12px; font-size: 13px; color: #0f172a; font-weight: 700; text-align: center;">${r.attendanceTime ? r.attendanceTime + ' WITA' : '-'}</td>
         </tr>
       `
           )
           .join('')
-      : `<tr><td colspan="6" style="padding: 16px; text-align: center; color: #94a3b8; font-size: 13px;">Belum ada anak magang yang hadir pada tanggal ini.</td></tr>`;
+      : `<tr><td colspan="4" style="padding: 16px; text-align: center; color: #94a3b8; font-size: 13px;">Belum ada anak magang yang hadir pada tanggal ini.</td></tr>`;
 
-  // Baris tabel Tidak Hadir
+  // Baris tabel Tidak Hadir (No, Nama, Status, WhatsApp)
   const tidakHadirRows =
     tidakHadirList.length > 0
       ? tidakHadirList
@@ -586,16 +584,15 @@ export async function sendDailyRecapEmailNow(
         <tr style="border-bottom: 1px solid #fee2e2; background: #fff5f5;">
           <td style="padding: 10px 12px; font-size: 13px; text-align: center; color: #991b1b;">${idx + 1}</td>
           <td style="padding: 10px 12px; font-size: 13px; font-weight: bold; color: #991b1b;">${r.user.full_name}</td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #dc2626; font-weight: bold;">
-            <span style="background: #fee2e2; padding: 3px 8px; border-radius: 9999px;">✕ Tidak Hadir</span>
+          <td style="padding: 10px 12px; font-size: 12px; color: #dc2626; font-weight: bold; text-align: center;">
+            <span style="background: #fee2e2; padding: 4px 10px; border-radius: 9999px;">✕ Tidak Hadir</span>
           </td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #7f1d1d;">${r.user.email}</td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #7f1d1d;">${r.user.phone || '-'}</td>
+          <td style="padding: 10px 12px; font-size: 12px; color: #7f1d1d; text-align: center;">${r.user.phone ? `<a href="https://wa.me/${r.user.phone.replace(/[^0-9]/g, '')}" style="color: #059669; font-weight: 600; text-decoration: none;">${r.user.phone}</a>` : '-'}</td>
         </tr>
       `
           )
           .join('')
-      : `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #16a34a; font-size: 13px; font-weight: bold;">🎉 Luar biasa! Seluruh anak magang hadir lengkap hari ini (100%).</td></tr>`;
+      : `<tr><td colspan="4" style="padding: 16px; text-align: center; color: #16a34a; font-size: 13px; font-weight: bold;">🎉 Luar biasa! Seluruh anak magang hadir lengkap hari ini (100%).</td></tr>`;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -654,12 +651,10 @@ export async function sendDailyRecapEmailNow(
             <table>
               <thead>
                 <tr>
-                  <th style="width: 30px; text-align: center;">No</th>
-                  <th>Nama Petugas</th>
-                  <th>Status</th>
-                  <th>Waktu</th>
-                  <th>Metode</th>
-                  <th>Catatan</th>
+                  <th style="width: 35px; text-align: center;">No</th>
+                  <th>Nama Anak Magang</th>
+                  <th style="width: 100px; text-align: center;">Status</th>
+                  <th style="width: 110px; text-align: center;">Jam</th>
                 </tr>
               </thead>
               <tbody>
@@ -673,11 +668,10 @@ export async function sendDailyRecapEmailNow(
             <table>
               <thead>
                 <tr>
-                  <th style="width: 30px; text-align: center;">No</th>
-                  <th>Nama Petugas</th>
-                  <th>Status</th>
-                  <th>Email</th>
-                  <th>No. WhatsApp</th>
+                  <th style="width: 35px; text-align: center;">No</th>
+                  <th>Nama Anak Magang</th>
+                  <th style="width: 110px; text-align: center;">Status</th>
+                  <th style="width: 140px; text-align: center;">No. WhatsApp</th>
                 </tr>
               </thead>
               <tbody>
