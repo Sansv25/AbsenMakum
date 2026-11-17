@@ -520,7 +520,8 @@ export function UserManager({
             const isTargetOwner = user.email.toLowerCase() === MASTER_EMAIL.toLowerCase();
             const userRoles = resolveUserRoles(user);
             const isPending = !user.is_approved;
-            const isRecapped = userRoles.includes('magang') || userRoles.includes('piket');
+            const isPiketOfficer = userRoles.includes('piket');
+            const isMagangUser = userRoles.includes('magang');
 
             // Pilih icon utama untuk avatar
             let AvatarIcon = GraduationCap;
@@ -574,18 +575,34 @@ export function UserManager({
 
                       {/* Status Rekap Kehadiran */}
                       {!isPending && (
-                        isRecapped ? (
+                        isPiketOfficer && isMagangUser ? (
                           <span
                             className="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-medium px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1"
-                            title="Petugas Piket / Magang: Diikutsertakan dalam rekapan kehadiran piket"
+                            title="Diikutsertakan dalam Rekapitulasi Piket Petugas & Rekap Absen Harian"
                           >
                             <BarChart3 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
-                            <span>Ikut Rekap</span>
+                            <span>Rekap Piket &amp; Harian</span>
+                          </span>
+                        ) : isPiketOfficer ? (
+                          <span
+                            className="text-[10px] bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400 font-medium px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800 flex items-center gap-1"
+                            title="Petugas Piket: Diikutsertakan dalam tabel Rekapitulasi Piket Petugas dashboard"
+                          >
+                            <Clock className="h-2.5 w-2.5 text-indigo-600 dark:text-indigo-400" />
+                            <span>Rekap Piket</span>
+                          </span>
+                        ) : isMagangUser ? (
+                          <span
+                            className="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-medium px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1"
+                            title="Anak Magang: Diikutsertakan dalam tabel Rekap Absen Harian"
+                          >
+                            <BarChart3 className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>Rekap Harian</span>
                           </span>
                         ) : (
                           <span
                             className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 flex items-center gap-1"
-                            title="Bukan Piket/Magang: Tidak dihitung dalam tabel rekap piket dashboard"
+                            title="Manajemen / Non-Rekap: Tidak dihitung dalam rekapan kehadiran"
                           >
                             <EyeOff className="h-2.5 w-2.5 text-slate-500" />
                             <span>Tidak Direkap</span>
@@ -763,9 +780,14 @@ export function UserManager({
                               Akun Utama
                             </span>
                           )}
-                          {(roleKey === 'magang' || roleKey === 'piket') && (
+                          {roleKey === 'piket' && (
+                            <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 font-semibold px-2 py-0.2 rounded-full border border-indigo-300 dark:border-indigo-700">
+                              Rekap Piket
+                            </span>
+                          )}
+                          {roleKey === 'magang' && (
                             <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-semibold px-2 py-0.2 rounded-full border border-emerald-300 dark:border-emerald-700">
-                              Ikut Rekap
+                              Rekap Harian
                             </span>
                           )}
                         </div>
@@ -783,15 +805,25 @@ export function UserManager({
                 <span className="text-[11px] font-semibold text-gray-700 dark:text-slate-300 block">
                   Status Rekapitulasi Kehadiran:
                 </span>
-                {roleModalRoles.includes('magang') || roleModalRoles.includes('piket') ? (
+                {roleModalRoles.includes('piket') && roleModalRoles.includes('magang') ? (
                   <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
                     <BarChart3 className="h-4 w-4" />
-                    <span>DIHITUNG dalam rekapitulasi piket, grafik dashboard, &amp; laporan PDF.</span>
+                    <span>DIHITUNG dalam Rekapitulasi Piket Petugas (Shift) dan Rekap Absen Harian Magang.</span>
+                  </div>
+                ) : roleModalRoles.includes('piket') ? (
+                  <div className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-400 font-semibold">
+                    <Clock className="h-4 w-4" />
+                    <span>DIHITUNG dalam tabel Rekapitulasi Piket Petugas, grafik dashboard, &amp; laporan PDF.</span>
+                  </div>
+                ) : roleModalRoles.includes('magang') ? (
+                  <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
+                    <BarChart3 className="h-4 w-4" />
+                    <span>DIHITUNG dalam tabel Rekap Absen Harian Magang (Presensi Harian).</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 font-semibold">
                     <EyeOff className="h-4 w-4" />
-                    <span>TIDAK DIHITUNG dalam rekapitulasi piket dashboard (hanya monitoring &amp; manajemen).</span>
+                    <span>TIDAK DIHITUNG dalam rekapan kehadiran (hanya monitoring &amp; manajemen).</span>
                   </div>
                 )}
               </div>

@@ -349,13 +349,16 @@ export async function sendRecapEmailNow(
     if (attachData) attachments = attachData as Attachment[];
   }
 
-  // 3. Fetch profiles & holidays
+  // 3. Fetch profiles & holidays (hanya petugas piket yang masuk rekapitulasi piket)
   const [{ data: profData }, { data: holData }] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email'),
+    supabase.from('profiles').select('id, full_name, email, roles'),
     supabase.from('holidays').select('*'),
   ]);
 
-  const profiles = profData ?? [];
+  const rawProfiles = (profData ?? []) as { id: string; full_name?: string | null; email?: string | null; roles?: string[] }[];
+  const profiles = rawProfiles.filter(
+    (p) => p.roles && Array.isArray(p.roles) && p.roles.includes('piket')
+  );
   const holidays = (holData ?? []) as Holiday[];
 
   // 4. Generate PDF buffer
