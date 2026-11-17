@@ -9,25 +9,48 @@ import { createClient } from '@supabase/supabase-js';
 import path from 'path';
 import fs from 'fs';
 import readline from 'readline';
+import os from 'os';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Konfigurasi Path
-const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+// Auto-Deteksi Lokasi Google Chrome di Komputer Pengguna
+function findChromeExecutable() {
+  const commonPaths = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(process.env.PROGRAMFILES || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    path.join(process.env['PROGRAMFILES(X86)'] || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+  ];
+  for (const p of commonPaths) {
+    if (p && fs.existsSync(p)) return p;
+  }
+  return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+}
+
+const chromePath = findChromeExecutable();
 const DIRECT_THREAD_URL = 'https://www.instagram.com/direct/t/17848314279030884/';
 
 function getProfileDir() {
+  // 1. Cek folder profil portabel di dalam folder bot ini (.chrome_profile)
+  const portableProfile = path.resolve(__dirname, '.chrome_profile');
+  if (fs.existsSync(portableProfile)) {
+    return portableProfile;
+  }
+  // 2. Cek path eksternal lama jika ada
   const externalProfile = 'D:\\otomasi\\Auto tiket\\.chrome_instagram_profile';
   if (fs.existsSync(externalProfile)) {
     return externalProfile;
   }
+  // 3. Cek folder profil di level parent
   const localProfile = path.resolve(__dirname, '..', '.chrome_instagram_profile');
-  if (!fs.existsSync(localProfile)) {
-    fs.mkdirSync(localProfile, { recursive: true });
+  if (fs.existsSync(localProfile)) {
+    return localProfile;
   }
-  return localProfile;
+  // Default: gunakan folder portabel
+  return portableProfile;
 }
 
 // Baca Env Supabase & AI Key
@@ -1439,6 +1462,25 @@ async function checkAndRefreshSession() {
   }
 }
 
+// Kirim Heartbeat ke Supabase agar Web Dashboard Tahu Siapa Petugas yang Aktif
+let lastHeartbeatTime = 0;
+async function sendHeartbeat(isOnline = true) {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const userEmail = session?.user?.email || 'Petugas Piket';
+    await supabase.from('ticketing_settings').upsert({
+      key: 'bot_runner_heartbeat',
+      value: {
+        online: isOnline,
+        user_email: userEmail,
+        hostname: os.hostname(),
+        timestamp: new Date().toISOString(),
+      },
+      updated_at: new Date().toISOString(),
+    });
+  } catch {}
+}
+
 // Loop Utama Bot
 async function startBotLoop() {
   console.log('=======================================================');
@@ -1446,9 +1488,11 @@ async function startBotLoop() {
   console.log('=======================================================');
   console.log(`[INFO] Supabase URL: ${supabaseUrl}`);
   console.log(`[INFO] Profil Chrome: ${getProfileDir()}`);
+  console.log(`[INFO] Lokasi Chrome: ${chromePath}`);
   console.log('[INFO] Bot siap memantau antrean & balasan AI...\n');
 
   await ensureAuthenticated();
+  await sendHeartbeat(true);
 
   let isChecking = false;
 
@@ -1457,6 +1501,12 @@ async function startBotLoop() {
     isChecking = true;
 
     try {
+      // Kirim heartbeat berkala setiap ~12 detik
+      if (Date.now() - lastHeartbeatTime > 12000) {
+        lastHeartbeatTime = Date.now();
+        sendHeartbeat(true);
+      }
+
       const isAuthValid = await checkAndRefreshSession();
       if (!isAuthValid) {
         updateStatusLine('⚠️ [SESI EXPIRED] Sesi login Supabase habis. Tutup dan buka kembali jalankan_bot.bat untuk login!');
@@ -1507,6 +1557,9 @@ async function startBotLoop() {
 
 const cleanup = async () => {
   console.log('\n🛑 Menutup bot dan browser Chrome...');
+  try {
+    await sendHeartbeat(false);
+  } catch {}
   if (persistentBrowser) {
     try { await persistentBrowser.close(); } catch {}
   }

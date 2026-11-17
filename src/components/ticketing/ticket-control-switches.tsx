@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Plus, RefreshCw, Bot, ShieldCheck, Zap, Lock } from 'lucide-react';
 
@@ -28,6 +29,24 @@ export function TicketControlSwitches({
   isOwner = false,
   onCreateTicket,
 }: TicketControlSwitchesProps) {
+  const [botStatus, setBotStatus] = useState<{
+    online: boolean;
+    user_email?: string | null;
+    seconds_ago?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const checkBot = () => {
+      fetch('/api/ticketing/bot-status')
+        .then((r) => r.json())
+        .then((d) => setBotStatus(d))
+        .catch(() => {});
+    };
+    checkBot();
+    const interval = setInterval(checkBot, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -37,6 +56,23 @@ export function TicketControlSwitches({
               <Zap className="h-4 w-4 text-sky-500" />
               Pusat Kontrol Otomasi Tiket
             </h2>
+            {botStatus?.online ? (
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                title={`Bot sedang online di laptop petugas (${botStatus.user_email || 'Aktif'})`}
+              >
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Bot Piket Online ({botStatus.user_email?.split('@')[0] || 'Aktif'})
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border border-gray-200 dark:border-slate-700"
+                title="Bot runner belum aktif di laptop petugas piket"
+              >
+                <span className="h-2 w-2 rounded-full bg-gray-400" />
+                Bot Piket Offline
+              </span>
+            )}
             {!isOwner && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80">
                 <Lock className="w-2.5 h-2.5" /> Mode Lihat (Khusus Owner)
