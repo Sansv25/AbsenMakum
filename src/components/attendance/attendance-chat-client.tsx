@@ -8,7 +8,6 @@ import {
   X,
   CheckCheck,
   RefreshCw,
-  Sun,
   MessageSquare,
   Reply,
 } from 'lucide-react';
@@ -377,34 +376,6 @@ export function AttendanceChatClient({
                     </div>
                   )}
 
-                  {/* CHIP INDIKATOR: ABSEN BERSAMA */}
-                  {msg.feed_type === 'group_attendance' && (
-                    <div
-                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
-                        isMe
-                          ? 'bg-white/20 text-white'
-                          : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
-                      }`}
-                    >
-                      <Users className="w-3 h-3" />
-                      Absen Bersama
-                    </div>
-                  )}
-
-                  {/* CHIP INDIKATOR: ABSEN MANDIRI */}
-                  {msg.feed_type === 'absen_pagi' && (
-                    <div
-                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
-                        isMe
-                          ? 'bg-white/20 text-white'
-                          : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
-                      }`}
-                    >
-                      <Sun className="w-3 h-3" />
-                      Hadir
-                    </div>
-                  )}
-
                   {/* FOTO (ASPEK RASIO NATURAL - TIDAK KEPOTONG) */}
                   {photoUrl && (
                     <div
@@ -421,30 +392,54 @@ export function AttendanceChatClient({
                     </div>
                   )}
 
-                  {/* DAFTAR ANGGOTA (UNTUK ABSEN BERSAMA) */}
-                  {msg.feed_type === 'group_attendance' && (
-                    <div
-                      className={`text-xs font-medium pt-0.5 leading-relaxed ${
-                        isMe ? 'text-blue-100' : 'text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      👥 <strong>Hadir:</strong> {senderName} (Inisiator)
-                      {msg.group_members && msg.group_members.length > 0
-                        ? ', ' + msg.group_members.map((m) => m.full_name || m.email || 'Rekan').join(', ')
-                        : ''}
-                    </div>
-                  )}
+                  {/* DAFTAR ANGGOTA (UNTUK ABSEN BERSAMA: INISIATOR BOLD DIIKUTI REKAN) */}
+                  {msg.feed_type === 'group_attendance' && (() => {
+                    const otherMembers = (msg.group_members || []).filter(
+                      (m) =>
+                        m.user_id !== msg.user_id &&
+                        (m.full_name || m.email || '').trim().toLowerCase() !== senderName.trim().toLowerCase()
+                    );
+                    const uniqueOthers = Array.from(
+                      new Set(
+                        otherMembers
+                          .map((m) => m.full_name || m.email || 'Rekan')
+                          .filter(Boolean)
+                      )
+                    );
 
-                  {/* TEKS PESAN / CATATAN */}
-                  {msg.message && (
-                    <p
-                      className={`text-[13px] leading-relaxed whitespace-pre-wrap select-text ${
-                        isMe ? 'text-white' : 'text-slate-800 dark:text-slate-200'
-                      }`}
-                    >
-                      {msg.message}
-                    </p>
-                  )}
+                    return (
+                      <div
+                        className={`text-xs pt-0.5 leading-relaxed ${
+                          isMe ? 'text-blue-100' : 'text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <strong className="font-bold text-inherit">{senderName}</strong>
+                        {uniqueOthers.length > 0 && `, ${uniqueOthers.join(', ')}`}
+                      </div>
+                    );
+                  })()}
+
+                  {/* TEKS PESAN / CATATAN (DENGAN SANITASI TEKS BOT LAMA) */}
+                  {(() => {
+                    let text = msg.message;
+                    if (msg.feed_type === 'group_attendance' && text) {
+                      if (text.startsWith('📸 Absen Bersama Pagi')) {
+                        const parts = text.split('Catatan:');
+                        text = parts.length > 1 ? parts.slice(1).join('Catatan:').trim() : null;
+                      }
+                    }
+                    if (!text) return null;
+
+                    return (
+                      <p
+                        className={`text-[13px] leading-relaxed whitespace-pre-wrap select-text ${
+                          isMe ? 'text-white' : 'text-slate-800 dark:text-slate-200'
+                        }`}
+                      >
+                        {text}
+                      </p>
+                    );
+                  })()}
 
                   {/* FOOTER WAKTU */}
                   <div

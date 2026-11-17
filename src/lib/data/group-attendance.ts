@@ -24,17 +24,19 @@ export async function createGroupAttendanceSession(payload: {
   // Masa kedaluwarsa 3 menit dari sekarang
   const expires_at = new Date(Date.now() + 3 * 60 * 1000).toISOString();
 
-  const { data, error } = await supabase
+  const insertPayload: Record<string, unknown> = {
+    initiator_id: user.id,
+    work_date: payload.work_date,
+    qr_token,
+    photo_storage_path: payload.photo_storage_path || null,
+    note: payload.note || null,
+    status: 'pending',
+    expires_at,
+  };
+
+  let { data, error } = await supabase
     .from('group_attendance_sessions')
-    .insert({
-      initiator_id: user.id,
-      work_date: payload.work_date,
-      qr_token,
-      photo_storage_path: payload.photo_storage_path || null,
-      note: payload.note || null,
-      status: 'pending',
-      expires_at,
-    })
+    .insert(insertPayload)
     .select(`
       id,
       initiator_id,
@@ -54,6 +56,35 @@ export async function createGroupAttendanceSession(payload: {
       )
     `)
     .single();
+
+  // Fallback: jika database di Supabase masih memiliki constraint kolom shift_type NOT NULL
+  if (error && error.message && error.message.includes('shift_type')) {
+    const fallbackPayload = { ...insertPayload, shift_type: 'pagi' };
+    const retry = await supabase
+      .from('group_attendance_sessions')
+      .insert(fallbackPayload)
+      .select(`
+        id,
+        initiator_id,
+        work_date,
+        qr_token,
+        photo_storage_path,
+        note,
+        status,
+        expires_at,
+        created_at,
+        profiles:initiator_id (
+          id,
+          full_name,
+          email,
+          role,
+          roles
+        )
+      `)
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error || !data) {
     return { session: null, error: error?.message || 'Gagal membuat sesi absen bersama' };
@@ -336,19 +367,12 @@ export async function finalizeGroupAttendanceSession(
     .update({ status: 'completed' })
     .eq('id', sessionId);
 
-  // 3. Susun daftar nama peserta
-  const memberNames = (session.members || []).map((m) => m.full_name || 'Rekan').join(', ');
-  const totalCount = session.members?.length || 1;
-  const feedMessageText = `📸 Absen Bersama Pagi (${totalCount} Petugas Hadir):\n${memberNames}${
-    session.note ? `\n\nCatatan: ${session.note}` : ''
-  }`;
-
-  // 4. Publikasikan kartu pesan ke feed chat absensi pagi (Mandiri tanpa relasi ke piket)
+  // 3. Publikasikan kartu pesan ke feed chat absensi (simpan catatan inisiator jika ada)
   const { error: insertErr } = await supabase.from('attendance_feed').insert({
     user_id: user.id,
     work_date: session.work_date,
     feed_type: 'group_attendance',
-    message: feedMessageText,
+    message: session.note ? session.note.trim() : null,
     media_paths: session.photo_storage_path ? [session.photo_storage_path] : [],
     group_session_id: session.id,
   });
