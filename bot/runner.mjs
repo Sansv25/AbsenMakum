@@ -443,30 +443,62 @@ async function launchChrome(headless = true) {
   });
 }
 
-// Buka Thread DM @iconnet.here
-async function openDirectThread(page) {
-  await page.goto(DIRECT_THREAD_URL, { waitUntil: 'networkidle2', timeout: 35000 });
+// Browser & Tab Persistent Singleton (Membuat sinkronisasi chat instan ~100ms tanpa spawn/kill Chrome berulang kali)
+let persistentBrowser = null;
+let persistentPage = null;
+
+async function getDirectThreadPage() {
+  if (persistentBrowser && persistentPage && !persistentPage.isClosed() && persistentBrowser.isConnected()) {
+    try {
+      await persistentPage.evaluate(() => 1);
+      if (persistentPage.url().includes('/direct/t/')) {
+        // Cukup scroll ke bawah untuk memastikan pesan baru langsung terlihat di DOM
+        await persistentPage.evaluate(() => {
+          const allDivs = Array.from(document.querySelectorAll('div'));
+          for (const d of allDivs) {
+            if (d.scrollHeight > d.clientHeight && d.clientHeight > 200) {
+              d.scrollTop = d.scrollHeight;
+            }
+          }
+        });
+        return persistentPage;
+      }
+    } catch {
+      console.log('\n⚠️ Tab Chrome tidak responsif, me-restart browser...');
+      try { await persistentBrowser.close(); } catch {}
+      persistentBrowser = null;
+      persistentPage = null;
+    }
+  }
+
+  // Buka sesi browser baru jika belum ada
+  console.log('\n🌐 [CHROME LIVE] Menghubungkan sesi Chrome persistent ke Instagram DM...');
+  persistentBrowser = await launchChrome(true);
+  persistentPage = (await persistentBrowser.pages())[0] || (await persistentBrowser.newPage());
+
+  await persistentPage.goto(DIRECT_THREAD_URL, { waitUntil: 'domcontentloaded', timeout: 40000 });
   await new Promise((r) => setTimeout(r, 2000));
 
-  if (page.url().includes('/accounts/login')) {
+  if (persistentPage.url().includes('/accounts/login')) {
     throw new Error(
       'Sesi login Instagram belum tersimpan. Silakan jalankan "login_instagram.bat" terlebih dahulu.'
     );
   }
 
+  // Dismiss modal dialog jika ada
   try {
-    const buttons = await page.$$('button');
+    const buttons = await persistentPage.$$('button');
     for (const btn of buttons) {
-      const text = await page.evaluate((el) => el.textContent, btn);
+      const text = await persistentPage.evaluate((el) => el.textContent, btn);
       if (text && (text.includes('Not Now') || text.includes('Lain Kali') || text.includes('Batal'))) {
         await btn.click();
-        await new Promise((r) => setTimeout(r, 800));
+        await new Promise((r) => setTimeout(r, 600));
       }
     }
   } catch {}
 
   // Scroll ke paling bawah
-  await page.evaluate(() => {
+  await persistentPage.evaluate(() => {
     const allDivs = Array.from(document.querySelectorAll('div'));
     for (const d of allDivs) {
       if (d.scrollHeight > d.clientHeight && d.clientHeight > 200) {
@@ -474,7 +506,8 @@ async function openDirectThread(page) {
       }
     }
   });
-  await new Promise((r) => setTimeout(r, 1000));
+
+  return persistentPage;
 }
 
 // Ketikkan dan kirim pesan teks ke thread DM Instagram
@@ -511,12 +544,9 @@ async function sendMessageToDirectThread(page, text) {
 async function dispatchTicket(ticket) {
   console.log(`\n🚀 [KIRIM TIKET] Memulai pengiriman: "${ticket.name}" (ID: ${ticket.customer_id})...`);
   const messageText = buildFirstMessage(ticket);
-  let browser = null;
 
   try {
-    browser = await launchChrome(true);
-    const page = (await browser.pages())[0] || (await browser.newPage());
-    await openDirectThread(page);
+    const page = await getDirectThreadPage();
 
     // KUNCI PENGAMAN: Periksa apakah ada sisa sesi sebelumnya yang belum ditutup oleh CS
     const lastChatText = await page.evaluate(() => {
@@ -624,20 +654,13 @@ async function dispatchTicket(ticket) {
     console.log(`✅ [SUKSES] Tiket "${ticket.name}" kini berstatus SEDANG BERJALAN di Instagram!\n`);
   } catch (err) {
     console.error(`❌ Gagal mengirim tiket: ${err.message}\n`);
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
   }
 }
 
 // Cek Pesan Masuk, Ekstrak Nomor Tiket, & Jalankan AI Auto-Reply
 async function syncActiveChat(activeTicket) {
-  let browser = null;
   try {
-    browser = await launchChrome(true);
-    const page = (await browser.pages())[0] || (await browser.newPage());
-    await openDirectThread(page);
+    const page = await getDirectThreadPage();
 
     const messages = await page.evaluate(() => {
       // Abaikan sidebar navigasi, panel rincian/info di sebelah kanan, dan dialog
@@ -1146,10 +1169,6 @@ async function syncActiveChat(activeTicket) {
     }
   } catch (err) {
     console.error('   ⚠️ Error sync chat:', err.message);
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
   }
 }
 
@@ -1264,8 +1283,19 @@ async function startBotLoop() {
   };
 
   await runCycle();
-  setInterval(runCycle, 12000);
+  setInterval(runCycle, 4000);
 }
+
+const cleanup = async () => {
+  console.log('\n🛑 Menutup bot dan browser Chrome...');
+  if (persistentBrowser) {
+    try { await persistentBrowser.close(); } catch {}
+  }
+  process.exit(0);
+};
+
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
 
 startBotLoop().catch((err) => {
   console.error('Fatal bot error:', err);
