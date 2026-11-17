@@ -26,6 +26,9 @@ export interface AttendanceFeedMessage {
   media_paths: string[];
   media_urls?: string[];
   group_session_id: string | null;
+  reply_to_id?: string | null;
+  reply_to_text?: string | null;
+  reply_to_user?: string | null;
   created_at: string;
   user?: FeedUser;
   group_members?: GroupMemberInfo[];

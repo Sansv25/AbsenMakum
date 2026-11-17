@@ -6,12 +6,12 @@ import {
   Camera,
   Users,
   X,
-  Clock,
-  CheckCircle2,
+  CheckCheck,
   Calendar,
   RefreshCw,
   Sun,
   MessageSquare,
+  Reply,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { compressImage, isImageFile } from '@/lib/image';
@@ -22,6 +22,12 @@ import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { GroupAttendanceModal } from './group-attendance-modal';
 import type { AttendanceFeedMessage, FeedType } from '@/lib/types/attendance-feed';
 import type { AppRole } from '@/lib/supabase/types';
+
+interface ReplyingTarget {
+  id: string;
+  author: string;
+  text: string;
+}
 
 interface AttendanceChatClientProps {
   initialDate: string;
@@ -53,6 +59,10 @@ export function AttendanceChatClient({
   const [isSending, setIsSending] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState<ReplyingTarget | null>(null);
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
 
   // Modal QR & Lightbox state
   const [groupModalOpen, setGroupModalOpen] = useState<boolean>(false);
@@ -149,7 +159,17 @@ export function AttendanceChatClient({
     }
   }
 
-  // Kirim absen pagi / pesan chat
+  // Lompat ke pesan yang dibalas
+  function scrollToRepliedMessage(id: string) {
+    const el = document.getElementById(`msg-${id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMsgId(id);
+      setTimeout(() => setHighlightedMsgId(null), 2000);
+    }
+  }
+
+  // Kirim absen pagi / pesan chat / balasan
   async function handleSendMessage(e?: React.FormEvent) {
     if (e) e.preventDefault();
     if (isSending || isCompressing) return;
@@ -190,6 +210,9 @@ export function AttendanceChatClient({
           feed_type: feedType,
           message: trimmed || null,
           media_paths: storagePath ? [storagePath] : [],
+          reply_to_id: replyingTo?.id || null,
+          reply_to_text: replyingTo?.text || null,
+          reply_to_user: replyingTo?.author || null,
         }),
       });
 
@@ -198,9 +221,10 @@ export function AttendanceChatClient({
         throw new Error(json.error || 'Gagal mengirim pesan');
       }
 
-      // 3. Reset form
+      // 3. Reset form & status reply
       setInputText('');
       clearAttachment();
+      setReplyingTo(null);
       setFeedType('absen_pagi');
 
       // Refresh list
@@ -220,100 +244,94 @@ export function AttendanceChatClient({
   }
 
   return (
-    <div className="flex flex-col h-full max-h-full w-full max-w-4xl mx-auto bg-slate-50 dark:bg-slate-950 border-x border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-      {/* 1. Header Absen Pagi */}
-      <div className="shrink-0 p-3 sm:p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+    <div className="flex flex-col h-full max-h-full w-full max-w-3xl mx-auto bg-slate-50 dark:bg-slate-950 border-x border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+      {/* 1. Top Bar */}
+      <div className="shrink-0 px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <Sun className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <Sun className="w-4 h-4" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-              Absen Pagi & Feed
-              <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
-                Khusus Pagi
-              </span>
+            <h1 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 leading-none">
+              Absen Pagi
             </h1>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               {formatIndonesia(workDate)}
             </p>
           </div>
         </div>
 
         {/* Date Picker & Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-between sm:justify-end">
+        <div className="flex items-center gap-2">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 mr-1">
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{currentUserName}</span>
+            <RoleBadgeGroup roles={currentUserRoles} isMaster={isMaster} />
+          </div>
+
           {/* Date Picker */}
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
             <input
               type="date"
               value={workDate}
               onChange={(e) => setWorkDate(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
             />
-          </div>
-
-          <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 mr-1">
-            <span>
-              <strong className="text-slate-800 dark:text-slate-200">{currentUserName}</strong>
-            </span>
-            <RoleBadgeGroup roles={currentUserRoles} isMaster={isMaster} />
           </div>
 
           <button
             onClick={() => setGroupModalOpen(true)}
-            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 rounded-xl shadow-md transition transform active:scale-95"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition"
           >
-            <Users className="w-4 h-4" />
-            <span>Absen Bareng (QR)</span>
+            <Users className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Absen Bareng</span> (QR)
           </button>
 
           <button
             onClick={() => loadMessages(workDate)}
             disabled={loading}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             title="Segarkan Feed"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* 2. Messages Feed Scrollable Area */}
+      {/* 2. Messages Feed (Pure Chat Bubbles) */}
       <div
         ref={chatScrollRef}
-        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 scroll-smooth overscroll-contain"
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5 scroll-smooth overscroll-contain"
       >
-        {/* Info Banner Tanggal */}
-        <div className="flex items-center justify-center my-1">
-          <span className="text-[11px] font-medium text-slate-500 bg-slate-200/60 dark:bg-slate-800/80 px-3 py-1 rounded-full border border-slate-300/40 dark:border-slate-700/60">
-            🌅 Absen Pagi • {formatIndonesia(workDate)}
+        {/* Date Divider */}
+        <div className="flex items-center justify-center my-2">
+          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 shadow-2xs">
+            {formatIndonesia(workDate)}
           </span>
         </div>
 
         {/* Empty State */}
         {messages.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
-              <Sun className="w-7 h-7" />
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mb-2">
+              <MessageSquare className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-1">
-              Belum Ada yang Absen Pagi Hari Ini
-            </h4>
-            <p className="text-xs text-slate-500 max-w-sm mb-4">
-              Jadilah yang pertama check-in pagi! Unggah foto selfie kehadiran Anda atau gunakan{' '}
-              <span className="font-semibold text-amber-600">Absen Bareng</span> jika datang bersama rekan kantor.
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              Belum ada absensi pagi hari ini.
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5 mb-4">
+              Kirim foto selfie atau buka Absen Bareng untuk scan QR bersama rekan.
             </p>
             <button
               onClick={() => setGroupModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 rounded-xl transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 rounded-lg transition"
             >
-              <Users className="w-4 h-4" /> Buka QR Absen Bersama Pagi
+              <Users className="w-3.5 h-3.5" /> Buka QR Absen Bareng
             </button>
           </div>
         )}
 
-        {/* Message Items */}
+        {/* Message Items (Pure Bubble Chat) */}
         {messages.map((msg) => {
           const isMe = msg.user_id === currentUserId;
           const senderName = msg.user?.full_name || msg.user?.email || 'Petugas';
@@ -322,247 +340,239 @@ export function AttendanceChatClient({
             minute: '2-digit',
             timeZone: 'Asia/Makassar',
           });
-
-          // A. SPECIAL CARD: Absen Bersama Pagi (Group Attendance)
-          if (msg.feed_type === 'group_attendance') {
-            const photoUrl = msg.media_urls?.[0];
-            return (
-              <div
-                key={msg.id}
-                className="mx-auto max-w-lg bg-gradient-to-b from-amber-50 to-white dark:from-slate-900 dark:to-slate-950 border border-amber-200 dark:border-amber-900/60 rounded-3xl p-4 shadow-md space-y-3"
-              >
-                {/* Header Card */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-sm">
-                      <Users className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                        Absen Bersama Pagi (QR Verified)
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        Inisiator: {senderName} • {timeStr} WITA
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Hadir Pagi
-                  </span>
-                </div>
-
-                {/* Foto Bersama */}
-                {photoUrl && (
-                  <div
-                    onClick={() => openLightbox(photoUrl)}
-                    className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 cursor-pointer group"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photoUrl}
-                      alt="Foto Absen Bersama Pagi"
-                      className="w-full h-52 object-cover group-hover:scale-105 transition duration-300"
-                    />
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold backdrop-blur-[2px]">
-                      🔍 Klik untuk perbesar
-                    </div>
-                  </div>
-                )}
-
-                {/* Anggota yang Hadir */}
-                <div className="bg-white/80 dark:bg-slate-900/80 rounded-2xl p-3 border border-slate-100 dark:border-slate-800 space-y-2">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-amber-600" />
-                    Rekan Terverifikasi Hadir ({(msg.group_members?.length || 0) + 1}):
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {/* Inisiator Badge */}
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 px-2.5 py-1 rounded-xl">
-                      👑 {senderName}
-                    </span>
-                    {/* Rekan Scan */}
-                    {msg.group_members?.map((m) => (
-                      <span
-                        key={m.user_id}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 px-2.5 py-1 rounded-xl"
-                      >
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        {m.full_name || m.email || 'Rekan'}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pesan Tambahan / Catatan */}
-                {msg.message && (
-                  <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed px-1">
-                    {msg.message}
-                  </p>
-                )}
-              </div>
-            );
-          }
-
-          // B. CARD: Absen Mandiri Pagi (absen_pagi)
-          if (msg.feed_type === 'absen_pagi') {
-            const photoUrl = msg.media_urls?.[0];
-            return (
-              <div
-                key={msg.id}
-                className={`max-w-sm ${isMe ? 'ml-auto' : 'mr-auto'} rounded-2xl p-3.5 shadow-sm border bg-amber-50/60 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/60`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                    <Sun className="w-3 h-3 text-amber-600" /> Hadir Pagi
-                  </span>
-                  <span className="text-[10px] text-slate-400">{timeStr} WITA</span>
-                </div>
-
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {isMe ? 'Anda' : senderName}
-                  </span>
-                  <RoleBadgeGroup roles={msg.user?.roles} />
-                </div>
-
-                {photoUrl && (
-                  <div
-                    onClick={() => openLightbox(photoUrl)}
-                    className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 cursor-pointer group my-2"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photoUrl}
-                      alt="Foto Absen Pagi"
-                      className="w-full h-44 object-cover group-hover:scale-105 transition"
-                    />
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[10px] font-medium">
-                      Perbesar
-                    </div>
-                  </div>
-                )}
-
-                {msg.message && (
-                  <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                    {msg.message}
-                  </p>
-                )}
-              </div>
-            );
-          }
-
-          // C. REGULAR CHAT / PESAN
           const photoUrl = msg.media_urls?.[0];
+          const isHighlighted = highlightedMsgId === msg.id;
+
           return (
             <div
               key={msg.id}
-              className={`flex flex-col max-w-[85%] sm:max-w-md ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'}`}
+              id={`msg-${msg.id}`}
+              className={`flex flex-col group relative transition-colors duration-300 ${
+                isMe ? 'items-end' : 'items-start'
+              }`}
             >
-              {/* Header Pengirim */}
+              {/* Header Pengirim (Untuk pesan rekan) */}
               {!isMe && (
                 <div className="flex items-center gap-1.5 mb-1 pl-1">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     {senderName}
                   </span>
                   <RoleBadgeGroup roles={msg.user?.roles} />
                 </div>
               )}
 
-              {/* Bubble Chat */}
               <div
-                className={`rounded-2xl p-3 shadow-sm ${
-                  isMe
-                    ? 'bg-blue-600 text-white rounded-br-xs'
-                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-bl-xs'
+                className={`flex items-end gap-1.5 max-w-[85%] sm:max-w-[75%] ${
+                  isMe ? 'flex-row-reverse' : 'flex-row'
                 }`}
               >
-                {photoUrl && (
-                  <div
-                    onClick={() => openLightbox(photoUrl)}
-                    className="relative rounded-xl overflow-hidden border border-white/20 dark:border-slate-800 bg-slate-950 cursor-pointer group mb-2"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photoUrl}
-                      alt="Lampiran"
-                      className="w-full max-h-56 object-cover group-hover:scale-105 transition"
-                    />
-                  </div>
-                )}
-
-                {msg.message && (
-                  <p className="text-xs whitespace-pre-wrap leading-relaxed select-text">
-                    {msg.message}
-                  </p>
-                )}
-
+                {/* Bubble Chat Card */}
                 <div
-                  className={`text-[10px] mt-1.5 flex items-center justify-end gap-1 ${
-                    isMe ? 'text-blue-100' : 'text-slate-400'
+                  className={`rounded-2xl p-3 shadow-xs space-y-1.5 transition ${
+                    isHighlighted ? 'ring-2 ring-blue-500 scale-[1.01]' : ''
+                  } ${
+                    isMe
+                      ? 'bg-blue-600 text-white rounded-br-xs'
+                      : 'bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-bl-xs'
                   }`}
                 >
-                  <Clock className="w-2.5 h-2.5" />
-                  <span>{timeStr} WITA</span>
+                  {/* QUOTE BLOCK (JIKA MEMBALAS PESAN LAIN) */}
+                  {msg.reply_to_user && (
+                    <div
+                      onClick={() => msg.reply_to_id && scrollToRepliedMessage(msg.reply_to_id)}
+                      className={`rounded-lg px-2.5 py-1.5 text-xs mb-1 cursor-pointer transition select-none ${
+                        isMe
+                          ? 'bg-black/15 border-l-3 border-white/80 hover:bg-black/25'
+                          : 'bg-slate-100 dark:bg-slate-800/80 border-l-3 border-blue-500 hover:bg-slate-200/80'
+                      }`}
+                    >
+                      <div
+                        className={`text-[11px] font-bold ${
+                          isMe ? 'text-white' : 'text-blue-600 dark:text-blue-400'
+                        }`}
+                      >
+                        {msg.reply_to_user}
+                      </div>
+                      <p
+                        className={`text-[11px] truncate ${
+                          isMe ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
+                        }`}
+                      >
+                        {msg.reply_to_text || '📷 Lampiran Foto'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* CHIP INDIKATOR: ABSEN BERSAMA */}
+                  {msg.feed_type === 'group_attendance' && (
+                    <div
+                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                        isMe
+                          ? 'bg-white/20 text-white'
+                          : 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
+                      }`}
+                    >
+                      <Users className="w-3 h-3" />
+                      Absen Bersama Pagi
+                    </div>
+                  )}
+
+                  {/* CHIP INDIKATOR: ABSEN PAGI MANDIRI */}
+                  {msg.feed_type === 'absen_pagi' && (
+                    <div
+                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                        isMe
+                          ? 'bg-white/20 text-white'
+                          : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
+                      }`}
+                    >
+                      <Sun className="w-3 h-3" />
+                      Hadir Pagi
+                    </div>
+                  )}
+
+                  {/* FOTO (ASPEK RASIO NATURAL - TIDAK KEPOTONG) */}
+                  {photoUrl && (
+                    <div
+                      onClick={() => openLightbox(photoUrl)}
+                      className="rounded-xl overflow-hidden cursor-pointer group relative my-1 bg-black/5 dark:bg-black/20"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photoUrl}
+                        alt="Foto Kehadiran"
+                        className="w-full max-h-[380px] object-contain rounded-xl block transition duration-200 group-hover:opacity-95"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+
+                  {/* DAFTAR ANGGOTA (UNTUK ABSEN BERSAMA) */}
+                  {msg.feed_type === 'group_attendance' && (
+                    <div
+                      className={`text-xs font-medium pt-0.5 leading-relaxed ${
+                        isMe ? 'text-blue-100' : 'text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      👥 <strong>Hadir:</strong> {senderName} (Inisiator)
+                      {msg.group_members && msg.group_members.length > 0
+                        ? ', ' + msg.group_members.map((m) => m.full_name || m.email || 'Rekan').join(', ')
+                        : ''}
+                    </div>
+                  )}
+
+                  {/* TEKS PESAN / CATATAN */}
+                  {msg.message && (
+                    <p
+                      className={`text-[13px] leading-relaxed whitespace-pre-wrap select-text ${
+                        isMe ? 'text-white' : 'text-slate-800 dark:text-slate-200'
+                      }`}
+                    >
+                      {msg.message}
+                    </p>
+                  )}
+
+                  {/* FOOTER WAKTU */}
+                  <div
+                    className={`text-[10px] flex items-center justify-end gap-1 pt-0.5 ${
+                      isMe ? 'text-blue-200' : 'text-slate-400'
+                    }`}
+                  >
+                    <span>{timeStr} WITA</span>
+                    {isMe && <CheckCheck className="w-3.5 h-3.5 text-blue-200" />}
+                  </div>
                 </div>
+
+                {/* TOMBOL REPLY (MUNCUL DI SAMPING BUBBLE) */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setReplyingTo({
+                      id: msg.id,
+                      author: senderName,
+                      text: msg.message || (msg.media_paths?.length ? '📷 Foto Kehadiran' : 'Absen Pagi'),
+                    })
+                  }
+                  className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition shrink-0"
+                  title="Balas pesan ini"
+                >
+                  <Reply className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* 3. Bottom Chat Input Area */}
-      <div className="shrink-0 p-3 sm:p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shadow-lg">
-        {/* Preview Lampiran Gambar jika dipilih */}
+      {/* 3. Bottom Input Bar */}
+      <div className="shrink-0 p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+        {/* DOCKED REPLY BANNER (JIKA SEDANG MEMBALAS) */}
+        {replyingTo && (
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-100 dark:bg-slate-800 border-l-3 border-blue-500 rounded-lg mb-2 text-xs animate-fade-in">
+            <div className="min-w-0 pr-2">
+              <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                <Reply className="w-3 h-3" /> Membalas {replyingTo.author}
+              </span>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                {replyingTo.text}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyingTo(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              title="Batalkan Balasan"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* PRATINJAU FOTO TERPILIH */}
         {attachedPreview && (
           <div className="mb-2 relative inline-block">
-            <div className="relative rounded-xl overflow-hidden border-2 border-amber-500 w-20 h-20 bg-slate-950">
+            <div className="relative rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 w-16 h-16 bg-slate-950">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={attachedPreview} alt="Preview" className="w-full h-full object-cover" />
               <button
                 type="button"
                 onClick={clearAttachment}
-                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-rose-600 transition"
+                className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-rose-600 transition"
               >
                 <X className="w-3 h-3" />
               </button>
             </div>
-            <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
-              ✓ Foto Selfie Siap
-            </span>
           </div>
         )}
 
-        {/* Action Pills: Mode Absen Pagi vs Chat */}
-        <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-1 text-xs">
+        {/* PILIHAN MODE: ABSEN PAGI ATAU CHAT */}
+        <div className="flex items-center gap-1.5 mb-2 text-xs">
           <button
             type="button"
             onClick={() => setFeedType('absen_pagi')}
-            className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 transition ${
+            className={`px-2.5 py-1 rounded-lg font-medium transition ${
               feedType === 'absen_pagi'
-                ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-800 shadow-xs'
-                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-semibold'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            <Sun className="w-3.5 h-3.5 text-amber-600" />
-            Absen Pagi (Selfie)
+            🌅 Absen Pagi (Selfie)
           </button>
           <button
             type="button"
             onClick={() => setFeedType('chat')}
-            className={`px-3 py-1 rounded-lg font-semibold flex items-center gap-1.5 transition ${
+            className={`px-2.5 py-1 rounded-lg font-medium transition ${
               feedType === 'chat'
-                ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800 shadow-xs'
-                : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-semibold'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
-            Obrolan / Catatan
+            💬 Obrolan
           </button>
         </div>
 
-        {/* Input Bar Form */}
+        {/* FORM INPUT PESAN */}
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          {/* Hidden File Input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -572,39 +582,38 @@ export function AttendanceChatClient({
             onChange={handleFileChange}
           />
 
-          {/* Upload Button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isCompressing}
-            className="w-10 h-10 shrink-0 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center transition"
+            className="w-9 h-9 shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition"
             title="Ambil Foto Selfie Pagi"
           >
             {isCompressing ? (
-              <RefreshCw className="w-5 h-5 animate-spin text-amber-600" />
+              <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
             ) : (
-              <Camera className="w-5 h-5" />
+              <Camera className="w-4 h-4" />
             )}
           </button>
 
-          {/* Input Text Field */}
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder={
-              feedType === 'absen_pagi'
-                ? 'Keterangan absen pagi (misal: Hadir di kantor / standby)...'
-                : 'Tulis pesan obrolan atau catatan...'
+              replyingTo
+                ? `Tulis balasan untuk ${replyingTo.author}...`
+                : feedType === 'absen_pagi'
+                ? 'Keterangan absen pagi (opsional)...'
+                : 'Tulis pesan...'
             }
-            className="flex-1 px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
 
-          {/* Send Button */}
           <button
             type="submit"
             disabled={isSending || isCompressing || (!inputText.trim() && !attachedFile)}
-            className="w-10 h-10 shrink-0 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-md transition"
+            className="w-9 h-9 shrink-0 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-xs transition"
           >
             {isSending ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -630,7 +639,7 @@ export function AttendanceChatClient({
         <ImageLightbox
           open={lightboxOpen}
           close={() => setLightboxOpen(false)}
-          slides={[{ src: lightboxSrc, title: 'Foto Absen Pagi' }]}
+          slides={[{ src: lightboxSrc, title: 'Foto Kehadiran' }]}
         />
       )}
     </div>

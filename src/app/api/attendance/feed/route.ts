@@ -28,7 +28,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { work_date, feed_type, message, media_paths, group_session_id } = body;
+    const {
+      work_date,
+      feed_type,
+      message,
+      media_paths,
+      group_session_id,
+      reply_to_id,
+      reply_to_text,
+      reply_to_user,
+    } = body;
 
     if (!work_date || !feed_type) {
       return NextResponse.json(
@@ -43,6 +52,9 @@ export async function POST(request: NextRequest) {
       message,
       media_paths,
       group_session_id,
+      reply_to_id,
+      reply_to_text,
+      reply_to_user,
     });
 
     if (result.error || !result.message) {

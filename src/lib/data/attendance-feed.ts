@@ -19,6 +19,9 @@ export async function getAttendanceFeedMessages(
       message,
       media_paths,
       group_session_id,
+      reply_to_id,
+      reply_to_text,
+      reply_to_user,
       created_at,
       profiles:user_id (
         id,
@@ -104,6 +107,9 @@ export async function getAttendanceFeedMessages(
         media_paths,
         media_urls,
         group_session_id: msg.group_session_id,
+        reply_to_id: msg.reply_to_id,
+        reply_to_text: msg.reply_to_text,
+        reply_to_user: msg.reply_to_user,
         created_at: msg.created_at,
         user: prof
           ? {
@@ -131,6 +137,9 @@ export async function createAttendanceFeedMessage(payload: {
   message?: string | null;
   media_paths?: string[];
   group_session_id?: string | null;
+  reply_to_id?: string | null;
+  reply_to_text?: string | null;
+  reply_to_user?: string | null;
 }): Promise<{ message: AttendanceFeedMessage | null; error?: string }> {
   const supabase = await createClient();
   const {
@@ -150,6 +159,9 @@ export async function createAttendanceFeedMessage(payload: {
       message: payload.message?.trim() || null,
       media_paths: payload.media_paths || [],
       group_session_id: payload.group_session_id || null,
+      reply_to_id: payload.reply_to_id || null,
+      reply_to_text: payload.reply_to_text || null,
+      reply_to_user: payload.reply_to_user || null,
     })
     .select(`
       id,
@@ -159,6 +171,9 @@ export async function createAttendanceFeedMessage(payload: {
       message,
       media_paths,
       group_session_id,
+      reply_to_id,
+      reply_to_text,
+      reply_to_user,
       created_at,
       profiles:user_id (
         id,
@@ -197,6 +212,9 @@ export async function createAttendanceFeedMessage(payload: {
       media_paths,
       media_urls,
       group_session_id: data.group_session_id,
+      reply_to_id: data.reply_to_id,
+      reply_to_text: data.reply_to_text,
+      reply_to_user: data.reply_to_user,
       created_at: data.created_at,
       user: prof
         ? {

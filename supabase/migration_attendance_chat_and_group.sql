@@ -17,6 +17,9 @@ CREATE TABLE public.attendance_feed (
   message text,
   media_paths text[] DEFAULT '{}',
   group_session_id uuid,
+  reply_to_id uuid REFERENCES public.attendance_feed(id) ON DELETE SET NULL,
+  reply_to_text text,
+  reply_to_user text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
