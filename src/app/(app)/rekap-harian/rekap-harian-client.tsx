@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -20,6 +20,7 @@ import {
   MessageCircle,
   Loader2,
   CalendarOff,
+  X,
 } from 'lucide-react';
 import { formatIndonesia, todayWITA } from '@/lib/dates';
 import { showAlert, showConfirm } from '@/lib/swal';
@@ -47,10 +48,10 @@ export function RekapHarianClient({
   holidayName = null,
 }: RekapHarianClientProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   const [currentDate, setCurrentDate] = useState<string>(initialDate);
   const [filterTab, setFilterTab] = useState<'all' | 'hadir' | 'tidak_hadir'>('all');
-  const [userScope, setUserScope] = useState<'magang' | 'semua'>('magang');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sendingEmail, setSendingEmail] = useState<boolean>(false);
 
@@ -58,10 +59,17 @@ export function RekapHarianClient({
   const [lightboxOpen, setLightboxOpen] = useState<boolean>(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
+  // Sinkronisasi tanggal saat server mengirim props baru
+  useEffect(() => {
+    setCurrentDate(initialDate);
+  }, [initialDate]);
+
+  const isChangingDate = isPending || currentDate !== initialDate;
+
   const today = todayWITA();
   const isToday = currentDate === today;
 
-  // Navigasi Tanggal
+  // Navigasi Tanggal dengan Transisi Loading Halus
   function changeDate(deltaDays: number) {
     const d = new Date(currentDate + 'T00:00:00');
     d.setDate(d.getDate() + deltaDays);
@@ -70,32 +78,35 @@ export function RekapHarianClient({
     const day = String(d.getDate()).padStart(2, '0');
     const newDateStr = `${y}-${m}-${day}`;
     setCurrentDate(newDateStr);
-    router.push(`/rekap-harian?date=${newDateStr}`);
+    startTransition(() => {
+      router.push(`/rekap-harian?date=${newDateStr}`);
+    });
   }
 
   function handleDateSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
     if (val && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
       setCurrentDate(val);
-      router.push(`/rekap-harian?date=${val}`);
+      startTransition(() => {
+        router.push(`/rekap-harian?date=${val}`);
+      });
     }
   }
 
   function goToToday() {
     setCurrentDate(today);
-    router.push(`/rekap-harian?date=${today}`);
+    startTransition(() => {
+      router.push(`/rekap-harian?date=${today}`);
+    });
   }
 
-  // Pilih dataset sesuai scope (Khusus Anak Magang vs Semua Petugas)
-  const baseRecords: DailyAttendanceRecord[] =
-    userScope === 'magang'
-      ? initialRecap.records
-      : initialRecap.allActiveRecords;
+  // Rekap Harian khusus untuk Anak Magang
+  const baseRecords: DailyAttendanceRecord[] = initialRecap.records;
 
-  const totalScope = baseRecords.length;
-  const hadirScope = baseRecords.filter((r) => r.isHadir).length;
-  const tidakHadirScope = totalScope - hadirScope;
-  const persentaseScope = totalScope > 0 ? Math.round((hadirScope / totalScope) * 100) : 0;
+  const totalMagang = baseRecords.length;
+  const hadirCount = baseRecords.filter((r) => r.isHadir).length;
+  const tidakHadirCount = totalMagang - hadirCount;
+  const persentaseHadir = totalMagang > 0 ? Math.round((hadirCount / totalMagang) * 100) : 0;
 
   // Filter sesuai tab status & query pencarian
   const filteredRecords = baseRecords.filter((rec) => {
@@ -271,41 +282,59 @@ export function RekapHarianClient({
           <button
             type="button"
             onClick={() => changeDate(-1)}
-            className="p-2 rounded-xl bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 transition"
+            disabled={isChangingDate}
+            className="p-2 rounded-xl bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 transition disabled:opacity-50"
             title="Hari Sebelumnya"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700">
-              <Calendar className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 dark:bg-slate-800 rounded-xl border transition-all ${
+              isChangingDate
+                ? 'border-emerald-500 ring-2 ring-emerald-500/20'
+                : 'border-gray-200 dark:border-slate-700'
+            }`}>
+              {isChangingDate ? (
+                <Loader2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 animate-spin" />
+              ) : (
+                <Calendar className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              )}
               <input
                 type="date"
                 value={currentDate}
                 onChange={handleDateSelect}
-                className="bg-transparent text-xs sm:text-sm font-bold text-gray-900 dark:text-slate-100 focus:outline-none cursor-pointer"
+                disabled={isChangingDate}
+                className="bg-transparent text-xs sm:text-sm font-bold text-gray-900 dark:text-slate-100 focus:outline-none cursor-pointer disabled:opacity-50"
               />
             </div>
 
             <button
               type="button"
               onClick={goToToday}
-              disabled={isToday}
+              disabled={isToday || isChangingDate}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
                 isToday
                   ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
                   : 'bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
-              }`}
+              } disabled:opacity-50`}
             >
-              Hari Ini
+              {isChangingDate && isToday ? (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Hari Ini
+                </span>
+              ) : (
+                'Hari Ini'
+              )}
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => changeDate(1)}
-            className="p-2 rounded-xl bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 transition"
+            disabled={isChangingDate}
+            className="p-2 rounded-xl bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 transition disabled:opacity-50"
             title="Hari Berikutnya"
           >
             <ChevronRight className="h-4 w-4" />
@@ -323,17 +352,17 @@ export function RekapHarianClient({
       </div>
 
       {/* 3. METRIC SUMMARY CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 transition-opacity duration-200 ${isChangingDate ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
         {/* Total Anak Magang */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-gray-200/90 dark:border-slate-800 shadow-2xs space-y-1">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-bold uppercase tracking-wider">
-              {userScope === 'magang' ? 'Total Anak Magang' : 'Total Petugas'}
+              Total Anak Magang
             </span>
             <GraduationCap className="h-4 w-4 text-blue-500" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white">
-            {totalScope}
+            {totalMagang}
           </div>
           <p className="text-[11px] text-gray-400 dark:text-slate-500">
             Terdaftar &amp; akun aktif
@@ -347,10 +376,10 @@ export function RekapHarianClient({
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700 dark:text-emerald-300">
-            {hadirScope}
+            {hadirCount}
           </div>
           <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400">
-            {persentaseScope}% dari total petugas
+            {persentaseHadir}% dari total anak magang
           </p>
         </div>
 
@@ -361,10 +390,10 @@ export function RekapHarianClient({
             <XCircle className="h-4 w-4 text-rose-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-rose-700 dark:text-rose-300">
-            {tidakHadirScope}
+            {tidakHadirCount}
           </div>
           <p className="text-[11px] text-rose-600/80 dark:text-rose-400">
-            {totalScope > 0 ? 100 - persentaseScope : 0}% belum absen
+            {totalMagang > 0 ? 100 - persentaseHadir : 0}% belum absen
           </p>
         </div>
 
@@ -375,21 +404,21 @@ export function RekapHarianClient({
             <Clock className="h-4 w-4 text-indigo-600" />
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-indigo-700 dark:text-indigo-300">
-            {persentaseScope}%
+            {persentaseHadir}%
           </div>
           <div className="w-full bg-indigo-200/60 dark:bg-indigo-900/60 h-1.5 rounded-full overflow-hidden mt-1.5">
             <div
               className="bg-indigo-600 dark:bg-indigo-400 h-full transition-all duration-500 rounded-full"
-              style={{ width: `${persentaseScope}%` }}
+              style={{ width: `${persentaseHadir}%` }}
             />
           </div>
         </div>
       </div>
 
       {/* 4. FILTER TABS & SEARCH CONTROLS */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-4 border border-gray-200/90 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-4 border border-gray-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
           <button
             type="button"
             onClick={() => setFilterTab('all')}
@@ -401,7 +430,7 @@ export function RekapHarianClient({
           >
             <span>Semua</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
-              {totalScope}
+              {totalMagang}
             </span>
           </button>
 
@@ -416,7 +445,7 @@ export function RekapHarianClient({
           >
             <span>✓ Hadir</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
-              {hadirScope}
+              {hadirCount}
             </span>
           </button>
 
@@ -431,68 +460,79 @@ export function RekapHarianClient({
           >
             <span>✕ Tidak Hadir</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
-              {tidakHadirScope}
+              {tidakHadirCount}
             </span>
           </button>
         </div>
 
-        {/* User Scope Toggle & Search */}
-        <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
-          {/* Scope Toggle */}
-          <div className="flex items-center p-0.5 bg-gray-100 dark:bg-slate-800 rounded-xl text-xs font-semibold shrink-0">
-            <button
-              type="button"
-              onClick={() => setUserScope('magang')}
-              className={`px-2.5 py-1 rounded-lg transition ${
-                userScope === 'magang'
-                  ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs font-bold'
-                  : 'text-gray-500 hover:text-gray-800 dark:text-slate-400'
-              }`}
-            >
-              🎓 Anak Magang
-            </button>
-            <button
-              type="button"
-              onClick={() => setUserScope('semua')}
-              className={`px-2.5 py-1 rounded-lg transition ${
-                userScope === 'semua'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-2xs font-bold'
-                  : 'text-gray-500 hover:text-gray-800 dark:text-slate-400'
-              }`}
-            >
-              👥 Semua Petugas
-            </button>
-          </div>
-
-          {/* Search Input */}
-          <div className="relative flex-1 sm:w-56">
+        {/* Search Input dengan Tombol Clear */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari nama / email..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              placeholder="Cari nama atau email anak magang..."
+              className="w-full pl-8 pr-8 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 rounded"
+                title="Hapus pencarian"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* 5. DAFTAR REKAPAN KEHADIRAN (TABEL / KARTU RESPONSIVE) */}
       <div className="space-y-3">
-        {filteredRecords.length === 0 ? (
+        {isChangingDate ? (
+          <div className="p-10 text-center bg-white dark:bg-slate-900 rounded-2xl border border-emerald-100 dark:border-slate-800 shadow-2xs space-y-3">
+            <div className="relative inline-flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full border-3 border-emerald-200 dark:border-emerald-900/60 border-t-emerald-600 dark:border-t-emerald-400 animate-spin" />
+              <GraduationCap className="h-5 w-5 text-emerald-600 dark:text-emerald-400 absolute" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900 dark:text-slate-100">
+                Memuat Rekapan Kehadiran...
+              </p>
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                Mengambil data absensi magang untuk {formatIndonesia(currentDate)}
+              </p>
+            </div>
+            {/* Animasi Skeleton Baris */}
+            <div className="space-y-2 pt-2 max-w-md mx-auto">
+              <div className="h-14 bg-gray-100/80 dark:bg-slate-800/60 rounded-xl animate-pulse" />
+              <div className="h-14 bg-gray-100/80 dark:bg-slate-800/60 rounded-xl animate-pulse" />
+              <div className="h-14 bg-gray-100/80 dark:bg-slate-800/60 rounded-xl animate-pulse" />
+            </div>
+          </div>
+        ) : filteredRecords.length === 0 ? (
           <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-gray-200/90 dark:border-slate-800 space-y-2">
             <div className="w-12 h-12 mx-auto rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-400">
               <Search className="h-6 w-6" />
             </div>
             <p className="text-sm font-bold text-gray-800 dark:text-slate-200">
-              Tidak ada data yang cocok
+              {searchQuery ? 'Tidak ada anak magang yang cocok dengan pencarian' : 'Tidak ada data presensi'}
             </p>
             <p className="text-xs text-gray-400 dark:text-slate-500">
-              {searchQuery
-                ? 'Tidak ada nama yang sesuai dengan kata kunci pencarian.'
-                : 'Tidak ada data kehadiran pada filter ini.'}
+              {searchQuery ? `Hasil pencarian untuk "${searchQuery}" tidak ditemukan.` : 'Belum ada catatan presensi pada tanggal ini.'}
             </p>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-slate-800 text-xs font-semibold text-gray-600 dark:text-slate-300 hover:bg-gray-200"
+              >
+                <X className="h-3 w-3" /> Reset Pencarian
+              </button>
+            )}
           </div>
         ) : (
           filteredRecords.map((rec) => {
