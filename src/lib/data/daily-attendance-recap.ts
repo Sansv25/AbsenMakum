@@ -206,7 +206,7 @@ export async function getDailyAttendanceRecap(
         verifiedAtRaw = item.created_at;
         attendanceTime = formatTimeWITA(item.created_at);
         feedType = 'group_attendance';
-        methodLabel = 'Absen Bareng (Inisiator QR)';
+        methodLabel = 'Absen Bareng';
         message = item.message;
         if (item.media_paths?.[0]) {
           photoUrl = signedUrlMap.get(item.media_paths[0]) || null;
@@ -216,7 +216,7 @@ export async function getDailyAttendanceRecap(
         verifiedAtRaw = memberRow.verified_at;
         attendanceTime = formatTimeWITA(memberRow.verified_at);
         feedType = 'group_attendance';
-        methodLabel = 'Absen Bareng (Scan QR)';
+        methodLabel = 'Absen Bareng';
         const groupFeed = groupFeedMap.get(memberRow.session_id);
         if (groupFeed) {
           message = groupFeed.message;

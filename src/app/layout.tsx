@@ -3,8 +3,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Absensi Piket',
-  description: 'Dokumentasi absensi piket harian',
+  title: 'Magang ICONNET',
+  description: 'Dokumentasi dan Presensi Harian Magang ICONNET',
 };
 
 export default function RootLayout({

@@ -32,7 +32,7 @@ const DEFAULT_SETTINGS: EmailRecapSettings = {
   recipients: [],
   frequency: 'mingguan',
   isActive: true,
-  senderName: 'Absensi Piket ICONNET',
+  senderName: 'Magang ICONNET',
   senderEmail: '',
   brevoApiKey: '',
   sendDayWeekly: 1,
@@ -120,7 +120,7 @@ export async function getEmailRecapSettings(): Promise<EmailRecapSettings> {
       recipients: Array.isArray(data.recipients) ? data.recipients : [],
       frequency: data.frequency || 'mingguan',
       isActive: data.is_active ?? true,
-      senderName: data.sender_name || 'Absensi Piket ICONNET',
+      senderName: data.sender_name || 'Magang ICONNET',
       senderEmail: data.sender_email || process.env.BREVO_SENDER_EMAIL || '',
       brevoApiKey: data.brevo_api_key || process.env.BREVO_API_KEY || '',
       sendDayWeekly: data.send_day_weekly ?? 1,
@@ -424,7 +424,7 @@ export async function sendRecapEmailNow(
             </div>
           </div>
           <div class="footer">
-            Email ini dikirim secara otomatis oleh Sistem Absensi Piket ICONNET.<br/>
+            Email ini dikirim secara otomatis oleh Sistem Magang ICONNET.<br/>
             Waktu Pengiriman: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Makassar' })} WITA
           </div>
         </div>
@@ -435,7 +435,7 @@ export async function sendRecapEmailNow(
   // 6. Kirim via Brevo REST API v3
   const brevoPayload = {
     sender: {
-      name: settings.senderName || 'Absensi Piket ICONNET',
+      name: settings.senderName || 'Magang ICONNET',
       email: senderEmail,
     },
     to: recipients.map((email) => ({ email: email.trim() })),
@@ -680,7 +680,7 @@ export async function sendDailyRecapEmailNow(
             </table>
           </div>
           <div class="footer">
-            Email ini dikirim secara otomatis oleh Sistem Absensi ICONNET.<br/>
+            Email ini dikirim secara otomatis oleh Sistem Magang ICONNET.<br/>
             Waktu Pengiriman: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Makassar' })} WITA
           </div>
         </div>
@@ -690,7 +690,7 @@ export async function sendDailyRecapEmailNow(
 
   const brevoPayload = {
     sender: {
-      name: settings.senderName || 'Absensi ICONNET',
+      name: settings.senderName || 'Magang ICONNET',
       email: senderEmail,
     },
     to: recipients.map((email) => ({ email: email.trim() })),

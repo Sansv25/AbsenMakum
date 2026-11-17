@@ -310,7 +310,7 @@ export function AppNavigation({
           </div>
           <div className="min-w-0">
             <h1 className="text-sm font-bold text-gray-900 dark:text-slate-100 leading-tight truncate">
-              Absensi Piket
+              Magang ICONNET
             </h1>
             <p className="text-[10px] text-sky-700 dark:text-sky-400 font-semibold tracking-wide">
               ICONNET BALINUSRA
@@ -509,7 +509,7 @@ export function AppNavigation({
               </div>
               <div>
                 <span className="font-bold text-gray-900 dark:text-slate-100 text-xs leading-none block">
-                  Absensi Piket
+                  Magang ICONNET
                 </span>
                 <span className="text-[9px] text-sky-700 dark:text-sky-400 font-semibold tracking-wide">
                   ICONNET

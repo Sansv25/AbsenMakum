@@ -180,7 +180,7 @@ export function UserManager({
     const name = user.full_name || user.email;
     const confirmed = await showConfirm(
       'Setujui Akun?',
-      `Setujui akun ${name}? Pengguna ini akan langsung dapat masuk dan mengisi absensi piket.`,
+      `Setujui akun ${name}? Pengguna ini akan langsung dapat masuk dan mengisi absensi.`,
       'Ya, Setujui Akun'
     );
     if (!confirmed) return;
@@ -939,7 +939,7 @@ export function UserManager({
                       Status Akun: Disetujui (Approved)
                     </span>
                     <span className="text-[11px] text-gray-500 dark:text-slate-400 block">
-                      Centang untuk mengizinkan pengguna masuk dan mengisi absensi piket.
+                      Centang untuk mengizinkan pengguna masuk dan mengisi absensi.
                     </span>
                   </div>
                 </label>

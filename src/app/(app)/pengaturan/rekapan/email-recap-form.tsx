@@ -685,7 +685,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
               type="text"
               value={settings.senderName}
               onChange={(e) => setSettings({ ...settings, senderName: e.target.value })}
-              placeholder="Absensi Piket ICONNET"
+              placeholder="Magang ICONNET"
               className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none"
             />
           </div>

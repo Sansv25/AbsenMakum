@@ -197,7 +197,7 @@ function LoginContent() {
           />
         </div>
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-slate-100">
-          Absensi Piket
+          Magang ICONNET
         </h1>
         <p className="text-center text-sky-700 dark:text-sky-400 text-xs font-semibold mt-0.5">
           ICONNET
