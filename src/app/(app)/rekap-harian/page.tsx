@@ -50,6 +50,19 @@ export default async function RekapHarianPage({ searchParams }: RekapHarianPageP
   // Ambil data pengaturan email untuk info status dan penerima
   const emailSettings = await getEmailRecapSettings();
 
+  // Cek apakah tanggal yang dilihat merupakan hari libur (dari tabel holidays atau akhir pekan)
+  const { data: holidayData } = await supabase
+    .from('holidays')
+    .select('id, name')
+    .eq('holiday_date', workDate)
+    .maybeSingle();
+
+  const [y, m, d] = workDate.split('-').map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const isWeekend = dow === 0 || dow === 6;
+  const isHoliday = Boolean(holidayData) || isWeekend;
+  const holidayName = holidayData?.name || (isWeekend ? (dow === 0 ? 'Hari Minggu' : 'Hari Sabtu') : null);
+
   return (
     <RekapHarianClient
       initialDate={workDate}
@@ -61,6 +74,8 @@ export default async function RekapHarianPage({ searchParams }: RekapHarianPageP
           ? emailSettings.dailyRecipients.length
           : emailSettings.recipients.length
       }
+      isHoliday={isHoliday}
+      holidayName={holidayName}
     />
   );
 }

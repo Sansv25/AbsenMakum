@@ -20,6 +20,7 @@ import {
   EyeOff,
   Info,
   GraduationCap,
+  CalendarOff,
 } from 'lucide-react';
 
 interface EmailRecapFormProps {
@@ -320,6 +321,14 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
             </label>
           </div>
+        </div>
+
+        {/* Info Proteksi Hari Libur */}
+        <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 rounded-xl text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-2.5">
+          <CalendarOff className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>
+            <strong>Proteksi Hari Libur Aktif:</strong> Pengiriman rekapan harian otomatis dilewati pada tanggal merah yang diatur di menu <strong>Libur &amp; Shift</strong> serta akhir pekan (Sabtu &amp; Minggu).
+          </span>
         </div>
 
         {/* Input Tambah Email Magang */}

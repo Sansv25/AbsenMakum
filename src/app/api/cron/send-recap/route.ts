@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { getEmailRecapSettings, sendRecapEmailNow, sendDailyRecapEmailNow } from '@/lib/data/email-recap';
 import { cleanupOldChatMessages } from '@/lib/data/attendance-feed';
 
@@ -28,6 +29,24 @@ export async function GET(req: Request) {
     const dayOfMonth = wita.getDate();
     const currentHour = wita.getHours();
 
+    const yyyy = wita.getFullYear();
+    const mm = String(wita.getMonth() + 1).padStart(2, '0');
+    const dd = String(wita.getDate()).padStart(2, '0');
+    const todayWitaStr = `${yyyy}-${mm}-${dd}`;
+
+    const supabase = await createClient();
+
+    // Cek apakah hari ini terdaftar di setting hari libur (tabel holidays)
+    const { data: holidayData } = await supabase
+      .from('holidays')
+      .select('id, name')
+      .eq('holiday_date', todayWitaStr)
+      .maybeSingle();
+
+    const isHoliday = Boolean(holidayData);
+    const isWeekend = dayOfWeek === 6 || dayOfWeek === 7;
+    const isDayOff = isHoliday || isWeekend;
+
     let triggerWeekly = false;
     let triggerMonthly = false;
     let triggerDaily = false;
@@ -40,10 +59,17 @@ export async function GET(req: Request) {
       triggerMonthly = true;
     } else {
       // 1. Cek Rekapan Harian (Jika jam >= jam kirim yang disetting dan aktif)
+      // JANGAN KIRIM jika hari ini adalah hari libur (dari setting libur) atau akhir pekan
       if (settings.dailyIsActive) {
         const [targetHour] = (settings.dailySendTime || '18:00').split(':').map(Number);
         if (currentHour === targetHour) {
-          triggerDaily = true;
+          if (!isDayOff) {
+            triggerDaily = true;
+          } else {
+            console.log(
+              `Cron: Lewati pengiriman rekapan harian karena hari ini libur (${holidayData?.name ? `Tanggal Merah: ${holidayData.name}` : 'Akhir Pekan'}).`
+            );
+          }
         }
       }
 
@@ -69,8 +95,17 @@ export async function GET(req: Request) {
     const results = [];
 
     if (triggerDaily) {
-      const res = await sendDailyRecapEmailNow();
+      const res = await sendDailyRecapEmailNow(todayWitaStr, undefined, forceType === 'harian');
       results.push({ type: 'harian', ...res });
+    } else if (settings.dailyIsActive && isDayOff) {
+      const [targetHour] = (settings.dailySendTime || '18:00').split(':').map(Number);
+      if (currentHour === targetHour) {
+        results.push({
+          type: 'harian_skipped',
+          holidayName: holidayData?.name || (isWeekend ? 'Akhir Pekan' : 'Hari Libur'),
+          reason: `Pengiriman rekapan absen harian dilewati karena hari ini adalah hari libur (${holidayData?.name ? `Tanggal Merah: ${holidayData.name}` : 'Akhir Pekan'}).`,
+        });
+      }
     }
 
     if (triggerWeekly) {
@@ -93,6 +128,9 @@ export async function GET(req: Request) {
         dayOfWeek,
         dayOfMonth,
         currentHour,
+        todayWitaStr,
+        isDayOff,
+        holidayName: holidayData?.name || null,
         cleanupResult,
         settings: {
           dailyIsActive: settings.dailyIsActive,
@@ -109,4 +147,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
-

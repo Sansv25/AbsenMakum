@@ -504,11 +504,40 @@ export async function sendRecapEmailNow(
  */
 export async function sendDailyRecapEmailNow(
   targetDate?: string,
-  overrideRecipients?: string[]
-): Promise<{ success: boolean; message?: string; error?: string }> {
+  overrideRecipients?: string[],
+  forceSendOnHoliday = false
+): Promise<{ success: boolean; message?: string; error?: string; isHolidaySkipped?: boolean }> {
   const { isMaster } = await getCurrentUserProfile();
   if (!isMaster) {
     return { success: false, error: 'Hanya Akun Master yang diizinkan mengirim rekapan email.' };
+  }
+
+  const workDate = targetDate || todayWITA();
+  const supabase = await createClient();
+
+  // Cek apakah workDate adalah hari libur (dari tabel setting holidays atau akhir pekan)
+  const { data: holidayData } = await supabase
+    .from('holidays')
+    .select('id, name')
+    .eq('holiday_date', workDate)
+    .maybeSingle();
+
+  const [y, m, d] = workDate.split('-').map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0 = Minggu, 6 = Sabtu
+  const isWeekend = dow === 0 || dow === 6;
+  const isHoliday = Boolean(holidayData) || isWeekend;
+
+  if (isHoliday && !forceSendOnHoliday) {
+    const holidayName = holidayData?.name
+      ? `Tanggal Merah (${holidayData.name})`
+      : isWeekend
+      ? 'Akhir Pekan (Sabtu/Minggu)'
+      : 'Hari Libur';
+    return {
+      success: false,
+      isHolidaySkipped: true,
+      error: `Tanggal ${formatIndonesia(workDate)} adalah ${holidayName}. Rekapan absen harian tidak dikirim pada hari libur.`,
+    };
   }
 
   const settings = await getEmailRecapSettings();
@@ -544,7 +573,6 @@ export async function sendDailyRecapEmailNow(
     };
   }
 
-  const workDate = targetDate || todayWITA();
   const recap = await getDailyAttendanceRecap(workDate);
 
   if (recap.error) {

@@ -19,6 +19,7 @@ import {
   GraduationCap,
   MessageCircle,
   Loader2,
+  CalendarOff,
 } from 'lucide-react';
 import { formatIndonesia, todayWITA } from '@/lib/dates';
 import { showAlert, showConfirm } from '@/lib/swal';
@@ -32,6 +33,8 @@ interface RekapHarianClientProps {
   isMaster: boolean;
   canContactWA?: boolean;
   emailRecipientsCount: number;
+  isHoliday?: boolean;
+  holidayName?: string | null;
 }
 
 export function RekapHarianClient({
@@ -40,6 +43,8 @@ export function RekapHarianClient({
   isMaster,
   canContactWA = false,
   emailRecipientsCount,
+  isHoliday = false,
+  holidayName = null,
 }: RekapHarianClientProps) {
   const router = useRouter();
 
@@ -118,17 +123,27 @@ export function RekapHarianClient({
     }
 
     const dateFormatted = formatIndonesia(currentDate);
-    const confirmed = await showConfirm(
-      `Kirim Rekapan Tanggal ${dateFormatted}?`,
-      `Sistem akan mengompilasi rekap kehadiran anak magang (hadir vs tidak hadir) dan mengirimkannya via email ke ${emailRecipientsCount} penerima yang terdaftar.`,
-      'Ya, Kirim Sekarang'
-    );
 
-    if (!confirmed) return;
+    if (isHoliday) {
+      const confirmHoliday = await showConfirm(
+        'Hari Libur / Tanggal Merah 🏖️',
+        `Tanggal ${dateFormatted} adalah ${holidayName || 'Hari Libur'}.\n\nPengiriman otomatis dinonaktifkan pada hari libur. Apakah Anda ingin tetap mengirimkan rekapan ini secara manual?`,
+        'Ya, Tetap Kirim',
+        true
+      );
+      if (!confirmHoliday) return;
+    } else {
+      const confirmed = await showConfirm(
+        `Kirim Rekapan Tanggal ${dateFormatted}?`,
+        `Sistem akan mengompilasi rekap kehadiran anak magang (hadir vs tidak hadir) dan mengirimkannya via email ke ${emailRecipientsCount} penerima yang terdaftar.`,
+        'Ya, Kirim Sekarang'
+      );
+      if (!confirmed) return;
+    }
 
     setSendingEmail(true);
     try {
-      const res = await sendDailyRecapNowAction(currentDate);
+      const res = await sendDailyRecapNowAction(currentDate, undefined, isHoliday);
       if (res.success) {
         showAlert(
           'Email Berhasil Dikirim! 🚀',
@@ -136,7 +151,7 @@ export function RekapHarianClient({
           'success'
         );
       } else {
-        showAlert('Pengiriman Gagal', res.error || 'Terjadi kesalahan sistem.', 'error');
+        showAlert('Pengiriman Dibatalkan / Gagal', res.error || 'Terjadi kesalahan sistem.', 'warning');
       }
     } catch {
       showAlert('Error', 'Terjadi kesalahan jaringan saat mengirim email.', 'error');
@@ -227,6 +242,28 @@ export function RekapHarianClient({
           )}
         </div>
       </div>
+
+      {/* Holiday Alert Banner */}
+      {isHoliday && (
+        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-100 dark:bg-amber-900/60 rounded-xl text-amber-700 dark:text-amber-300 shrink-0">
+              <CalendarOff className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="text-xs font-bold block">
+                Hari Libur: {holidayName || 'Tanggal Merah'}
+              </span>
+              <p className="text-[11px] text-amber-700 dark:text-amber-300/80 mt-0.5">
+                Tanggal ini terdaftar sebagai hari libur. Sistem otomatis <strong>tidak mengirimkan rekapan absensi harian</strong> ke email.
+              </p>
+            </div>
+          </div>
+          <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-[10px] font-bold bg-amber-200/80 dark:bg-amber-900 text-amber-800 dark:text-amber-200 shrink-0">
+            Libur / Off
+          </span>
+        </div>
+      )}
 
       {/* 2. DATE NAVIGATION TOOLBAR */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-4 border border-gray-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
