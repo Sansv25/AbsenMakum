@@ -734,21 +734,21 @@ export default function TicketingDashboardPage() {
                 </div>
 
                 {/* DETAIL GRID: INFORMASI LENGKAP DALAM KOTAK LEGA */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-gray-50/90 dark:bg-slate-850/80 p-3.5 sm:p-4 rounded-2xl border border-gray-200/60 dark:border-slate-800/80 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 text-xs">
                   {/* ID Pelanggan */}
-                  <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-gray-100 dark:border-slate-750 shadow-2xs">
+                  <div className="flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-400 block tracking-wider">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-400 block tracking-wider">
                         ID Pelanggan
                       </span>
-                      <span className="font-mono font-bold text-gray-900 dark:text-slate-100 text-sm">
+                      <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-sm">
                         {ticket.customer_id}
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={(e) => handleCopyTicketNumber(ticket.customer_id, `cust-${ticket.id}`, e)}
-                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition"
+                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition"
                       title="Salin ID Pelanggan"
                     >
                       {copiedId === `cust-${ticket.id}` ? (
@@ -760,9 +760,9 @@ export default function TicketingDashboardPage() {
                   </div>
 
                   {/* No Telepon / WA */}
-                  <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-gray-100 dark:border-slate-755 shadow-2xs">
+                  <div className="flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-400 block tracking-wider flex items-center gap-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-400 block tracking-wider flex items-center gap-1">
                         <Phone className="h-2.5 w-2.5 text-emerald-500" />
                         <span>No. Telepon / WA</span>
                       </span>
@@ -785,20 +785,20 @@ export default function TicketingDashboardPage() {
 
                   {/* ID PLN (Jika ada) */}
                   {ticket.pln_id && (
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-gray-100 dark:border-slate-750 shadow-2xs">
+                    <div className="flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 shadow-2xs">
                       <div>
-                        <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-slate-400 block tracking-wider flex items-center gap-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-400 block tracking-wider flex items-center gap-1">
                           <Zap className="h-2.5 w-2.5 text-amber-500" />
                           <span>ID PLN</span>
                         </span>
-                        <span className="font-mono font-bold text-gray-900 dark:text-slate-100 text-sm">
+                        <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-sm">
                           {ticket.pln_id}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={(e) => handleCopyTicketNumber(ticket.pln_id!, `pln-${ticket.id}`, e)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition"
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition"
                         title="Salin ID PLN"
                       >
                         {copiedId === `pln-${ticket.id}` ? (
@@ -812,9 +812,9 @@ export default function TicketingDashboardPage() {
 
                   {/* Alamat Lengkap (Jika ada) */}
                   {ticket.address && (
-                    <div className="col-span-1 sm:col-span-2 lg:col-span-3 bg-white dark:bg-slate-800 p-2.5 sm:p-3 rounded-xl border border-gray-100 dark:border-slate-750 flex items-start gap-2 shadow-2xs">
-                      <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
-                      <span className="text-gray-700 dark:text-slate-300 font-medium leading-relaxed">
+                    <div className="col-span-1 sm:col-span-2 lg:col-span-3 bg-slate-50/80 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 flex items-start gap-2.5 shadow-2xs">
+                      <MapPin className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300 font-medium leading-relaxed">
                         {ticket.address}
                       </span>
                     </div>
@@ -822,12 +822,12 @@ export default function TicketingDashboardPage() {
                 </div>
 
                 {/* KELUHAN PELANGGAN */}
-                <div className="bg-amber-50/70 dark:bg-slate-850 p-3.5 sm:p-4 rounded-2xl border border-amber-200/60 dark:border-slate-800">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-900 dark:text-amber-400 mb-1.5">
-                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <div className="bg-slate-50/80 dark:bg-slate-800/60 p-3.5 sm:p-4 rounded-2xl border border-slate-200/70 dark:border-slate-700/60 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                     <span>Keluhan Pelanggan:</span>
                   </div>
-                  <p className="text-xs sm:text-sm text-gray-800 dark:text-slate-200 leading-relaxed font-normal whitespace-pre-wrap">
+                  <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-normal whitespace-pre-wrap">
                     {ticket.complaint}
                   </p>
                 </div>
@@ -837,19 +837,21 @@ export default function TicketingDashboardPage() {
                   <div
                     className={`p-3.5 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 ${
                       /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
-                        ? 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800/80 text-emerald-950 dark:text-emerald-100'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800/80 text-emerald-950 dark:text-emerald-100'
                         : ticket.ticket_number!.toLowerCase().includes('bayar')
-                        ? 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800/80 text-amber-950 dark:text-amber-100'
-                        : 'bg-sky-50/90 dark:bg-sky-950/40 border-sky-300 dark:border-sky-800/80 text-sky-950 dark:text-sky-100'
+                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800/80 text-amber-950 dark:text-amber-100'
+                        : 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900/80 text-blue-950 dark:text-blue-100'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider block opacity-75">
+                      <span className="text-[10px] font-bold uppercase tracking-wider block opacity-70">
                         {/^[A-Z0-9]{8}$/.test(ticket.ticket_number!) ? 'Nomor Tiket Resmi' : 'Output / Kesimpulan Tiket'}
                       </span>
                       <span
                         className={`font-bold text-sm sm:text-base block mt-0.5 break-words ${
-                          /^[A-Z0-9]{8}$/.test(ticket.ticket_number!) ? 'font-mono text-emerald-700 dark:text-emerald-300 tracking-wider' : ''
+                          /^[A-Z0-9]{8}$/.test(ticket.ticket_number!)
+                            ? 'font-mono text-emerald-700 dark:text-emerald-300 tracking-wider'
+                            : 'text-slate-900 dark:text-white'
                         }`}
                       >
                         {ticket.ticket_number}
@@ -858,7 +860,7 @@ export default function TicketingDashboardPage() {
                     <button
                       type="button"
                       onClick={(e) => handleCopyTicketNumber(ticket.ticket_number!, ticket.id, e)}
-                      className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-current rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs shrink-0 hover:bg-gray-50 dark:hover:bg-slate-800"
+                      className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs shrink-0"
                       title="Salin Output"
                     >
                       {copiedId === ticket.id ? (
