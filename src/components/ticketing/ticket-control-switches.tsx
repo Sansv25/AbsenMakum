@@ -13,6 +13,7 @@ interface TicketControlSwitchesProps {
   syncing: boolean;
   onSync: () => void;
   isOwner?: boolean;
+  onCreateTicket?: () => void;
 }
 
 export function TicketControlSwitches({
@@ -25,6 +26,7 @@ export function TicketControlSwitches({
   syncing,
   onSync,
   isOwner = false,
+  onCreateTicket,
 }: TicketControlSwitchesProps) {
   return (
     <div className="bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
@@ -60,13 +62,24 @@ export function TicketControlSwitches({
             <span>{syncing ? 'Sinkronisasi...' : 'Sinkronkan Chat'}</span>
           </button>
 
-          <Link
-            href="/ticketing/new"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs min-h-[38px]"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Buat Tiket Baru</span>
-          </Link>
+          {onCreateTicket ? (
+            <button
+              type="button"
+              onClick={onCreateTicket}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs min-h-[38px] cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Buat Tiket Baru</span>
+            </button>
+          ) : (
+            <Link
+              href="/ticketing?create=true"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs min-h-[38px]"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Buat Tiket Baru</span>
+            </Link>
+          )}
         </div>
       </div>
 

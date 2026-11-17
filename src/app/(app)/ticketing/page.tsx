@@ -77,6 +77,16 @@ export default function TicketingDashboardPage() {
   const [editedDraftText, setEditedDraftText] = useState('');
   const [processingDraft, setProcessingDraft] = useState(false);
 
+  // Cek query ?create=true atau ?new=true saat pertama kali dibuka
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('create') === 'true' || urlParams.get('new') === 'true') {
+        setIsNewTicketModalOpen(true);
+      }
+    }
+  }, []);
+
   // Load initial settings
   useEffect(() => {
     fetch('/api/ticketing/queue/settings')
@@ -502,6 +512,7 @@ export default function TicketingDashboardPage() {
         syncing={syncing}
         onSync={handleSyncChat}
         isOwner={isOwner}
+        onCreateTicket={canCreateTicket ? () => setIsNewTicketModalOpen(true) : undefined}
       />
 
       {/* AI Approval Floating Banner */}
@@ -1095,7 +1106,12 @@ export default function TicketingDashboardPage() {
       {/* Modal Buat Tiket Baru (Alur Wizard: Data Mentah -> Input Manual -> Bukti Foto) */}
       <NewTicketModal
         isOpen={isNewTicketModalOpen}
-        onClose={() => setIsNewTicketModalOpen(false)}
+        onClose={() => {
+          setIsNewTicketModalOpen(false);
+          if (typeof window !== 'undefined' && (window.location.search.includes('create') || window.location.search.includes('new'))) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }}
         currentUser={currentUser}
         onSuccess={(newTicket) => {
           setTickets((prev) => [newTicket, ...prev]);

@@ -181,7 +181,7 @@ function getNavigationSections(
       title: 'Layanan & Tiket ICONNET',
       items: [
         { href: '/ticketing', label: 'Antrean Tiket', icon: Ticket, ticketOnly: true },
-        { href: '/ticketing/new', label: 'Buat Tiket Baru', icon: PlusCircle, ticketOnly: true },
+        { href: '/ticketing?create=true', label: 'Buat Tiket Baru', icon: PlusCircle, ticketOnly: true },
         { href: '/ticketing/settings', label: 'Pengaturan AI Tiket', icon: Sparkles, ticketOnly: true },
       ],
     });
@@ -212,6 +212,7 @@ function getNavigationSections(
 }
 
 function isNavItemActive(pathname: string, href: string, allItems: NavItem[]): boolean {
+  if (href.includes('?')) return false;
   if (pathname === href) return true;
   if (href === '/') return false;
   if (!pathname.startsWith(href)) return false;
@@ -220,6 +221,7 @@ function isNavItemActive(pathname: string, href: string, allItems: NavItem[]): b
   const hasMoreSpecific = allItems.some(
     (item) =>
       item.href !== href &&
+      !item.href.includes('?') &&
       item.href.startsWith(href) &&
       (pathname === item.href || pathname.startsWith(item.href + '/'))
   );
