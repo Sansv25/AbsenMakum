@@ -448,20 +448,22 @@ let persistentBrowser = null;
 let persistentPage = null;
 
 async function getDirectThreadPage() {
-  if (persistentBrowser && persistentPage && !persistentPage.isClosed() && persistentBrowser.isConnected()) {
+  if (persistentBrowser && persistentPage) {
     try {
-      await persistentPage.evaluate(() => 1);
-      if (persistentPage.url().includes('/direct/t/')) {
-        // Cukup scroll ke bawah untuk memastikan pesan baru langsung terlihat di DOM
-        await persistentPage.evaluate(() => {
-          const allDivs = Array.from(document.querySelectorAll('div'));
-          for (const d of allDivs) {
-            if (d.scrollHeight > d.clientHeight && d.clientHeight > 200) {
-              d.scrollTop = d.scrollHeight;
+      if (!persistentPage.isClosed()) {
+        await persistentPage.evaluate(() => 1);
+        if (persistentPage.url().includes('/direct/t/')) {
+          // Cukup scroll ke bawah untuk memastikan pesan baru langsung terlihat di DOM
+          await persistentPage.evaluate(() => {
+            const allDivs = Array.from(document.querySelectorAll('div'));
+            for (const d of allDivs) {
+              if (d.scrollHeight > d.clientHeight && d.clientHeight > 200) {
+                d.scrollTop = d.scrollHeight;
+              }
             }
-          }
-        });
-        return persistentPage;
+          });
+          return persistentPage;
+        }
       }
     } catch {
       console.log('\n⚠️ Tab Chrome tidak responsif, me-restart browser...');
