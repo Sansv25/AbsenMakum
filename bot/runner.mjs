@@ -1166,7 +1166,6 @@ async function syncActiveChat(activeTicket) {
           }
         }
       }
-    }
   } catch (err) {
     console.error('   ⚠️ Error sync chat:', err.message);
   }
