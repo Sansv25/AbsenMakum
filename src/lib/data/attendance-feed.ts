@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUserProfile } from '@/lib/data/profile';
 import type { AttendanceFeedMessage, FeedType, GroupMemberInfo } from '@/lib/types/attendance-feed';
 
 /**
@@ -148,6 +149,11 @@ export async function createAttendanceFeedMessage(payload: {
 
   if (!user) {
     return { message: null, error: 'Tidak terautentikasi' };
+  }
+
+  const profile = await getCurrentUserProfile();
+  if (!profile.isMagang) {
+    return { message: null, error: 'Hanya akun dengan role magang yang dapat mengirim absensi harian.' };
   }
 
   const { data, error } = await supabase

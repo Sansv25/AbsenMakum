@@ -23,6 +23,17 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
 
   const myProfile = await getCurrentUserProfile();
 
+  // Pengguna yang tidak memiliki role magang tidak diizinkan mengakses absen harian
+  if (!myProfile.isMagang) {
+    if (myProfile.canAccessPiket) {
+      redirect('/');
+    }
+    if (myProfile.canCreateTicket) {
+      redirect('/ticketing');
+    }
+    redirect('/profil');
+  }
+
   const today = todayWITA();
   const params = await searchParams;
   const workDate = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today;

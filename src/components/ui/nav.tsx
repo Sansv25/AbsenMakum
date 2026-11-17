@@ -47,6 +47,7 @@ export interface AppNavProps {
   isMaster?: boolean;
   canAccessTicketing?: boolean;
   canAccessPiket?: boolean;
+  isMagang?: boolean;
   userName?: string | null;
   userEmail?: string | null;
   roles?: AppRole[];
@@ -126,7 +127,8 @@ export function RoleBadgeGroup({ roles, isMaster }: { roles?: AppRole[]; isMaste
 function getNavigationSections(
   canAccessTicketing: boolean,
   isMaster: boolean,
-  canAccessPiket: boolean
+  canAccessPiket: boolean,
+  isMagang: boolean
 ): NavSection[] {
   const absensiItems: NavItem[] = [];
 
@@ -139,14 +141,16 @@ function getNavigationSections(
     });
   }
 
-  // Presensi Harian & Rekap Kehadiran Harian Anak Magang
-  absensiItems.push({
-    href: '/absen-chat',
-    label: 'Absen Harian',
-    icon: MessagesSquare,
-    badge: 'Baru',
-    badgeColor: 'bg-blue-500 text-white',
-  });
+  // Presensi Harian HANYA untuk akun yang memiliki role magang
+  if (isMagang) {
+    absensiItems.push({
+      href: '/absen-chat',
+      label: 'Absen Harian',
+      icon: MessagesSquare,
+      badge: 'Baru',
+      badgeColor: 'bg-blue-500 text-white',
+    });
+  }
 
   absensiItems.push({
     href: '/rekap-harian',
@@ -225,6 +229,7 @@ export function AppNavigation({
   isMaster = false,
   canAccessTicketing = false,
   canAccessPiket = false,
+  isMagang,
   userName,
   userEmail,
   roles,
@@ -247,7 +252,9 @@ export function AppNavigation({
     Boolean(roles?.includes('senior')) ||
     Boolean(roles?.includes('piket'));
 
-  const sections = getNavigationSections(hasTicketAccess, isMaster, userCanAccessPiket);
+  const userIsMagang = isMagang ?? Boolean(roles?.includes('magang'));
+
+  const sections = getNavigationSections(hasTicketAccess, isMaster, userCanAccessPiket, userIsMagang);
   const allNavItems = useMemo(() => sections.flatMap((sec) => sec.items), [sections]);
   const displayName = userName || userEmail || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'U';
@@ -585,7 +592,7 @@ export function AppNavigation({
       {/* ============================================================== */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200 dark:border-slate-800 md:hidden transition-colors shadow-lg">
         <ul className="flex items-center justify-around h-14">
-          {/* 1. Dashboard Absen Piket (Jika punya akses piket) atau Rekap Harian (Untuk yang hanya Magang) */}
+          {/* 1. Tombol Utama (Absen Piket jika punya akses piket, atau Absen Harian untuk Magang, atau Rekap) */}
           <li className="flex-1">
             {userCanAccessPiket ? (
               <Link
@@ -598,6 +605,24 @@ export function AppNavigation({
               >
                 <LayoutDashboard className="h-4 w-4 mb-0.5" />
                 <span>Absen Piket</span>
+              </Link>
+            ) : userIsMagang ? (
+              <Link
+                href="/absen-chat"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors relative ${
+                  pathname.startsWith('/absen-chat')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <div className="relative">
+                  <MessagesSquare className="h-4 w-4 mb-0.5" />
+                  <span className="absolute -top-1 -right-2 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                </div>
+                <span>Absen Harian</span>
               </Link>
             ) : (
               <Link
@@ -614,28 +639,42 @@ export function AppNavigation({
             )}
           </li>
 
-          {/* 2. Chat Absen (Presensi Harian Magang) */}
+          {/* 2. Tombol Kedua (Absen Harian jika punya akses, atau Rekap Harian) */}
           <li className="flex-1">
-            <Link
-              href="/absen-chat"
-              className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors relative ${
-                pathname.startsWith('/absen-chat')
-                  ? 'text-blue-600 dark:text-blue-400 font-bold'
-                  : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
-              }`}
-            >
-              <div className="relative">
-                <MessagesSquare className="h-4 w-4 mb-0.5" />
-                <span className="absolute -top-1 -right-2 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-              </div>
-              <span>Absen Harian</span>
-            </Link>
+            {userCanAccessPiket && userIsMagang ? (
+              <Link
+                href="/absen-chat"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors relative ${
+                  pathname.startsWith('/absen-chat')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <div className="relative">
+                  <MessagesSquare className="h-4 w-4 mb-0.5" />
+                  <span className="absolute -top-1 -right-2 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                </div>
+                <span>Absen Harian</span>
+              </Link>
+            ) : (
+              <Link
+                href="/rekap-harian"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
+                  pathname.startsWith('/rekap-harian')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <ClipboardCheck className="h-4 w-4 mb-0.5" />
+                <span>Rekap</span>
+              </Link>
+            )}
           </li>
 
-          {/* 3. Ticketing (Jika punya akses) atau Riwayat (Piket) atau Profil (Magang) */}
+          {/* 3. Ticketing (Jika punya akses) atau Riwayat (Piket) atau Profil */}
           <li className="flex-1">
             {hasTicketAccess ? (
               <Link

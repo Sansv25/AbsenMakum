@@ -18,7 +18,7 @@ export default async function AppLayout({
     redirect('/pending-approval');
   }
 
-  const { email, fullName, roles, canManageSettings, canCreateTicket, canAccessPiket } = profile;
+  const { email, fullName, roles, canManageSettings, canCreateTicket, canAccessPiket, isMagang } = profile;
 
   return (
     <>
@@ -27,6 +27,7 @@ export default async function AppLayout({
         isMaster={canManageSettings}
         canAccessTicketing={canCreateTicket}
         canAccessPiket={canAccessPiket}
+        isMagang={isMagang}
         userName={fullName || email || undefined}
         userEmail={email ?? undefined}
         roles={roles}
