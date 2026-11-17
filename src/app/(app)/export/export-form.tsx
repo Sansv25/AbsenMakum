@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { fetchExportData } from './actions';
 import { generateAttendancePdf } from '@/lib/pdf';
-import { FileDown, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { FileDown, Loader2, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 
 interface ExportFormProps {
   defaultStartDate: string;
@@ -71,7 +71,25 @@ export function ExportForm({ defaultStartDate, defaultEndDate }: ExportFormProps
   }
 
   return (
-    <form onSubmit={handleExport} className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-gray-100 dark:border-slate-800 shadow-sm space-y-6 transition-colors">
+    <form onSubmit={handleExport} className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-gray-100 dark:border-slate-800 shadow-sm space-y-5 transition-colors">
+      <div className="flex items-center gap-3 pb-3 border-b border-gray-100 dark:border-slate-800">
+        <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 flex-shrink-0">
+          <Clock className="h-5 w-5" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-bold text-gray-900 dark:text-slate-100 text-sm sm:text-base">
+              Export PDF Dokumentasi Piket
+            </h3>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+              Shift Pagi &amp; Malam
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+            Unduh laporan foto bukti piket shift (mulai, selesai, tiket &amp; aktivitas) standar kertas A4.
+          </p>
+        </div>
+      </div>
       <div className="space-y-4">
         <h2 className="font-semibold text-gray-900 dark:text-slate-100 text-sm">Rentang Tanggal</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

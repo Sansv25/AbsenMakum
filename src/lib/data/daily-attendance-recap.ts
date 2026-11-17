@@ -253,7 +253,7 @@ export async function getDailyAttendanceRecap(
 
       const roles = rec.user.roles || [];
       if (roles.includes('magang')) return true;
-      if (roles.includes('owner') || roles.includes('admin') || roles.includes('senior')) {
+      if (roles.includes('owner') || roles.includes('admin') || roles.includes('senior') || roles.includes('piket')) {
         return false;
       }
       return rec.user.role !== 'master';

@@ -216,9 +216,9 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-6 space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100">Riwayat Absensi</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100">Riwayat Absen Piket</h1>
         <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-          Daftar dokumentasi absensi dan foto piket per shift.
+          Daftar dokumentasi absensi dan foto piket per shift (Shift Pagi &amp; Malam).
         </p>
       </div>
 

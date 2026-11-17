@@ -80,6 +80,16 @@ export const ROLE_INFO: Record<
     badgeBg: 'bg-purple-500/15 text-purple-900 dark:text-purple-200 border-purple-300 dark:border-purple-700',
     description: 'Sama seperti Admin (akses Shift & Akun), namun otomatis TIDAK direkap kehadiran kecuali ditumpuk dengan Magang.',
   },
+  piket: {
+    label: 'Petugas Piket',
+    badgeLabel: 'Piket',
+    icon: Clock,
+    bg: 'bg-indigo-100 dark:bg-indigo-950/80',
+    text: 'text-indigo-800 dark:text-indigo-300',
+    border: 'border-indigo-300 dark:border-indigo-800',
+    badgeBg: 'bg-indigo-500/15 text-indigo-900 dark:text-indigo-200 border-indigo-300 dark:border-indigo-700',
+    description: 'Petugas piket shift (Pagi & Malam). Memiliki akses ke Dashboard Absen Piket, pengisian & edit form shift piket, riwayat piket, serta ekspor dokumen piket.',
+  },
   magang: {
     label: 'Magang',
     badgeLabel: 'Magang',
@@ -88,7 +98,7 @@ export const ROLE_INFO: Record<
     text: 'text-emerald-800 dark:text-emerald-300',
     border: 'border-emerald-300 dark:border-emerald-800',
     badgeBg: 'bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700',
-    description: 'Petugas piket aktif (menggantikan nama Petugas Piket). Absensi dihitung dalam rekapitulasi, grafik, dan laporan PDF.',
+    description: 'Anak magang ICONNET. Melakukan presensi harian di Absen Harian dan terdaftar di Rekap Absen Harian.',
   },
   tiket: {
     label: 'Tiket',
@@ -713,7 +723,7 @@ export function UserManager({
                   Pilih Role (Dapat Dipilih Lebih Dari Satu):
                 </label>
 
-                {(['owner', 'admin', 'senior', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
+                {(['owner', 'admin', 'senior', 'piket', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
                   const info = ROLE_INFO[roleKey];
                   const Icon = info.icon;
                   const isChecked = roleModalRoles.includes(roleKey);
@@ -879,7 +889,7 @@ export function UserManager({
                   Role Akun (Boleh Ditumpuk):
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(['owner', 'admin', 'senior', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
+                  {(['owner', 'admin', 'senior', 'piket', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
                     const info = ROLE_INFO[roleKey];
                     const Icon = info.icon;
                     const isChecked = editRoles.includes(roleKey);
@@ -1016,7 +1026,7 @@ export function UserManager({
                   Role Akun (Boleh Ditumpuk):
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(['admin', 'senior', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
+                  {(['admin', 'senior', 'piket', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
                     const info = ROLE_INFO[roleKey];
                     const Icon = info.icon;
                     const isChecked = createRoles.includes(roleKey);

@@ -12,6 +12,8 @@ import {
   ChevronRight,
   User,
   ClipboardList,
+  LayoutDashboard,
+  Clock,
 } from 'lucide-react';
 import { RekapPiketSection } from './rekap-piket-section';
 
@@ -180,6 +182,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <div className="max-w-2xl mx-auto p-3.5 sm:p-4 md:p-6 space-y-5 sm:space-y-6 w-full min-w-0 overflow-x-hidden">
+      {/* Header Halaman: Dashboard Absen Piket */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2">
+            <LayoutDashboard className="h-6 w-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            Dashboard Absen Piket
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mt-1">
+            Pemantauan &amp; pelaporan kehadiran tugas piket shift harian (Shift Pagi &amp; Malam)
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-3 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-semibold rounded-full border border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 shadow-2xs">
+            <Clock className="h-3.5 w-3.5" />
+            Shift Pagi &amp; Malam
+          </span>
+        </div>
+      </div>
+
       {/* Kartu Hari Ini */}
       <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-4 sm:p-5">
         <div className="mb-4">

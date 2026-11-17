@@ -23,6 +23,7 @@ export default async function ProfilPage() {
           description: profile.description,
           isMaster: profile.isMaster,
           role: profile.role,
+          roles: profile.roles,
           isApproved: profile.isApproved,
         }}
       />

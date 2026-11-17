@@ -15,8 +15,6 @@ import {
   Laptop,
   Check,
   Loader2,
-  Crown,
-  UserCheck,
   LogOut,
   Sparkles,
   Lock,
@@ -25,6 +23,8 @@ import {
   EyeOff,
   ShieldCheck,
 } from 'lucide-react';
+import { RoleBadgeGroup } from '@/components/ui/nav';
+import type { AppRole } from '@/lib/supabase/types';
 
 interface ProfileFormProps {
   initialData: {
@@ -34,6 +34,7 @@ interface ProfileFormProps {
     description: string | null;
     isMaster: boolean;
     role: string;
+    roles?: AppRole[];
     isApproved: boolean;
   };
 }
@@ -221,15 +222,9 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
                 Perbarui nama, kontak, dan nomor rekening/e-wallet Anda.
               </p>
             </div>
-            {initialData.isMaster ? (
-              <span className="text-xs bg-amber-100 border border-amber-300 text-amber-800 font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-xs">
-                <Crown className="h-3 w-3" /> Master
-              </span>
-            ) : (
-              <span className="text-xs bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
-                <UserCheck className="h-3 w-3" /> Petugas Aktif
-              </span>
-            )}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <RoleBadgeGroup roles={initialData.roles} isMaster={initialData.isMaster} />
+            </div>
           </div>
 
           {error && (

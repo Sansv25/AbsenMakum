@@ -23,6 +23,7 @@ import {
   Star,
   GraduationCap,
   ClipboardCheck,
+  Clock,
 } from 'lucide-react';
 import { logout } from '@/app/(auth)/login/actions';
 import type { AppRole } from '@/lib/supabase/types';
@@ -45,6 +46,7 @@ export interface NavSection {
 export interface AppNavProps {
   isMaster?: boolean;
   canAccessTicketing?: boolean;
+  canAccessPiket?: boolean;
   userName?: string | null;
   userEmail?: string | null;
   roles?: AppRole[];
@@ -88,6 +90,16 @@ export function RoleBadgeGroup({ roles, isMaster }: { roles?: AppRole[]; isMaste
             </span>
           );
         }
+        if (role === 'piket') {
+          return (
+            <span
+              key={role}
+              className="text-[10px] bg-indigo-100 dark:bg-indigo-950/80 border border-indigo-300 dark:border-indigo-800 text-indigo-800 dark:text-indigo-300 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+            >
+              <Clock className="h-2.5 w-2.5" /> Petugas Piket
+            </span>
+          );
+        }
         if (role === 'tiket') {
           return (
             <span
@@ -114,9 +126,9 @@ export function RoleBadgeGroup({ roles, isMaster }: { roles?: AppRole[]; isMaste
 function getNavigationSections(canAccessTicketing: boolean, isMaster: boolean): NavSection[] {
   const sections: NavSection[] = [
     {
-      title: 'Absensi & Aktivitas',
+      title: 'Absensi & Piket',
       items: [
-        { href: '/', label: 'Dashboard Absen', icon: LayoutDashboard },
+        { href: '/', label: 'Dashboard Absen Piket', icon: LayoutDashboard },
         {
           href: '/absen-chat',
           label: 'Absen Harian',
@@ -129,7 +141,7 @@ function getNavigationSections(canAccessTicketing: boolean, isMaster: boolean): 
           label: 'Rekap Absen Harian',
           icon: ClipboardCheck,
         },
-        { href: '/riwayat', label: 'Riwayat Absensi', icon: History },
+        { href: '/riwayat', label: 'Riwayat Absen Piket', icon: History },
       ],
     },
   ];
@@ -540,7 +552,7 @@ export function AppNavigation({
       {/* ============================================================== */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200 dark:border-slate-800 md:hidden transition-colors shadow-lg">
         <ul className="flex items-center justify-around h-14">
-          {/* 1. Dashboard */}
+          {/* 1. Dashboard Absen Piket */}
           <li className="flex-1">
             <Link
               href="/"
@@ -551,7 +563,7 @@ export function AppNavigation({
               }`}
             >
               <LayoutDashboard className="h-4 w-4 mb-0.5" />
-              <span>Dashboard</span>
+              <span>Absen Piket</span>
             </Link>
           </li>
 

@@ -27,11 +27,11 @@ export async function fetchExportData(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: [], error: 'Tidak terautentikasi' };
 
-  // Security check: Petugas hanya dapat melihat dan mengekspor data absensi di hari itu
-  const { isMaster } = await getCurrentUserProfile();
+  // Security check: Petugas piket & admin dapat mengekspor data
+  const { isMaster, canAccessPiket } = await getCurrentUserProfile();
   const today = todayWITA();
-  if (!isMaster && (startDate < today || endDate < today)) {
-    return { data: [], error: 'Petugas hanya dapat melihat dan mengekspor data absensi di hari itu (hari ini).' };
+  if (!isMaster && !canAccessPiket && (startDate < today || endDate < today)) {
+    return { data: [], error: 'Anda hanya dapat mengekspor data absensi di hari itu (hari ini).' };
   }
 
   // Fetch attendances in range
@@ -136,4 +136,9 @@ export async function fetchExportData(
   }
 
   return { data: result };
+}
+
+export async function getDailyExportData(date: string) {
+  const { getDailyAttendanceRecap } = await import('@/lib/data/daily-attendance-recap');
+  return await getDailyAttendanceRecap(date);
 }
