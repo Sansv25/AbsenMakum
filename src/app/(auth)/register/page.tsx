@@ -6,11 +6,12 @@ import Link from 'next/link';
 import Script from 'next/script';
 import { createClient } from '@/lib/supabase/client';
 import { GoogleIcon } from '@/components/ui/google-icon';
-import { Loader2, User, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Loader2, User, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff, GraduationCap, Clock, Ticket } from 'lucide-react';
 import { normalizeIndonesianPhone, isValidIndonesianPhone, extractLocalPhoneDigits } from '@/lib/phone';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [selectedRole, setSelectedRole] = useState<'magang' | 'piket' | 'tiket'>('magang');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -112,7 +113,7 @@ export default function RegisterPage() {
       if (window.crypto?.subtle) {
         const array = new Uint8Array(32);
         window.crypto.getRandomValues(array);
-        const rawNonce = btoa(String.fromCharCode(...array));
+        const rawNonce = Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
         rawNonceRef.current = rawNonce;
 
         const encoder = new TextEncoder();
@@ -207,7 +208,10 @@ export default function RegisterPage() {
         options: {
           data: {
             full_name: fullName.trim(),
+            name: fullName.trim(),
             phone: normalizedPhone,
+            selected_role: selectedRole,
+            requested_role: selectedRole,
           },
         },
       });
@@ -275,13 +279,13 @@ export default function RegisterPage() {
             />
           </div>
           <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-slate-100">
-            Daftar Akun Magang ICONNET
+            Daftar Akun Petugas &amp; Magang ICONNET
           </h1>
           <p className="text-center text-sky-700 dark:text-sky-400 text-xs font-semibold mt-0.5">
             ICONNET
           </p>
           <p className="text-center text-gray-500 dark:text-slate-400 text-xs mt-1">
-            Pilih metode registrasi di bawah ini
+            Pilih peran akun dan lengkapi data pendaftaran di bawah ini
           </p>
         </div>
 
@@ -326,6 +330,55 @@ export default function RegisterPage() {
 
         {/* Form Registrasi Manual */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Pilihan Peran Akun */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
+              Pilih Peran / Posisi Akun <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedRole('magang')}
+                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+                  selectedRole === 'magang'
+                    ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 ring-2 ring-emerald-500/30'
+                    : 'border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 text-gray-600 dark:text-slate-400 hover:border-gray-300'
+                }`}
+              >
+                <GraduationCap className={`h-4 w-4 mb-1 ${selectedRole === 'magang' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`} />
+                <span className="text-xs font-bold leading-tight">Anak Magang</span>
+                <span className="text-[10px] opacity-75 mt-0.5 leading-tight">Presensi Harian</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedRole('piket')}
+                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+                  selectedRole === 'piket'
+                    ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 ring-2 ring-indigo-500/30'
+                    : 'border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 text-gray-600 dark:text-slate-400 hover:border-gray-300'
+                }`}
+              >
+                <Clock className={`h-4 w-4 mb-1 ${selectedRole === 'piket' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}`} />
+                <span className="text-xs font-bold leading-tight">Petugas Piket</span>
+                <span className="text-[10px] opacity-75 mt-0.5 leading-tight">Shift &amp; Piket</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedRole('tiket')}
+                className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+                  selectedRole === 'tiket'
+                    ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 ring-2 ring-amber-500/30'
+                    : 'border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 text-gray-600 dark:text-slate-400 hover:border-gray-300'
+                }`}
+              >
+                <Ticket className={`h-4 w-4 mb-1 ${selectedRole === 'tiket' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`} />
+                <span className="text-xs font-bold leading-tight">Layanan Tiket</span>
+                <span className="text-[10px] opacity-75 mt-0.5 leading-tight">Tiket &amp; Helpdesk</span>
+              </button>
+            </div>
+          </div>
           {error && (
             <div className="space-y-2">
               <div className="flex items-start gap-2 text-red-600 dark:text-red-400 text-xs bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl p-3">

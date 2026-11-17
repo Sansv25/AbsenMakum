@@ -3,10 +3,12 @@
 import { updateCurrentUserProfile, getCurrentUserProfile } from '@/lib/data/profile';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import type { AppRole } from '@/lib/supabase/types';
 
 export async function saveProfileDetails(formData: FormData) {
   const fullName = (formData.get('fullName') as string) || '';
   const phone = (formData.get('phone') as string) || '';
+  const requestedRole = (formData.get('requestedRole') as AppRole) || null;
   const password = (formData.get('password') as string) || '';
   const confirmPassword = (formData.get('confirmPassword') as string) || '';
 
@@ -38,8 +40,8 @@ export async function saveProfileDetails(formData: FormData) {
     return { error: `Gagal membuat password akun: ${pwdError.message}` };
   }
 
-  // 2. Simpan nama dan nomor telepon ke tabel profiles
-  const result = await updateCurrentUserProfile(fullName, cleanedPhone);
+  // 2. Simpan nama, nomor telepon, dan pengajuan role ke tabel profiles
+  const result = await updateCurrentUserProfile(fullName, cleanedPhone, null, requestedRole);
   if (!result.success) {
     return { error: result.error || 'Gagal menyimpan data profil.' };
   }

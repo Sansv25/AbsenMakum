@@ -142,7 +142,9 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
 
   // Jika belum ada di tabel profiles (fallback self-healing)
   const defaultRole: UserRole = isMasterEmail ? 'master' : 'user';
-  const defaultRoles: AppRole[] = isMasterEmail ? ['owner', 'magang'] : ['magang'];
+  const metaRole = (user.user_metadata?.selected_role || user.user_metadata?.requested_role) as AppRole | undefined;
+  const defaultRoleToUse: AppRole = metaRole && ['magang', 'piket', 'tiket'].includes(metaRole) ? metaRole : 'magang';
+  const defaultRoles: AppRole[] = isMasterEmail ? ['owner', 'magang'] : [defaultRoleToUse];
   const metaFullName = (user.user_metadata?.full_name || user.user_metadata?.name || '') as string;
   const metaPhone = (user.user_metadata?.phone || user.user_metadata?.phone_number || '') as string;
   const isApproved = isMasterEmail;
@@ -208,7 +210,8 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
 export async function updateCurrentUserProfile(
   fullName: string,
   phone: string,
-  description?: string | null
+  description?: string | null,
+  requestedRole?: AppRole | null
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const {
@@ -224,6 +227,8 @@ export async function updateCurrentUserProfile(
     phone: string;
     updated_at: string;
     description?: string | null;
+    roles?: AppRole[];
+    exclude_from_recap?: boolean;
   } = {
     full_name: fullName.trim(),
     phone: phone.trim(),
@@ -232,6 +237,11 @@ export async function updateCurrentUserProfile(
 
   if (description !== undefined) {
     updatePayload.description = description ? description.trim() : null;
+  }
+
+  if (requestedRole && ['magang', 'piket', 'tiket'].includes(requestedRole)) {
+    updatePayload.roles = [requestedRole];
+    updatePayload.exclude_from_recap = (requestedRole !== 'magang' && requestedRole !== 'piket');
   }
 
   const { error } = await supabase

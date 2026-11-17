@@ -13,6 +13,9 @@ import {
   AlertCircle,
   ShieldCheck,
   CheckCircle2,
+  GraduationCap,
+  Clock,
+  Ticket,
 } from 'lucide-react';
 import { normalizeIndonesianPhone, isValidIndonesianPhone, extractLocalPhoneDigits } from '@/lib/phone';
 
@@ -29,6 +32,7 @@ export function CompleteProfileForm({
 }: CompleteProfileFormProps) {
   const [fullName, setFullName] = useState(initialFullName);
   const [phone, setPhone] = useState(initialPhone);
+  const [requestedRole, setRequestedRole] = useState<'magang' | 'piket' | 'tiket'>('magang');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -66,6 +70,7 @@ export function CompleteProfileForm({
     const formData = new FormData();
     formData.append('fullName', fullName.trim());
     formData.append('phone', normalizedPhone);
+    formData.append('requestedRole', requestedRole);
     formData.append('password', password.trim());
     formData.append('confirmPassword', confirmPassword.trim());
 
@@ -160,6 +165,56 @@ export function CompleteProfileForm({
           <span>Format tersimpan: <strong>+62 {phone || '8xx-xxxx-xxxx'}</strong></span>
           <span className="text-[10px] text-gray-400">Cukup ketik mulai 8... (atau 08...)</span>
         </p>
+      </div>
+
+      {/* Pilihan Peran Akun */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
+          Peran / Posisi Akun <span className="text-red-500">*</span>
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => setRequestedRole('magang')}
+            className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+              requestedRole === 'magang'
+                ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 ring-2 ring-emerald-500/30'
+                : 'border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 text-gray-600 dark:text-slate-400 hover:border-gray-300'
+            }`}
+          >
+            <GraduationCap className={`h-4 w-4 mb-1 ${requestedRole === 'magang' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`} />
+            <span className="text-xs font-bold leading-tight">Anak Magang</span>
+            <span className="text-[10px] opacity-75 mt-0.5 leading-tight">Presensi Harian</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRequestedRole('piket')}
+            className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+              requestedRole === 'piket'
+                ? 'border-indigo-500 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 ring-2 ring-indigo-500/30'
+                : 'border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 text-gray-600 dark:text-slate-400 hover:border-gray-300'
+            }`}
+          >
+            <Clock className={`h-4 w-4 mb-1 ${requestedRole === 'piket' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}`} />
+            <span className="text-xs font-bold leading-tight">Petugas Piket</span>
+            <span className="text-[10px] opacity-75 mt-0.5 leading-tight">Shift &amp; Piket</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRequestedRole('tiket')}
+            className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+              requestedRole === 'tiket'
+                ? 'border-amber-500 bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 ring-2 ring-amber-500/30'
+                : 'border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 text-gray-600 dark:text-slate-400 hover:border-gray-300'
+            }`}
+          >
+            <Ticket className={`h-4 w-4 mb-1 ${requestedRole === 'tiket' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`} />
+            <span className="text-xs font-bold leading-tight">Layanan Tiket</span>
+            <span className="text-[10px] opacity-75 mt-0.5 leading-tight">Tiket &amp; Helpdesk</span>
+          </button>
+        </div>
       </div>
 
       {/* Buat Password Baru */}

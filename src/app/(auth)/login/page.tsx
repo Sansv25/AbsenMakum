@@ -131,7 +131,7 @@ function LoginContent() {
       if (window.crypto?.subtle) {
         const array = new Uint8Array(32);
         window.crypto.getRandomValues(array);
-        const rawNonce = btoa(String.fromCharCode(...array));
+        const rawNonce = Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
         rawNonceRef.current = rawNonce;
 
         const encoder = new TextEncoder();
@@ -228,7 +228,7 @@ function LoginContent() {
           />
         </div>
         <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-slate-100">
-          Magang ICONNET
+          Petugas &amp; Magang ICONNET
         </h1>
         <p className="text-center text-sky-700 dark:text-sky-400 text-xs font-semibold mt-0.5">
           ICONNET
