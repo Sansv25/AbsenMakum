@@ -118,10 +118,10 @@ function getNavigationSections(canAccessTicketing: boolean, isMaster: boolean): 
         { href: '/', label: 'Dashboard Absen', icon: LayoutDashboard },
         {
           href: '/absen-chat',
-          label: 'Absen Pagi & Feed',
+          label: 'Absen Harian',
           icon: MessagesSquare,
-          badge: 'Pagi',
-          badgeColor: 'bg-amber-500 text-white',
+          badge: 'Baru',
+          badgeColor: 'bg-blue-500 text-white',
         },
         { href: '/riwayat', label: 'Riwayat Absensi', icon: History },
       ],
@@ -549,7 +549,7 @@ export function AppNavigation({
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
               </div>
-              <span>Absen Pagi</span>
+              <span>Absen Harian</span>
             </Link>
           </li>
 

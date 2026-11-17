@@ -21,7 +21,7 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
     redirect('/login');
   }
 
-  const { isMaster, fullName, roles, email } = await getCurrentUserProfile();
+  await getCurrentUserProfile();
 
   const today = todayWITA();
   const params = await searchParams;
@@ -34,9 +34,6 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
     <AttendanceChatClient
       initialDate={workDate}
       currentUserId={user.id}
-      currentUserName={fullName || email || 'Petugas'}
-      currentUserRoles={roles || []}
-      isMaster={isMaster}
       initialMessages={messages}
     />
   );

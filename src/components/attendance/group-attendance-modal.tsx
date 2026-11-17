@@ -335,7 +335,7 @@ export function GroupAttendanceModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Absen Bersama Pagi (QR Code)
+                Absen Bersama (QR Code)
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {step === 'form'
@@ -411,22 +411,12 @@ export function GroupAttendanceModal({
                 )}
               </div>
 
-              {/* 2. Informasi Tanggal */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Tanggal Absen Pagi
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={workDate}
-                    onChange={(e) => setWorkDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                  />
-                  <span className="text-xs text-slate-500 shrink-0">
-                    {formatIndonesia(workDate)}
-                  </span>
-                </div>
+              {/* 2. Informasi Tanggal (Otomatis Hari Ini Tanpa Select) */}
+              <div className="text-xs text-slate-500 font-medium bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                📅 Tanggal:{' '}
+                <span className="text-slate-800 dark:text-slate-200 font-semibold">
+                  {formatIndonesia(workDate)}
+                </span>
               </div>
 
               {/* 3. Catatan Keterangan */}
@@ -684,7 +674,7 @@ export function GroupAttendanceModal({
                   </>
                 ) : (
                   <>
-                    <Send className="w-4 h-4" /> Kirim Absen Pagi ({members.length} Orang)
+                    <Send className="w-4 h-4" /> Kirim Absen Bersama ({members.length} Orang)
                   </>
                 )}
               </button>
