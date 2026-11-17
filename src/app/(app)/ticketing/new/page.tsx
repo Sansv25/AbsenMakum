@@ -26,6 +26,11 @@ import { showToast } from '@/lib/swal';
 export default function NewTicketPage() {
   const router = useRouter();
 
+  // Alihkan otomatis ke dashboard ticketing dengan modal pop-up terbuka
+  useEffect(() => {
+    router.replace('/ticketing?create=true');
+  }, [router]);
+
   const [pasteInput, setPasteInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [checkingPermission, setCheckingPermission] = useState(true);

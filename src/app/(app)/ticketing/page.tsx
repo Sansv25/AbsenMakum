@@ -11,6 +11,7 @@ import { TicketControlSwitches } from '@/components/ticketing/ticket-control-swi
 import { TicketAiApprovalBanner } from '@/components/ticketing/ticket-ai-approval-banner';
 import { TicketEditModal } from '@/components/ticketing/ticket-edit-modal';
 import { DeleteTicketModal } from '@/components/ticketing/delete-ticket-modal';
+import { NewTicketModal } from '@/components/ticketing/new-ticket-modal';
 import {
   Search,
   ArrowUp,
@@ -54,6 +55,8 @@ export default function TicketingDashboardPage() {
   // Modal States
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
   const [deletingTicket, setDeletingTicket] = useState<Ticket | null>(null);
+  const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
 
   // Toggles
   const [autoQueueEnabled, setAutoQueueEnabled] = useState(true);
@@ -103,7 +106,7 @@ export default function TicketingDashboardPage() {
       if (data?.user) {
         supabase
           .from('profiles')
-          .select('role, roles')
+          .select('full_name, role, roles')
           .eq('id', data.user.id)
           .single()
           .then(({ data: profile }) => {
@@ -115,8 +118,20 @@ export default function TicketingDashboardPage() {
             const allowed = isOwner || isAdmin || isTiket;
             setIsOwner(isOwner);
             setCanCreateTicket(allowed);
+
+            const displayName = profile?.full_name?.trim() || data.user.email?.split('@')[0] || 'Petugas';
+            setCurrentUser({ id: data.user.id, name: displayName });
+
             if (!allowed) {
               window.location.href = '/';
+            }
+
+            // Auto buka modal jika diarahkan dari query ?create=true atau ?new=true
+            if (typeof window !== 'undefined') {
+              const urlParams = new URLSearchParams(window.location.search);
+              if (urlParams.get('create') === 'true' || urlParams.get('new') === 'true') {
+                setIsNewTicketModalOpen(true);
+              }
             }
           });
       }
@@ -442,13 +457,14 @@ export default function TicketingDashboardPage() {
 
         <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
           {canCreateTicket && (
-            <Link
-              href="/ticketing/new"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
+            <button
+              type="button"
+              onClick={() => setIsNewTicketModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-xs cursor-pointer"
             >
               <TicketIcon className="h-3.5 w-3.5" />
               <span>+ Buat Tiket Baru</span>
-            </Link>
+            </button>
           )}
 
           <Link
@@ -605,13 +621,14 @@ export default function TicketingDashboardPage() {
               </p>
             </div>
             {canCreateTicket ? (
-              <Link
-                href="/ticketing/new"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
+              <button
+                type="button"
+                onClick={() => setIsNewTicketModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-xs cursor-pointer"
               >
                 <TicketIcon className="h-3.5 w-3.5" />
                 <span>Buat Tiket Baru Sekarang</span>
-              </Link>
+              </button>
             ) : (
               <p className="text-[11px] text-gray-400 dark:text-slate-500">
                 Pembuatan tiket gangguan hanya diizinkan untuk akun dengan <strong>Role Tiket</strong>.
@@ -1071,6 +1088,17 @@ export default function TicketingDashboardPage() {
         onClose={() => setDeletingTicket(null)}
         onSuccess={(deletedId) => {
           setTickets((prev) => prev.filter((t) => t.id !== deletedId));
+          fetchTickets();
+        }}
+      />
+
+      {/* Modal Buat Tiket Baru (Alur Wizard: Data Mentah -> Input Manual -> Bukti Foto) */}
+      <NewTicketModal
+        isOpen={isNewTicketModalOpen}
+        onClose={() => setIsNewTicketModalOpen(false)}
+        currentUser={currentUser}
+        onSuccess={(newTicket) => {
+          setTickets((prev) => [newTicket, ...prev]);
           fetchTickets();
         }}
       />
