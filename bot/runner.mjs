@@ -204,65 +204,87 @@ function getWitaTimeContext() {
 // Otak AI: Menjawab Pertanyaan CS ICONNET Sesuai Data Tiket & Deteksi Penutupan Percakapan
 async function generateAIReply(ticket, incomingMessage) {
   const isLoss = (ticket.complaint || '').toLowerCase().includes('loss') || (ticket.complaint || '').toLowerCase().includes('los');
-  const statusIndikatorText = isLoss ? 'lampu indikator merah' : 'tidak ada indikator merah';
-  const indikatorSentence = `Untuk kendalanya ${statusIndikatorText} Kak`;
+  const statusIndikatorText = isLoss ? 'lampu indikator merah (LOS)' : 'tidak ada indikator merah';
   const timeContext = getWitaTimeContext();
 
-  const prompt = `Kamu adalah asisten pelapor gangguan layanan yang berkomunikasi dengan CS ICONNET di Instagram DM.
-PENTING: POSISIMU ADALAH PELAPOR (PELANGGAN), BUKAN CUSTOMER SERVICE!
-Jangan pernah menawarkan bantuan seperti "Ada yang bisa dibantu?". Kamu yang meminta bantuan penanganan layanan ICONNET!
+  // Cek apakah tiket memiliki foto lampiran di Supabase
+  let hasImages = false;
+  try {
+    const { data: ticketImages } = await supabase
+      .from('ticket_images')
+      .select('id')
+      .eq('ticket_id', ticket.id);
+    hasImages = Boolean(ticketImages && ticketImages.length > 0);
+  } catch {}
+
+  const contactInfo = ticket.alt_phone
+    ? `nomor alternatif di ${ticket.alt_phone} dan nomor WhatsApp di ${ticket.phone || '-'}`
+    : `nomor WhatsApp/telepon di ${ticket.phone || '-'}`;
+
+  const photoInfo = hasImages
+    ? 'foto lampu indikator modem dan nomor SN di bagian belakang sudah kami kirimkan di atas ya Kak'
+    : 'untuk foto saat ini belum dapat kami lampirkan';
+
+  const defaultSafeReply = `Baik Kak, ${photoInfo}. Untuk kendalanya ${statusIndikatorText}, dan untuk ${contactInfo}. Mohon bantuannya untuk dilakukan pengecekan Kak. Terima kasih.`;
+
+  const prompt = `Kamu adalah PELAPOR / ADMIN PELANGGAN yang sedang berkomunikasi dengan CS ICONNET di Instagram Direct Message (DM).
+PENTING:
+- LAWAN BICARAMU: Petugas Customer Service ICONNET (sapa dengan "Kak" atau "Kak [Nama Agen CS]").
+- IDENTITAS KITA: Pihak pelapor yang mewakili pelanggan "${ticket.name}".
+- DILARANG KERAS menyapa "Kak ${ticket.name}" karena "${ticket.name}" adalah nama pihak kita sendiri/nama pelanggan kita!
+- DILARANG KERAS meminta foto, nomor telepon, atau data kepada CS! Tugasmu adalah MEMBERIKAN informasi kepada CS, bukan meminta ke CS.
+- DILARANG mengulang permintaan CS (misal jangan katakan "mohon bantuannya untuk mengirimkan lampiran")!
 
 WAKTU SEKARANG: ${timeContext.timeStr} (Salam penutup yang tepat: "${timeContext.greeting}")
 
-DATA TIKET PELANGGAN (Satu-satunya sumber fakta):
-- Nama: ${ticket.name}
+DATA TIKET KITA (Satu-satunya sumber fakta):
+- Nama Pelanggan: ${ticket.name}
 - ID Pelanggan: ${ticket.customer_id}
-- No Telepon / WA: ${ticket.phone || '-'}
-- No Telepon Alternatif / CP Alt: ${ticket.alt_phone || '-'}
+- No Telepon: ${ticket.phone || '-'}
+- No Telepon Alternatif: ${ticket.alt_phone || '-'}
 - Keluhan: ${ticket.complaint}
-- Kondisi Indikator Modem: ${statusIndikatorText.toUpperCase()}
+- Kondisi Indikator Modem: ${statusIndikatorText}
+- Status Foto Lampiran: ${hasImages ? 'SUDAH TERKIRIM DI CHAT SEBELUMNYA' : 'BELUM TERSEDIA'}
 
-LOGIKA DETEKSI DAN JAWABAN:
-1. AKHIR PERCAKAPAN & SIMPULKAN OUTPUT TIKET:
-   Periksa apakah pesan CS mengarah pada penyelesaian / penutupan chat / tindakan resolusi:
-   a. Jika CS memberikan NOMOR TIKET RESMI (kode alfanumerik 8 karakter, misal R2J9S7MA, IN123456):
-      - "ticket_number": isi persis kode 8 karakter tersebut (misal "R2J9S7MA").
-   b. Jika CS melakukan PERBAIKAN DARI SISTEM / RESTART / RESET (misal "telah kami bantu lakukan perbaikan melalui sistem kami... mohon menunggu 5-10 menit"):
-      - "ticket_number": simpulkan ringkas 3-6 kata (misal: "Perbaikan Sistem (Tunggu 5-10 Menit)").
-   c. Jika CS menyatakan TAGIHAN BELUM LUNAS / ISOLIR:
-      - "ticket_number": "Belum Bayar / Tagihan Tertunggak".
-   d. Jika CS menyatakan GANGGUAN MASSAL:
-      - "ticket_number": "Gangguan Massal di Area".
-   e. Jika CS menutup percakapan ("chat akan kami akhiri", "tidak ada jawaban", atau menanyakan "ada lagi yang bisa dibantu?"):
-      - "ticket_number": simpulkan tindakan CS secara ringkas dan padat.
-   
-   Jika terdeteksi salah satu kondisi penyelesaian / penutupan di atas:
-   - Wajib set "is_closing": true.
-   - Field "ticket_number": isi dengan nomor tiket atau kesimpulan tindakan CS di atas.
-   - Field "text": susun teks balasan penutup yang sopan dan natural, ucapkan terima kasih banyak atas bantuannya dan tutup dengan "${timeContext.greeting}!" (misal: "Baik Kak, terima kasih banyak atas bantuannya. ${timeContext.greeting}!").
+CONTOH KASUS & JAWABAN YANG BENAR:
 
-2. SAPAAN / PEMBUKA DARI CS (Chat Baru Dimulai):
-   - Jika CS baru menyapa atau memperkenalkan diri (misal "siap melayani...", "dengan [nama agen] yang akan membantu", "Selamat pagi/siang Kak", dsb.):
-     DILARANG KERAS MENGAKHIRI CHAT ATAU MENGUCAPKAN SALAM PENUTUP!
-     Jawab bahwa pelanggan sedang menunggu penanganan: "Baik Kak, mohon bantuannya untuk kendala/permintaan layanan kami. Terima kasih."
-     Wajib set "is_closing": false, dan "ticket_number": null.
+Contoh 1 (CS meminta lampiran / foto & no telepon):
+Pesan CS: "Mohon dibantu kirimkan foto modem depan indikator, foto SN belakang, dan no alternatif."
+Jawaban Kamu:
+"Baik Kak, ${photoInfo}. Untuk kendalanya ${statusIndikatorText}, dan untuk ${contactInfo}. Mohon bantuannya untuk dilakukan pengecekan Kak. Terima kasih."
 
-3. PERTANYAAN / KONFIRMASI DARI CS (Chat belum berakhir):
-   - Jika CS menanyakan konfirmasi data/perubahan (misal konfirmasi nama wifi baru, password baru, atau kesediaan perbaikan):
-     Jawab sopan dan konfirmasikan kesesuaian: "Sudah sesuai Kak, kami bersedia untuk dibantu pergantiannya. Terima kasih."
-   - Jika CS meminta foto modem/SN: jawab bahwa foto saat ini belum dapat dilampirkan ("Untuk foto saat ini belum dapat kami lampirkan Kak. Mohon bantuannya Kak.").
-   - Jika CS meminta nomor WhatsApp / alternatif: ${ticket.alt_phone ? `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} dan nomor alternatif/CP alt di ${ticket.alt_phone}.` : `jawab bahwa nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif lain).`}
-   - Jika CS menanyakan kondisi lampu indikator: jawab "${indikatorSentence}. Mohon bantuannya Kak."
-   - Jika CS menanyakan foto DAN nomor telepon sekaligus: jawab ringkas keduanya dalam satu pesan ("${indikatorSentence}, untuk foto saat ini belum dapat kami lampirkan, dan untuk nomor WhatsApp aktif di ${ticket.phone || '-'}${ticket.alt_phone ? ` serta nomor alternatif di ${ticket.alt_phone}` : ' (tidak ada nomor alternatif)'}. Mohon bantuannya Kak.").
-   - Wajib set "is_closing": false, dan "ticket_number": null.
+Contoh 2 (CS menanyakan apakah sudah restart):
+Pesan CS: "Apakah sudah dicoba mematikan modem 5-10 menit?"
+Jawaban Kamu:
+"Sudah kami coba matikan dan restart modem selama beberapa menit Kak, namun kendalanya masih tetap sama. Mohon dibantu pengecekannya Kak. Terima kasih."
+
+Contoh 3 (CS menanyakan konfirmasi data/perubahan wifi):
+Pesan CS: "Apakah bersedia untuk pergantian password / reset konfigurasi?"
+Jawaban Kamu:
+"Sudah sesuai Kak, kami bersedia untuk dibantu prosesnya. Terima kasih Kak."
+
+Contoh 4 (CS baru menyapa di awal chat):
+Pesan CS: "Halo Kak, dengan Jadug siap membantu. Ada yang bisa dibantu?"
+Jawaban Kamu:
+"Baik Kak Jadug, mohon bantuannya untuk penanganan kendala internet kami. Terima kasih."
+
+Contoh 5 (CS memberikan nomor tiket resmi):
+Pesan CS: "Laporan sudah dibuatkan dengan nomor tiket IN12345678. Petugas akan menghubungi."
+Jawaban Kamu:
+Set is_closing = true, ticket_number = "IN12345678", text = "Baik Kak, terima kasih banyak atas bantuannya. ${timeContext.greeting}!"
+
+Contoh 6 (CS melakukan perbaikan sistem / restart dari pusat):
+Pesan CS: "Sudah kami bantu perbaikan/refresh dari sistem kami, mohon tunggu 5-10 menit."
+Jawaban Kamu:
+Set is_closing = true, ticket_number = "Perbaikan Sistem (Tunggu 5-10 Menit)", text = "Baik Kak, terima kasih atas bantuannya. Kami tunggu prosesnya. ${timeContext.greeting}!"
 
 PENTING: DILARANG KERAS MENGIRIM SALAM PENUTUP ATAU SET "is_closing": true KECUALI CS SUDAH MEMBERIKAN NOMOR TIKET RESMI ATAU TINDAKAN PENYELESAIAN JELAS!
 
 KELUARAN HANYA JSON VALID TANPA MARKDOWN:
 {
   "action": "reply",
-  "text": "...",
-  "ticket_number": "...",
+  "text": "isi balasan ke CS",
+  "ticket_number": "kode tiket atau null",
   "is_closing": true/false
 }`;
 
@@ -296,12 +318,40 @@ KELUARAN HANYA JSON VALID TANPA MARKDOWN:
     } catch {
       parsed = { action: 'reply', text: cleaned, is_closing: false, ticket_number: null };
     }
+
+    // Post-processing Sanitizer untuk menjamin 100% akurasi respon
+    if (parsed.text) {
+      // 1. Bersihkan jika LLM salah menyapa nama pelanggan sendiri (misal "Kak Suardana")
+      if (ticket.name) {
+        const escapedName = ticket.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const nameRegex = new RegExp(`\\b(?:Kak|Pak|Ibu|Bpk)?\\s*${escapedName}\\b`, 'gi');
+        parsed.text = parsed.text.replace(nameRegex, 'Kak').trim();
+      }
+
+      // 2. Cegah mirroring / parroting jika LLM mengulang permintaan lampiran CS
+      const lower = parsed.text.toLowerCase();
+      if (
+        lower.includes('mohon bantuannya untuk mengirimkan lampiran') ||
+        lower.includes('mohon bantuannya untuk kirimkan lampiran') ||
+        lower.includes('mohon dibantu untuk mengirimkan lampiran') ||
+        lower.includes('mohon bantuannya untuk mengirimkan nomor telepon') ||
+        lower.includes('mohon informasikan nomor telepon alternatif')
+      ) {
+        parsed.text = defaultSafeReply;
+      }
+
+      // 3. Rapikan spasi dan sapaan berulang ("Kak Kak")
+      parsed.text = parsed.text.replace(/\bKak\s+Kak\b/gi, 'Kak').replace(/\s{2,}/g, ' ').trim();
+    } else {
+      parsed.text = defaultSafeReply;
+    }
+
     return parsed;
   } catch (err) {
     console.error('[AI Error]:', err.message);
     return {
       action: 'reply',
-      text: `${indikatorSentence}, untuk foto saat ini belum dapat kami lampirkan, dan untuk nomor WhatsApp aktif di ${ticket.phone || '-'} (tidak ada nomor alternatif). Mohon bantuannya Kak.`,
+      text: defaultSafeReply,
       is_closing: false,
       ticket_number: null,
     };

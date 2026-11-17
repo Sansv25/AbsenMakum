@@ -16,6 +16,30 @@ import {
   Lock,
 } from 'lucide-react';
 
+const DEFAULT_AI_PROMPT = `Kamu adalah PELAPOR / ADMIN PELANGGAN yang sedang berkomunikasi dengan CS ICONNET di Instagram Direct Message (DM).
+PENTING:
+- LAWAN BICARAMU: Petugas Customer Service ICONNET (sapa dengan "Kak" atau "Kak [Nama Agen CS]").
+- IDENTITAS KITA: Pihak pelapor yang mewakili pelanggan "{{ticket_json}}".
+- DILARANG KERAS menyapa dengan nama pelanggan kita sendiri!
+- DILARANG KERAS meminta foto, nomor telepon, atau data kepada CS! Tugasmu adalah MEMBERIKAN informasi kepada CS, bukan meminta ke CS.
+- DILARANG mengulang permintaan CS (misal jangan katakan "mohon bantuannya untuk mengirimkan lampiran")!
+
+WAKTU SEKARANG: {{waktu}}
+
+ATURAN JAWABAN:
+1. Jika CS meminta foto dan FOTO TERSEDIA > 0, jawab bahwa foto modem dan nomor SN sudah dilampirkan di pesan sebelumnya.
+2. Jika CS meminta nomor kontak alternatif, berikan nomor alternatif pelanggan atau nomor kontak utama jika tidak ada alternatif.
+3. Jika CS menanyakan apakah sudah restart modem, jawab sudah dicoba restart beberapa menit namun kendala tetap sama.
+4. Jika CS memberikan nomor tiket resmi (8 karakter) atau perbaikan sistem selesai, set is_closing: true, simpulkan ticket_number, dan beri ucapan terima kasih dengan salam penutup sesuai waktu.
+
+KELUARAN: HANYA JSON VALID:
+{
+  "action": "reply",
+  "text": "isi balasan ke CS",
+  "ticket_number": "kode tiket atau null",
+  "is_closing": true/false
+}`;
+
 export default function TicketingSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,10 +80,15 @@ export default function TicketingSettingsPage() {
 
         if (error) throw new Error(error.message);
 
-        if (data) {
+        if (data && data.length > 0) {
+          let foundPrompt = false;
           data.forEach((s) => {
             if (s.key === 'ai_system_prompt') {
-              setPrompt(typeof s.value === 'string' ? s.value : JSON.stringify(s.value, null, 2).replace(/^"|"$/g, ''));
+              const val = typeof s.value === 'string' ? s.value : JSON.stringify(s.value, null, 2).replace(/^"|"$/g, '');
+              if (val.trim()) {
+                setPrompt(val);
+                foundPrompt = true;
+              }
             } else if (s.key === 'max_ai_turns') {
               setMaxTurns(Number(s.value) || 12);
             } else if (s.key === 'closing_greeting_template') {
@@ -72,6 +101,11 @@ export default function TicketingSettingsPage() {
               setMonitoringEnabled(Boolean(s.value));
             }
           });
+          if (!foundPrompt) {
+            setPrompt(DEFAULT_AI_PROMPT);
+          }
+        } else {
+          setPrompt(DEFAULT_AI_PROMPT);
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Gagal memuat pengaturan';
@@ -264,7 +298,19 @@ export default function TicketingSettingsPage() {
                 <Bot className="w-4 h-4 text-purple-500" />
                 System Prompt AI (LLM / n8n)
               </h2>
-              <span className="text-[11px] text-slate-400 font-mono">Format JSON Output</span>
+              <div className="flex items-center gap-3">
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setPrompt(DEFAULT_AI_PROMPT)}
+                    className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Reset ke Default
+                  </button>
+                )}
+                <span className="text-[11px] text-slate-400 font-mono">Format JSON Output</span>
+              </div>
             </div>
 
             <div>
