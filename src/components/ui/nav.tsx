@@ -48,6 +48,7 @@ export interface AppNavProps {
   canAccessTicketing?: boolean;
   canAccessPiket?: boolean;
   isMagang?: boolean;
+  isSenior?: boolean;
   userName?: string | null;
   userEmail?: string | null;
   roles?: AppRole[];
@@ -128,7 +129,7 @@ function getNavigationSections(
   canAccessTicketing: boolean,
   isMaster: boolean,
   canAccessPiket: boolean,
-  isMagang: boolean
+  canAccessHarian: boolean
 ): NavSection[] {
   const absensiItems: NavItem[] = [];
 
@@ -141,8 +142,8 @@ function getNavigationSections(
     });
   }
 
-  // Presensi Harian & Rekapitulasi Harian HANYA untuk akun yang memiliki role magang
-  if (isMagang) {
+  // Presensi Harian & Rekapitulasi Harian untuk akun yang memiliki role magang atau senior
+  if (canAccessHarian) {
     absensiItems.push({
       href: '/absen-chat',
       label: 'Absen Harian',
@@ -231,6 +232,7 @@ export function AppNavigation({
   canAccessTicketing = false,
   canAccessPiket = false,
   isMagang,
+  isSenior,
   userName,
   userEmail,
   roles,
@@ -254,8 +256,14 @@ export function AppNavigation({
     Boolean(roles?.includes('piket'));
 
   const userIsMagang = isMagang ?? Boolean(roles?.includes('magang'));
+  const userIsSenior = isSenior ?? Boolean(roles?.includes('senior'));
+  const userCanAccessHarian =
+    userIsMagang ||
+    userIsSenior ||
+    Boolean(roles?.includes('owner')) ||
+    Boolean(roles?.includes('admin'));
 
-  const sections = getNavigationSections(hasTicketAccess, isMaster, userCanAccessPiket, userIsMagang);
+  const sections = getNavigationSections(hasTicketAccess, isMaster, userCanAccessPiket, userCanAccessHarian);
   const allNavItems = useMemo(() => sections.flatMap((sec) => sec.items), [sections]);
   const displayName = userName || userEmail || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'U';
@@ -607,7 +615,7 @@ export function AppNavigation({
                 <LayoutDashboard className="h-4 w-4 mb-0.5" />
                 <span>Absen Piket</span>
               </Link>
-            ) : userIsMagang ? (
+            ) : userCanAccessHarian ? (
               <Link
                 href="/absen-chat"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors relative ${
@@ -654,7 +662,7 @@ export function AppNavigation({
 
           {/* 2. Tombol Kedua */}
           <li className="flex-1">
-            {userCanAccessPiket && userIsMagang ? (
+            {userCanAccessPiket && userCanAccessHarian ? (
               <Link
                 href="/absen-chat"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors relative ${
@@ -672,7 +680,7 @@ export function AppNavigation({
                 </div>
                 <span>Absen Harian</span>
               </Link>
-            ) : userCanAccessPiket && !userIsMagang ? (
+            ) : userCanAccessPiket && !userCanAccessHarian ? (
               <Link
                 href="/riwayat"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
@@ -684,7 +692,7 @@ export function AppNavigation({
                 <History className="h-4 w-4 mb-0.5" />
                 <span>Riwayat</span>
               </Link>
-            ) : userIsMagang ? (
+            ) : userCanAccessHarian ? (
               <Link
                 href="/rekap-harian"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
@@ -711,7 +719,7 @@ export function AppNavigation({
             )}
           </li>
 
-          {/* 3. Tombol Ketiga (Tiket jika punya akses, atau Rekap untuk Magang, atau Export/Profil) */}
+          {/* 3. Tombol Ketiga (Tiket jika punya akses, atau Rekap untuk Magang/Senior, atau Export/Profil) */}
           <li className="flex-1">
             {hasTicketAccess ? (
               <Link
@@ -725,7 +733,7 @@ export function AppNavigation({
                 <Ticket className="h-4 w-4 mb-0.5" />
                 <span>Tiket</span>
               </Link>
-            ) : userCanAccessPiket && userIsMagang ? (
+            ) : userCanAccessPiket && userCanAccessHarian ? (
               <Link
                 href="/rekap-harian"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
@@ -737,7 +745,7 @@ export function AppNavigation({
                 <ClipboardCheck className="h-4 w-4 mb-0.5" />
                 <span>Rekap</span>
               </Link>
-            ) : userCanAccessPiket && !userIsMagang ? (
+            ) : userCanAccessPiket && !userCanAccessHarian ? (
               <Link
                 href="/export"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${

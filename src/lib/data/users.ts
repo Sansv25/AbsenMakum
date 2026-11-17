@@ -93,7 +93,7 @@ export async function adminCreateUser(
       .from('profiles')
       .update({
         roles: roles.length > 0 ? roles : ['magang'],
-        exclude_from_recap: !roles.includes('magang'),
+        exclude_from_recap: !roles.includes('magang') || roles.includes('senior') || roles.includes('owner') || roles.includes('admin'),
       })
       .eq('email', normalizedEmail);
   } catch {
@@ -142,7 +142,11 @@ export async function adminUpdateUserRoles(
 
   const hasAdminRights = newRoles.some((r) => r === 'owner' || r === 'admin' || r === 'senior');
   const syncedRole: UserRole = hasAdminRights ? 'master' : 'user';
-  const excludeFromRecap = !newRoles.includes('magang');
+  const excludeFromRecap =
+    !newRoles.includes('magang') ||
+    newRoles.includes('senior') ||
+    newRoles.includes('owner') ||
+    newRoles.includes('admin');
 
   try {
     const { error } = await supabase

@@ -245,18 +245,26 @@ export async function getDailyAttendanceRecap(
       };
     });
 
-    // 5. Filter khusus Anak Magang (Sesuai Permintaan Utama User)
-    // Kriteria: akun memiliki role 'magang', ATAU tidak punya role admin/owner dan tidak di-exclude
+    // 5. Filter khusus Anak Magang (Senior, Owner, Admin, Master TIDAK ikut di rekap absen harian)
     const internRecords = allRecords.filter((rec) => {
       const p = profiles.find((prof) => prof.id === rec.user.id);
       if (p?.exclude_from_recap) return false;
 
       const roles = rec.user.roles || [];
-      if (roles.includes('magang')) return true;
-      if (roles.includes('owner') || roles.includes('admin') || roles.includes('senior') || roles.includes('piket')) {
+
+      // Senior, Owner, Admin, Master tidak boleh ikut di rekap absen harian
+      if (
+        roles.includes('senior') ||
+        roles.includes('owner') ||
+        roles.includes('admin') ||
+        rec.user.role === 'senior' ||
+        rec.user.role === 'master'
+      ) {
         return false;
       }
-      return rec.user.role !== 'master';
+
+      // Hanya akun yang memiliki role magang yang masuk rekap
+      return roles.includes('magang');
     });
 
     // Urutkan: Hadir lebih dulu (berdasarkan jam), baru yang Belum Hadir (alfabet)
@@ -272,7 +280,24 @@ export async function getDailyAttendanceRecap(
     }
 
     const sortedInterns = sortRecords(internRecords);
-    const sortedAll = sortRecords(allRecords);
+
+    // allActiveRecords juga mengecualikan Senior, Owner, Admin agar konsisten tidak ikut di rekap
+    const nonStaffRecords = allRecords.filter((rec) => {
+      const p = profiles.find((prof) => prof.id === rec.user.id);
+      if (p?.exclude_from_recap) return false;
+      const roles = rec.user.roles || [];
+      if (
+        roles.includes('senior') ||
+        roles.includes('owner') ||
+        roles.includes('admin') ||
+        rec.user.role === 'senior' ||
+        rec.user.role === 'master'
+      ) {
+        return false;
+      }
+      return true;
+    });
+    const sortedAll = sortRecords(nonStaffRecords);
 
     const totalInterns = sortedInterns.length;
     const totalHadir = sortedInterns.filter((r) => r.isHadir).length;

@@ -10,8 +10,10 @@ export const dynamic = 'force-dynamic';
 export default async function ExportPage() {
   const profile = await getCurrentUserProfile();
 
-  // Pengguna tanpa akses piket dan tanpa role magang tidak diizinkan masuk
-  if (!profile.canAccessPiket && !profile.isMagang) {
+  const canAccessHarian = profile.isMagang || profile.isSenior || profile.isOwner || profile.isAdmin;
+
+  // Pengguna tanpa akses piket dan tanpa akses harian tidak diizinkan masuk
+  if (!profile.canAccessPiket && !canAccessHarian) {
     if (profile.canCreateTicket) {
       redirect('/ticketing');
     }
@@ -24,8 +26,8 @@ export default async function ExportPage() {
   const defaultStartDate = dates[0];
   const defaultEndDate = dates[dates.length - 1];
 
-  // Rekap harian magang hanya diambil jika akun memiliki role magang
-  const dailyRecap = profile.isMagang ? await getDailyAttendanceRecap(today) : null;
+  // Rekap harian magang diambil jika akun memiliki role magang atau senior
+  const dailyRecap = canAccessHarian ? await getDailyAttendanceRecap(today) : null;
   const emailSettings = await getEmailRecapSettings();
 
   const emailCount =
@@ -42,7 +44,7 @@ export default async function ExportPage() {
         initialDailyRecap={dailyRecap}
         isMaster={profile.canManageSettings}
         canAccessPiket={profile.canAccessPiket}
-        isMagang={profile.isMagang}
+        isMagang={canAccessHarian}
         emailRecipientsCount={emailCount}
       />
     </div>

@@ -24,8 +24,9 @@ export default async function RekapHarianPage({ searchParams }: RekapHarianPageP
 
   const profile = await getCurrentUserProfile();
 
-  // Akun yang tidak memiliki role magang tidak bisa mengakses rekap absen harian
-  if (!profile.isMagang) {
+  // Akun yang tidak memiliki role magang atau senior tidak bisa mengakses rekap absen harian
+  const canAccessRekapHarian = profile.isMagang || profile.isSenior || profile.isOwner || profile.isAdmin;
+  if (!canAccessRekapHarian) {
     if (profile.canAccessPiket) {
       redirect('/');
     }

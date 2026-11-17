@@ -165,8 +165,9 @@ export async function createAttendanceFeedMessage(payload: {
   }
 
   const profile = await getCurrentUserProfile();
-  if (!profile.isMagang) {
-    return { message: null, error: 'Hanya akun dengan role magang yang dapat mengirim absensi harian.' };
+  const canSend = profile.isMagang || profile.isSenior || profile.isOwner || profile.isAdmin;
+  if (!canSend) {
+    return { message: null, error: 'Hanya akun dengan role magang atau senior yang dapat mengirim pesan di absensi harian.' };
   }
 
   const { data, error } = await supabase

@@ -23,8 +23,9 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
 
   const myProfile = await getCurrentUserProfile();
 
-  // Pengguna yang tidak memiliki role magang tidak diizinkan mengakses absen harian
-  if (!myProfile.isMagang) {
+  // Pengguna yang tidak memiliki role magang atau senior tidak diizinkan mengakses absen harian
+  const canAccessAbsenHarian = myProfile.isMagang || myProfile.isSenior || myProfile.isOwner || myProfile.isAdmin;
+  if (!canAccessAbsenHarian) {
     if (myProfile.canAccessPiket) {
       redirect('/');
     }
