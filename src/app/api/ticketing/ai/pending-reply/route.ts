@@ -56,12 +56,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 1. Simpan pesan keluar ke ticket_messages
+      // 1. Simpan pesan keluar ke ticket_messages (ditandai pending agar diketikkan bot runner ke Instagram DM)
       await supabase.from('ticket_messages').insert({
         ticket_id: ticketId,
         direction: 'out',
         sender: 'admin',
         body: replyText,
+        ig_mid: 'pending',
       });
 
       // 2. Kembalikan status tiket ke in_conversation

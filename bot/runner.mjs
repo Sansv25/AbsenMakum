@@ -713,14 +713,59 @@ async function dispatchTicket(ticket) {
   }
 }
 
+// Kirim pesan manual yang diketik admin di Web Dashboard ke DM Instagram
+async function sendPendingOutboundMessages(page, activeTicket) {
+  try {
+    const { data: pendingMsgs } = await supabase
+      .from('ticket_messages')
+      .select('*')
+      .eq('ticket_id', activeTicket.id)
+      .eq('direction', 'out')
+      .eq('sender', 'admin')
+      .eq('ig_mid', 'pending')
+      .order('created_at', { ascending: true });
+
+    if (!pendingMsgs || pendingMsgs.length === 0) return;
+
+    for (const msg of pendingMsgs) {
+      console.log(`\n📤 [KIRIM MANUAL WEB -> IG] Mengirim pesan admin ke DM Instagram: "${msg.body}"`);
+      await supabase
+        .from('ticket_messages')
+        .update({ ig_mid: 'sending' })
+        .eq('id', msg.id);
+
+      await sendMessageToDirectThread(page, msg.body);
+
+      await supabase
+        .from('ticket_messages')
+        .update({ ig_mid: 'sent' })
+        .eq('id', msg.id);
+
+      console.log(`   ✓ Pesan manual admin sukses terkirim ke Instagram DM.`);
+    }
+  } catch (err) {
+    console.error('⚠️ Gagal mengirim pesan manual pending ke Instagram:', err.message);
+  }
+}
+
 // Cek Pesan Masuk, Ekstrak Nomor Tiket, & Jalankan AI Auto-Reply
 async function syncActiveChat(activeTicket) {
   try {
     const page = await getDirectThreadPage();
 
+    // 0. Cek dan kirim balasan manual dari Web Dashboard jika ada yang berstatus pending
+    await sendPendingOutboundMessages(page, activeTicket);
+
     const messages = await page.evaluate(() => {
       // Abaikan sidebar navigasi, panel rincian/info di sebelah kanan, dan dialog
       const isInsideIgnoredContainer = (el) => {
+        // Abaikan jika el berada di dalam input box pesan / form pengiriman chat
+        if (
+          el.closest('[role="textbox"], [aria-label="Message"], [aria-label="Pesan"], form')
+        ) {
+          return true;
+        }
+
         // Abaikan jika el berada di dalam tombol / kartu kontak WhatsApp itu sendiri
         if (
           el.closest('a[href*="whatsapp.com"], a[href*="wa.me"]') ||
@@ -750,7 +795,6 @@ async function syncActiveChat(activeTicket) {
         return false;
       };
 
-      const nodes = Array.from(document.querySelectorAll('div[dir="auto"], span[dir="auto"]'));
       const ignored = new Set([
         'Home',
         'Search',
@@ -786,25 +830,110 @@ async function syncActiveChat(activeTicket) {
         'Delivered',
         'Sent',
         'Sending...',
+        'Dilihat',
+        'Terkirim',
       ]);
 
-      return nodes
-        .filter((n) => {
-          if (isInsideIgnoredContainer(n)) return false;
-          const text = n.innerText?.trim();
-          if (!text) return false;
-          const lower = text.toLowerCase();
-          if (ignored.has(text) || ignored.has(lower)) return false;
-          if (lower === 'seen' || lower.startsWith('seen ')) return false;
-          if (lower === 'sent' || lower.startsWith('sent ')) return false;
-          if (lower === 'delivered' || lower.startsWith('delivered ')) return false;
-          if (lower === 'active now' || lower.startsWith('active ')) return false;
-          return true;
-        })
-        .map((n) => n.innerText.trim());
+      function isTimestampOrMeta(t) {
+        if (!t) return true;
+        const s = t.replace(/\s+/g, ' ').trim();
+        if (!s) return true;
+        if (/^\d+$/.test(s)) return true;
+        if (/^\d+[smhdwy]$/i.test(s)) return true;
+        if (/^\d{1,2}[:.]\d{2}(\s*(?:am|pm|wib|wita|wit))?$/i.test(s)) return true;
+        if (/^(today|yesterday|hari ini|kemarin|\w+,\s*\d+\s*\w+|\d+\s*\w+(\s*\d{4})?)[,\s]+(\d{1,2}[:.]\d{2}(\s*(?:am|pm|wib|wita|wit))?)$/i.test(s)) return true;
+        if (/^(seen|delivered|sent|sending|dilihat|terkirim|mengirim)[\s.]*$/i.test(s)) return true;
+        if (/^dilihat\s*(oleh|pukul|\d)/i.test(s)) return true;
+        if (/^seen\s*(by|\d)/i.test(s)) return true;
+        return false;
+      }
+
+      const inputBox = document.querySelector(
+        'div[role="textbox"][contenteditable="true"], div[aria-label="Message"], div[aria-label="Pesan"]'
+      );
+      const chatBounds = inputBox ? inputBox.getBoundingClientRect() : null;
+
+      function detectDirection(el) {
+        let isBlue = false;
+        let isGray = false;
+        let c = el;
+        for (let i = 0; i < 6 && c && c !== document.body; i++) {
+          const bg = window.getComputedStyle(c).backgroundColor;
+          if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+            const rgb = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (rgb) {
+              const r = parseInt(rgb[1], 10);
+              const g = parseInt(rgb[2], 10);
+              const b = parseInt(rgb[3], 10);
+              // Bubble biru/ungu khas pesan keluar Instagram (outgoing)
+              if ((b > 150 && b > r + 30) || (b > 180 && g < 200)) {
+                isBlue = true;
+                break;
+              }
+              // Bubble abu-abu netral CS (incoming)
+              if (Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && r < 200) {
+                isGray = true;
+              }
+            }
+          }
+          c = c.parentElement;
+        }
+        if (isBlue) return 'out';
+
+        let isFlexEnd = false;
+        let isFlexStart = false;
+        let cp = el.parentElement;
+        for (let i = 0; i < 8 && cp && cp !== document.body; i++) {
+          const style = window.getComputedStyle(cp);
+          const jc = style.justifyContent;
+          const ai = style.alignItems;
+          const as = style.alignSelf;
+          if (jc === 'flex-end' || jc === 'end' || ai === 'flex-end' || as === 'flex-end') {
+            isFlexEnd = true;
+          }
+          if (jc === 'flex-start' || jc === 'start' || ai === 'flex-start' || as === 'flex-start') {
+            isFlexStart = true;
+          }
+          cp = cp.parentElement;
+        }
+        if (isFlexEnd && !isFlexStart) return 'out';
+
+        if (chatBounds && chatBounds.width > 0) {
+          const r = el.getBoundingClientRect();
+          const chatMid = chatBounds.left + (chatBounds.width / 2);
+          const bubbleCenter = (r.left + r.right) / 2;
+          if (bubbleCenter > chatMid && !isGray && !isFlexStart) {
+            return 'out';
+          }
+        }
+
+        return 'in';
+      }
+
+      const allNodes = Array.from(document.querySelectorAll('div[dir="auto"], span[dir="auto"]'));
+      // Ambil leaf nodes yang tidak punya child dir="auto" di dalamnya untuk mencegah duplikasi
+      const leafNodes = allNodes.filter((n) => {
+        if (isInsideIgnoredContainer(n)) return false;
+        if (n.querySelector('div[dir="auto"], span[dir="auto"]')) return false;
+        return true;
+      });
+
+      const items = [];
+      for (const n of leafNodes) {
+        const text = n.innerText?.replace(/\s+/g, ' ').trim();
+        if (!text) continue;
+        const lower = text.toLowerCase();
+        if (ignored.has(text) || ignored.has(lower)) continue;
+        if (isTimestampOrMeta(text)) continue;
+
+        const direction = detectDirection(n);
+        items.push({ text, direction });
+      }
+
+      return items;
     });
 
-    if (messages.length === 0) return;
+    if (!messages || messages.length === 0) return;
 
     // Filter Kata & Label Antarmuka (Abaikan label Meta, status pengiriman, dll.)
     const ignoredChatKeywords = new Set([
@@ -847,13 +976,17 @@ async function syncActiveChat(activeTicket) {
       'Yesterday',
       'Hari ini',
       'Kemarin',
+      'Dilihat',
+      'Terkirim',
     ]);
 
     // Cari posisi kemunculan pesan pembuka untuk tiket aktif saat ini di thread chat Instagram
     let openingMsgIndex = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
-      const text = messages[i];
+      const item = messages[i];
+      const text = item.text;
       const isOurOpeningReport =
+        item.direction === 'out' &&
         text.includes(activeTicket.customer_id) &&
         (text.includes('ID Pelanggan') ||
          text.includes('Nama Pelanggan') ||
@@ -868,8 +1001,7 @@ async function syncActiveChat(activeTicket) {
     // Jika format lengkap tidak tampak (misal kepotong karena virtual scroll), cari kemunculan pertama customer_id dari atas
     if (openingMsgIndex === -1) {
       for (let i = 0; i < messages.length; i++) {
-        const text = messages[i];
-        if (text.includes(activeTicket.customer_id)) {
+        if (messages[i].text.includes(activeTicket.customer_id)) {
           openingMsgIndex = i;
           break;
         }
@@ -892,19 +1024,38 @@ async function syncActiveChat(activeTicket) {
       .select('body')
       .eq('ticket_id', activeTicket.id)
       .eq('direction', 'out');
-    const outBodies = new Set((outMsgs || []).map((o) => o.body?.trim()));
+    const outBodies = new Set((outMsgs || []).map((o) => (o.body || '').replace(/\s+/g, ' ').trim()));
 
     // Kumpulkan seluruh bubble pesan CS yang masuk SETELAH pesan pembuka tiket ini
     const csBubbles = [];
-    const startIndex = openingMsgIndex === 0 && !messages[0]?.includes(activeTicket.customer_id) ? 0 : openingMsgIndex + 1;
+    const startIndex = openingMsgIndex === 0 && !messages[0]?.text.includes(activeTicket.customer_id) ? 0 : openingMsgIndex + 1;
     for (let i = startIndex; i < messages.length; i++) {
-      const m = messages[i]?.trim();
+      const item = messages[i];
+      const m = item.text?.trim();
       if (!m) continue;
-      if (/^\d+$/.test(m)) continue;
-      if (/^\d+[smhdwy]$/i.test(m)) continue;
-      if (/^\d{1,2}[:.]\d{2}$/.test(m)) continue;
+
+      // JIKA INI BUBBLE PESAN KELUAR (OUTGOING)
+      if (item.direction === 'out') {
+        const normM = m.replace(/\s+/g, ' ').trim();
+        // Cek apakah pesan keluar ini sudah tercatat di database
+        if (!outBodies.has(normM)) {
+          console.log(`\n💬 [SYNC IG MANUAL] Pesan manual admin dari Instagram terdeteksi: "${m}"`);
+          await supabase.from('ticket_messages').insert({
+            ticket_id: activeTicket.id,
+            direction: 'out',
+            sender: 'admin',
+            body: m,
+            ig_mid: 'from_ig',
+          });
+          outBodies.add(normM);
+        }
+        continue; // Lewati, JANGAN masukkan ke csBubbles
+      }
+
+      // JIKA INI BUBBLE PESAN MASUK (INCOMING / CS)
+      const normM = m.replace(/\s+/g, ' ').trim();
+      if (outBodies.has(normM)) continue;
       if (ignoredChatKeywords.has(m)) continue;
-      if (outBodies.has(m)) continue;
       // Abaikan jika ini adalah format laporan pembuka kita sendiri
       if (
         (m.includes('ID Pelanggan') && (m.includes('Keluhan:') || m.includes('Nama Pelanggan:'))) ||
@@ -967,7 +1118,6 @@ async function syncActiveChat(activeTicket) {
         lowerM.includes('antrean') ||
         lowerM.includes('antrian') ||
         lowerM.includes('menunggu antrian') ||
-        lowerM.includes('phone number') ||
         lowerM.startsWith('+55 ') ||
         lowerM.startsWith('phone number') ||
         lowerM.includes('business account') ||
@@ -1400,6 +1550,52 @@ async function sendHeartbeat(isOnline = true) {
   } catch {}
 }
 
+// Pasang listener realtime agar respon manual admin dari Web langsung terkirim seketika
+function setupRealtimeOutboundListener() {
+  try {
+    supabase
+      .channel('bot-runner-outbound-sync')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'ticket_messages',
+          filter: 'direction=eq.out',
+        },
+        async (payload) => {
+          const msg = payload.new;
+          if (msg && msg.sender === 'admin' && msg.ig_mid === 'pending') {
+            try {
+              const page = await getDirectThreadPage();
+              if (page) {
+                console.log(`\n⚡ [REALTIME WEB -> IG] Mengirim pesan manual admin: "${msg.body}"`);
+                await supabase
+                  .from('ticket_messages')
+                  .update({ ig_mid: 'sending' })
+                  .eq('id', msg.id);
+
+                await sendMessageToDirectThread(page, msg.body);
+
+                await supabase
+                  .from('ticket_messages')
+                  .update({ ig_mid: 'sent' })
+                  .eq('id', msg.id);
+
+                console.log(`   ✓ Pesan admin berhasil diketikkan ke Instagram DM secara instan.`);
+              }
+            } catch (e) {
+              console.warn('⚠️ Realtime outbound tertunda, akan dikirim pada siklus periksa berikutnya:', e.message);
+            }
+          }
+        }
+      )
+      .subscribe();
+  } catch (err) {
+    console.warn('⚠️ Gagal memasang realtime outbound listener:', err.message);
+  }
+}
+
 // Loop Utama Bot
 async function startBotLoop() {
   console.log('=======================================================');
@@ -1412,6 +1608,7 @@ async function startBotLoop() {
 
   await ensureAuthenticated();
   await sendHeartbeat(true);
+  setupRealtimeOutboundListener();
 
   let isChecking = false;
 

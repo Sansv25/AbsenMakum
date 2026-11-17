@@ -202,10 +202,22 @@ function TicketDetailContent() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'ticket_messages', filter: `ticket_id=eq.${ticketId}` },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+          setMessages((prev) => {
+            const incoming = payload.new as Message;
+            if (prev.some((m) => m.id === incoming.id)) return prev;
+            return [...prev, incoming];
+          });
           setTimeout(() => {
             chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
           }, 100);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'ticket_messages', filter: `ticket_id=eq.${ticketId}` },
+        (payload) => {
+          const updated = payload.new as Message;
+          setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
         }
       )
       .subscribe();
@@ -429,13 +441,18 @@ function TicketDetailContent() {
         direction: 'out',
         sender: 'admin',
         body: replyInput.trim(),
+        ig_mid: 'pending',
       };
 
       const { data, error } = await supabase.from('ticket_messages').insert(newMsg).select().single();
       if (error) throw new Error(error.message);
 
       if (data) {
-        setMessages((prev) => [...prev, data as Message]);
+        setMessages((prev) => {
+          const incoming = data as Message;
+          if (prev.some((m) => m.id === incoming.id)) return prev;
+          return [...prev, incoming];
+        });
       }
       setReplyInput('');
       setTimeout(() => {
@@ -1184,6 +1201,11 @@ function TicketDetailContent() {
                         </span>
                         <span>•</span>
                         <span>{formatDateWITA(m.created_at)}</span>
+                        {isOut && m.ig_mid === 'pending' && (
+                          <span className="text-amber-400 font-medium ml-1">
+                            • Mengirim ke Instagram...
+                          </span>
+                        )}
                       </div>
                       <div
                         className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
