@@ -98,6 +98,42 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
 });
 
+// Utilitas Logging Bersih & Anti-Spam
+const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+let spinnerIdx = 0;
+let lastReportedChatSig = '';
+
+function clearStatusLine() {
+  const width = process.stdout.columns || 80;
+  process.stdout.write('\r' + ' '.repeat(Math.max(0, width - 1)) + '\r');
+}
+
+const originalLog = console.log;
+const originalError = console.error;
+console.log = (...args) => {
+  clearStatusLine();
+  originalLog(...args);
+};
+console.error = (...args) => {
+  clearStatusLine();
+  originalError(...args);
+};
+
+function logEvent(...args) {
+  clearStatusLine();
+  originalLog(...args);
+}
+
+function updateStatusLine(text) {
+  const spinner = spinnerFrames[spinnerIdx++ % spinnerFrames.length];
+  const time = new Date().toLocaleTimeString();
+  const width = process.stdout.columns || 80;
+  const raw = `[${time}] ${spinner} ${text}`;
+  const truncated = raw.length >= width ? raw.slice(0, width - 4) + '...' : raw;
+  const padding = ' '.repeat(Math.max(0, width - 1 - truncated.length));
+  process.stdout.write(`\r${truncated}${padding}`);
+}
+
 // Cache pesan terakhir yang sudah dijawab agar tidak menjawab berulang-ulang
 let lastAnsweredMessage = '';
 
@@ -944,7 +980,12 @@ async function syncActiveChat(activeTicket) {
 
     if (csBubbles.length === 0) return;
 
-    console.log(`\n📬 [CHAT TERKINI] ${csBubbles.length} pesan CS terdeteksi: "${csBubbles[csBubbles.length - 1].slice(0, 75)}..."`);
+    // Cetak log HANYA jika ada pesan CS yang benar-benar baru masuk (anti-spam)
+    const currentSig = `${activeTicket.id}::${csBubbles.length}::${csBubbles[csBubbles.length - 1]}`;
+    if (currentSig !== lastReportedChatSig) {
+      lastReportedChatSig = currentSig;
+      logEvent(`\n📬 [PESAN CS MASUK] (${csBubbles.length} pesan): "${csBubbles[csBubbles.length - 1].slice(0, 80)}"`);
+    }
 
     // 1. Simpan bubble pesan CS baru ke tabel ticket_messages agar admin melihat isi chat CS di Web
     for (const bubble of csBubbles) {
@@ -1355,9 +1396,7 @@ async function startBotLoop() {
     try {
       const isAuthValid = await checkAndRefreshSession();
       if (!isAuthValid) {
-        process.stdout.write(
-          `\r[${new Date().toLocaleTimeString()}] ⚠️ [SESI EXPIRED] Sesi login Supabase habis. Tutup dan buka kembali jalankan_bot.bat untuk login! `
-        );
+        updateStatusLine('⚠️ [SESI EXPIRED] Sesi login Supabase habis. Tutup dan buka kembali jalankan_bot.bat untuk login!');
         return;
       }
 
@@ -1369,11 +1408,12 @@ async function startBotLoop() {
         .maybeSingle();
 
       if (activeTicket) {
-        process.stdout.write(
-          `\r[${new Date().toLocaleTimeString()}] ⏳ Tiket aktif: "${activeTicket.name}" | Memeriksa chat... `
-        );
+        updateStatusLine(`Tiket aktif: "${activeTicket.name}" | Memeriksa chat...`);
         await syncActiveChat(activeTicket);
       } else {
+        // Reset signature chat saat tidak ada tiket aktif
+        lastReportedChatSig = '';
+
         // 2. Jika tidak ada tiket aktif, periksa apakah ada antrean
         const { data: queuedTickets } = await supabase
           .from('tickets')
@@ -1384,12 +1424,11 @@ async function startBotLoop() {
           .limit(1);
 
         if (queuedTickets && queuedTickets.length > 0) {
+          clearStatusLine();
           const nextTicket = queuedTickets[0];
           await dispatchTicket(nextTicket);
         } else {
-          process.stdout.write(
-            `\r[${new Date().toLocaleTimeString()}] 💤 Tidak ada antrean tiket aktif. Menunggu tiket baru... `
-          );
+          updateStatusLine('Tidak ada antrean tiket aktif. Menunggu tiket baru...');
         }
       }
     } catch (err) {
