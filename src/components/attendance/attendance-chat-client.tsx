@@ -21,6 +21,7 @@ import { compressImage, isImageFile } from '@/lib/image';
 import { showAlert } from '@/lib/swal';
 import { formatIndonesia } from '@/lib/dates';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
+import { CameraModal } from '@/components/upload/camera-modal';
 import { GroupAttendanceModal } from './group-attendance-modal';
 import type { AttendanceFeedMessage, FeedType } from '@/lib/types/attendance-feed';
 
@@ -87,6 +88,10 @@ export function AttendanceChatClient({
   const [groupModalOpen, setGroupModalOpen] = useState<boolean>(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState<boolean>(false);
+
+  // Camera Modal state (GPS Map & Timestamp Camera seperti halaman piket)
+  const [cameraOpen, setCameraOpen] = useState<boolean>(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState<'user' | 'environment'>('user');
 
   // Pastikan daftar profiles termuat untuk mention
   useEffect(() => {
@@ -286,6 +291,20 @@ export function AttendanceChatClient({
       return;
     }
 
+    try {
+      setIsCompressing(true);
+      const compressed = await compressImage(file);
+      setAttachedFile(compressed);
+      setAttachedPreview(URL.createObjectURL(compressed));
+    } catch {
+      showAlert('Gagal Kompres Foto', 'Terjadi kesalahan saat memproses gambar.', 'error');
+    } finally {
+      setIsCompressing(false);
+    }
+  }
+
+  // Tangkap foto dari GPS Map Camera Modal (Timestamp & Lokasi seperti Halaman Piket)
+  async function handleCameraCapture(file: File) {
     try {
       setIsCompressing(true);
       const compressed = await compressImage(file);
@@ -992,18 +1011,36 @@ export function AttendanceChatClient({
 
         {/* PRATINJAU FOTO TERPILIH */}
         {attachedPreview && (
-          <div className="mb-2 relative inline-block">
-            <div className="relative rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 w-16 h-16 bg-slate-950">
+          <div className="mb-2 flex items-center gap-2.5 p-2 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 animate-in fade-in duration-150">
+            <div
+              onClick={() => openLightbox(attachedPreview)}
+              className="relative rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 w-12 h-12 bg-slate-950 shrink-0 cursor-pointer group"
+              title="Klik untuk melihat pratinjau foto besar"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={attachedPreview} alt="Preview" className="w-full h-full object-cover" />
-              <button
-                type="button"
-                onClick={clearAttachment}
-                className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-rose-600 transition"
-              >
-                <X className="w-3 h-3" />
-              </button>
+              <img
+                src={attachedPreview}
+                alt="Preview"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              />
             </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                <Camera className="w-3.5 h-3.5 text-blue-500" />
+                <span className="truncate">Foto GPS Map Terlampir</span>
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                Foto siap dikirim dengan watermark waktu &amp; lokasi
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearAttachment}
+              className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition shrink-0"
+              title="Hapus Lampiran Foto"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
@@ -1011,27 +1048,35 @@ export function AttendanceChatClient({
         {showAttachMenu && feedType === 'chat' && (
           <div
             ref={attachMenuRef}
-            className="absolute bottom-full left-3 mb-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-30 p-1.5 flex flex-col gap-1 w-52 animate-fade-in"
+            className="absolute bottom-full left-3 mb-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-30 p-1.5 flex flex-col gap-1 w-64 animate-fade-in"
           >
             <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
               Lampiran Pesan
             </div>
 
-            {/* Opsi 1: Kamera Langsung */}
+            {/* Opsi 1: Kamera GPS Map / Timestamp (Desain Seperti Halaman Piket) */}
             <button
               type="button"
               onClick={() => {
                 setShowAttachMenu(false);
-                cameraInputRef.current?.click();
+                setCameraFacingMode('environment');
+                setCameraOpen(true);
               }}
-              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left"
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-600 dark:hover:text-blue-400 transition text-left group"
             >
-              <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                 <Camera className="w-4 h-4" />
               </div>
-              <div>
-                <div>Kamera</div>
-                <div className="text-[10px] text-slate-400 font-normal">Ambil foto langsung</div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold flex items-center gap-1">
+                  <span>Kamera GPS Map</span>
+                  <span className="text-[9px] bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-bold px-1.5 py-0.2 rounded-full">
+                    Piket
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-normal truncate">
+                  Watermark waktu WITA &amp; lokasi resmi
+                </div>
               </div>
             </button>
 
@@ -1044,12 +1089,14 @@ export function AttendanceChatClient({
               }}
               className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left"
             >
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                 <ImageIcon className="w-4 h-4" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <div>Galeri / File</div>
-                <div className="text-[10px] text-slate-400 font-normal">Pilih foto dari HP</div>
+                <div className="text-[10px] text-slate-400 font-normal">
+                  Pilih foto dari HP tanpa watermark
+                </div>
               </div>
             </button>
 
@@ -1063,16 +1110,18 @@ export function AttendanceChatClient({
               disabled={isLocating}
               className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-left disabled:opacity-50"
             >
-              <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                 {isLocating ? (
                   <RefreshCw className="w-4 h-4 animate-spin text-rose-600" />
                 ) : (
                   <MapPin className="w-4 h-4" />
                 )}
               </div>
-              <div>
-                <div>{isLocating ? 'Mencari GPS...' : 'Bagikan Lokasi'}</div>
-                <div className="text-[10px] text-slate-400 font-normal">Kirim titik lokasi saya</div>
+              <div className="min-w-0 flex-1">
+                <div>{isLocating ? 'Mencari GPS...' : 'Bagikan Titik Lokasi'}</div>
+                <div className="text-[10px] text-slate-400 font-normal">
+                  Kirim link koordinat Google Maps
+                </div>
               </div>
             </button>
           </div>
@@ -1109,7 +1158,7 @@ export function AttendanceChatClient({
 
         {/* FORM INPUT PESAN */}
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          {/* Input file kamera langsung */}
+          {/* Input file kamera langsung (fallback) */}
           <input
             ref={cameraInputRef}
             type="file"
@@ -1128,45 +1177,77 @@ export function AttendanceChatClient({
             onChange={handleFileChange}
           />
 
-          {/* Tombol Kamera (Mode Absen Foto) ATAU Tombol Lampiran (Mode Obrolan) */}
+          {/* Tombol Kamera & Lampiran Sesuai Mode */}
           {feedType === 'absen_pagi' ? (
-            <button
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={isCompressing}
-              className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center transition ${
-                attachedFile
-                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700'
-                  : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800'
-              }`}
-              title="Ambil Foto Selfie Absen Masuk"
-            >
-              {isCompressing ? (
-                <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
-              ) : (
-                <Camera className="w-4 h-4" />
-              )}
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Tombol Utama: Kamera GPS Map Timestamp (Piket Design) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraFacingMode('user');
+                  setCameraOpen(true);
+                }}
+                disabled={isCompressing}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition shadow-xs ${
+                  attachedFile
+                    ? 'bg-emerald-600 text-white font-bold'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+                title="Ambil Foto Selfie GPS Map Camera (Watermark Waktu & Lokasi)"
+              >
+                {isCompressing ? (
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
+              </button>
+
+              {/* Tombol Sekunder: Pilih dari Galeri */}
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={isCompressing}
+                className="w-8 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center transition"
+                title="Pilih foto dari Galeri / File"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setShowAttachMenu((prev) => !prev)}
-              disabled={isCompressing}
-              className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center transition ${
-                showAttachMenu
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : attachedFile
-                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-              title="Lampiran (Kamera, File, Lokasi)"
-            >
-              {isCompressing ? (
-                <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
-              ) : (
-                <Paperclip className="w-4 h-4" />
-              )}
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              {/* Tombol Cepat Kamera GPS Map Timestamp di Obrolan */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraFacingMode('environment');
+                  setCameraOpen(true);
+                }}
+                disabled={isCompressing}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition ${
+                  attachedFile
+                    ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700'
+                    : 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800'
+                }`}
+                title="Ambil Foto Timestamp GPS Map (Desain Piket)"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+
+              {/* Tombol Menu Lampiran */}
+              <button
+                type="button"
+                onClick={() => setShowAttachMenu((prev) => !prev)}
+                disabled={isCompressing}
+                className={`w-8 h-9 rounded-xl flex items-center justify-center transition ${
+                  showAttachMenu
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+                title="Menu Lampiran (Galeri, Lokasi, dll)"
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
 
           <button
@@ -1213,6 +1294,15 @@ export function AttendanceChatClient({
           </button>
         </form>
       </div>
+
+      {/* Modal Kamera GPS Map Timestamp (Desain Seperti Halaman Piket) */}
+      <CameraModal
+        isOpen={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={handleCameraCapture}
+        userName={currentUserName}
+        initialFacingMode={cameraFacingMode}
+      />
 
       {/* Modal Absen Bersama Pagi (QR Code) */}
       <GroupAttendanceModal

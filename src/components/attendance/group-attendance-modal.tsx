@@ -13,12 +13,14 @@ import {
   AlertCircle,
   Search,
   Check,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
 import { compressImage, isImageFile } from '@/lib/image';
 import { showAlert, showToast } from '@/lib/swal';
 import { todayWITA, formatIndonesia } from '@/lib/dates';
+import { CameraModal } from '@/components/upload/camera-modal';
 import type { GroupAttendanceSession, GroupMemberInfo } from '@/lib/types/attendance-feed';
 
 interface ProfileItem {
@@ -48,6 +50,7 @@ export function GroupAttendanceModal({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState<boolean>(false);
+  const [cameraOpen, setCameraOpen] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Daftar anggota yang dipilih
@@ -120,6 +123,21 @@ export function GroupAttendanceModal({
       return;
     }
 
+    try {
+      setIsCompressing(true);
+      const compressed = await compressImage(file);
+      setPhotoFile(compressed);
+      const previewUrl = URL.createObjectURL(compressed);
+      setPhotoPreview(previewUrl);
+    } catch {
+      showAlert('Gagal Memproses Foto', 'Gagal mengompresi gambar, coba gunakan foto lain.', 'error');
+    } finally {
+      setIsCompressing(false);
+    }
+  }
+
+  // Tangkap foto dari GPS Map Camera Modal (Timestamp & Lokasi seperti Halaman Piket)
+  async function handleCameraCapture(file: File) {
     try {
       setIsCompressing(true);
       const compressed = await compressImage(file);
@@ -392,36 +410,70 @@ export function GroupAttendanceModal({
                       alt="Preview Foto Bersama"
                       className="w-full h-56 object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end justify-between p-3">
-                      <span className="text-xs text-white font-medium bg-black/40 px-2.5 py-1 rounded-lg backdrop-blur-md">
-                        ✓ Foto Siap
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex items-end justify-between p-3">
+                      <span className="text-xs text-white font-medium bg-black/50 px-2.5 py-1 rounded-lg backdrop-blur-md flex items-center gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-400" /> Foto Siap
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="text-xs bg-white/90 hover:bg-white text-slate-900 font-semibold px-3 py-1.5 rounded-xl shadow transition"
-                      >
-                        Ganti Foto
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setCameraOpen(true)}
+                          className="text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold px-3 py-1.5 rounded-xl shadow transition flex items-center gap-1"
+                        >
+                          <Camera className="w-3 h-3" />
+                          <span>Kamera GPS</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-xs bg-white/90 hover:bg-white text-slate-900 font-semibold px-3 py-1.5 rounded-xl shadow transition"
+                        >
+                          Galeri
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isCompressing}
-                    className="w-full h-44 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-amber-500 dark:hover:border-amber-500 bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center justify-center p-4 transition group"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                      <Camera className="w-6 h-6" />
-                    </div>
-                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      {isCompressing ? 'Mengompres Foto...' : 'Ambil Selfie Bersama / Galeri'}
-                    </span>
-                    <span className="text-xs text-slate-400 mt-1">
-                      Pastikan wajah rekan-rekan yang hadir terlihat jelas
-                    </span>
-                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Opsi 1: Kamera GPS Map Timestamp (Piket Design) */}
+                    <button
+                      type="button"
+                      onClick={() => setCameraOpen(true)}
+                      disabled={isCompressing}
+                      className="p-4 rounded-2xl border-2 border-dashed border-amber-300 dark:border-amber-700 hover:border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 flex flex-col items-center justify-center text-center transition group min-h-[140px]"
+                    >
+                      <div className="w-11 h-11 rounded-2xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-2xs">
+                        <Camera className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                        <span>Kamera GPS Map</span>
+                        <span className="text-[9px] bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200 font-bold px-1.5 py-0.2 rounded-full">
+                          Piket
+                        </span>
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Watermark waktu WITA &amp; lokasi resmi
+                      </span>
+                    </button>
+
+                    {/* Opsi 2: Galeri / File HP */}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isCompressing}
+                      className="p-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 bg-slate-50 dark:bg-slate-800/40 flex flex-col items-center justify-center text-center transition group min-h-[140px]"
+                    >
+                      <div className="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-2xs">
+                        <ImageIcon className="w-5 h-5" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Galeri / File HP
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-0.5">
+                        Pilih foto tersimpan tanpa watermark
+                      </span>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -696,6 +748,15 @@ export function GroupAttendanceModal({
           )}
         </div>
       </div>
+
+      {/* Modal Kamera GPS Map Timestamp (Desain Seperti Halaman Piket) */}
+      <CameraModal
+        isOpen={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={handleCameraCapture}
+        userName={currentUserName}
+        initialFacingMode="user"
+      />
     </div>
   );
 }
