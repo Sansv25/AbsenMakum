@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -163,6 +163,22 @@ function getNavigationSections(canAccessTicketing: boolean, isMaster: boolean): 
   return sections;
 }
 
+function isNavItemActive(pathname: string, href: string, allItems: NavItem[]): boolean {
+  if (pathname === href) return true;
+  if (href === '/') return false;
+  if (!pathname.startsWith(href)) return false;
+
+  // Cek apakah ada nav item lain yang lebih spesifik cocok dengan pathname saat ini
+  const hasMoreSpecific = allItems.some(
+    (item) =>
+      item.href !== href &&
+      item.href.startsWith(href) &&
+      (pathname === item.href || pathname.startsWith(item.href + '/'))
+  );
+
+  return !hasMoreSpecific;
+}
+
 export function AppNavigation({
   isMaster = false,
   canAccessTicketing = false,
@@ -181,6 +197,7 @@ export function AppNavigation({
     Boolean(roles?.includes('admin'));
 
   const sections = getNavigationSections(hasTicketAccess, isMaster);
+  const allNavItems = useMemo(() => sections.flatMap((sec) => sec.items), [sections]);
   const displayName = userName || userEmail || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'U';
 
@@ -258,7 +275,7 @@ export function AppNavigation({
                 {sec.title}
               </p>
               {sec.items.map(({ href, label, icon: Icon, badge, badgeColor }) => {
-                const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href);
+                const isActive = isNavItemActive(pathname, href, allNavItems);
                 return (
                   <Link
                     key={href}
@@ -363,7 +380,7 @@ export function AppNavigation({
                     {sec.title}
                   </p>
                   {sec.items.map(({ href, label, icon: Icon, badge, badgeColor }) => {
-                    const isActive = href === '/' ? pathname === '/' : pathname.startsWith(href);
+                    const isActive = isNavItemActive(pathname, href, allNavItems);
                     return (
                       <Link
                         key={href}
