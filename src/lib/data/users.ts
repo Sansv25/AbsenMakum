@@ -37,10 +37,8 @@ export async function adminGetUsers(): Promise<{ users: AdminUserItem[]; error?:
       .select('id, exclude_from_recap, roles');
 
     if (recapProfiles && recapProfiles.length > 0) {
-      const recapMap = new Map(recapProfiles.map((p) => [p.id, !!p.exclude_from_recap]));
       const rolesMap = new Map(recapProfiles.map((p) => [p.id, p.roles as AppRole[] | null]));
       users.forEach((u) => {
-        u.exclude_from_recap = recapMap.get(u.id) ?? false;
         const rawRoles = rolesMap.get(u.id);
         if (Array.isArray(rawRoles) && rawRoles.length > 0) {
           u.roles = rawRoles;
@@ -53,6 +51,9 @@ export async function adminGetUsers(): Promise<{ users: AdminUserItem[]; error?:
             u.roles = ['magang'];
           }
         }
+        // Pastikan akun dengan role piket / magang dihitung dalam rekap
+        const isShiftUser = u.roles.includes('magang') || u.roles.includes('piket');
+        u.exclude_from_recap = !isShiftUser;
       });
     }
   } catch {
@@ -89,11 +90,12 @@ export async function adminCreateUser(
 
   // Simpan roles di profiles
   try {
+    const isShiftUser = roles.includes('magang') || roles.includes('piket');
     await supabase
       .from('profiles')
       .update({
         roles: roles.length > 0 ? roles : ['magang'],
-        exclude_from_recap: !roles.includes('magang') || roles.includes('senior') || roles.includes('owner') || roles.includes('admin'),
+        exclude_from_recap: !isShiftUser,
       })
       .eq('email', normalizedEmail);
   } catch {
@@ -142,11 +144,8 @@ export async function adminUpdateUserRoles(
 
   const hasAdminRights = newRoles.some((r) => r === 'owner' || r === 'admin' || r === 'senior');
   const syncedRole: UserRole = hasAdminRights ? 'master' : 'user';
-  const excludeFromRecap =
-    !newRoles.includes('magang') ||
-    newRoles.includes('senior') ||
-    newRoles.includes('owner') ||
-    newRoles.includes('admin');
+  const hasShiftRole = newRoles.includes('magang') || newRoles.includes('piket');
+  const excludeFromRecap = !hasShiftRole;
 
   try {
     const { error } = await supabase
@@ -194,11 +193,12 @@ export async function adminSetUserRole(
   // Sync roles
   try {
     const newRoles: AppRole[] = targetRole === 'master' ? ['admin'] : ['magang'];
+    const hasShiftRole = newRoles.includes('magang') || newRoles.includes('piket');
     await supabase
       .from('profiles')
       .update({
         roles: newRoles,
-        exclude_from_recap: !newRoles.includes('magang'),
+        exclude_from_recap: !hasShiftRole,
       })
       .eq('id', targetUserId);
   } catch {

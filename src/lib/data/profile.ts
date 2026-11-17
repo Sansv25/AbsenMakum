@@ -109,7 +109,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
             role: 'master',
             roles,
             is_approved: true,
-            exclude_from_recap: !isMagang || isSenior || isOwner || isAdmin,
+            exclude_from_recap: (!isMagang && !isPiket),
           })
           .eq('id', user.id);
       } catch {
@@ -156,7 +156,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       full_name: metaFullName || null,
       phone: metaPhone || null,
       is_approved: isApproved,
-      exclude_from_recap: !defaultRoles.includes('magang') || defaultRoles.includes('senior') || defaultRoles.includes('owner') || defaultRoles.includes('admin'),
+      exclude_from_recap: (!defaultRoles.includes('magang') && !defaultRoles.includes('piket')),
     });
   } catch {
     // Fallback jika roles belum ada
