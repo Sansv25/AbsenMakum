@@ -622,32 +622,8 @@ async function dispatchTicket(ticket) {
   try {
     const page = await getDirectThreadPage();
 
-    // KUNCI PENGAMAN KETAT: Pastikan CS TIDAK sedang menunggu jawaban sesi sebelumnya!
-    let attempts = 0;
-    while (attempts < 5) {
-      await scrollChatToBottom(page);
-      const recentChat = await page.evaluate(() => {
-        const nodes = Array.from(document.querySelectorAll('div[dir="auto"], span[dir="auto"]'));
-        return nodes.map((n) => (n.innerText || '').trim()).filter(Boolean).slice(-4).join(' ').toLowerCase();
-      });
-
-      const isCsWaiting =
-        recentChat.includes('menunggu jawaban') ||
-        recentChat.includes('ada lagi yang dapat kami bantu') ||
-        recentChat.includes('ada lagi yang bisa kami bantu') ||
-        recentChat.includes('bisa kami bantu kembali') ||
-        recentChat.includes('bisa dibantu kembali');
-
-      if (!isCsWaiting) break;
-
-      console.log(`⚠️ [PENGAMAN SESI] CS masih menunggu penutupan sesi tiket sebelumnya!`);
-      const closeMsg = `Sudah tidak ada Kak, sudah cukup. Terima kasih banyak atas bantuannya! ${getWitaTimeContext().greeting}!`;
-      console.log(`💬 Mengirimkan penutup akhir ke CS: "${closeMsg}"`);
-      await sendMessageToDirectThread(page, closeMsg);
-      console.log(`⏳ Memberi jeda 25 detik agar CS menutup sesi chat lama di sistemnya...`);
-      await new Promise((r) => setTimeout(r, 25000));
-      attempts++;
-    }
+    await scrollChatToBottom(page);
+    await new Promise((r) => setTimeout(r, 1000));
 
     console.log('   Mengetik teks keluhan tiket baru...');
     await sendMessageToDirectThread(page, messageText);
@@ -1093,65 +1069,8 @@ async function syncActiveChat(activeTicket) {
         }
       }
 
-      console.log(`⏳ [MEMANTAU PENUTUPAN SESI CS] Menunggu konfirmasi penutupan akhir dari CS ICONNET...`);
-      const startWait = Date.now();
-      let answeredFollowUp = false;
-
-      while (Date.now() - startWait < 60000) {
-        await new Promise((r) => setTimeout(r, 4000));
-        await scrollChatToBottom(page);
-
-        const recentChat = await page.evaluate(() => {
-          const nodes = Array.from(document.querySelectorAll('div[dir="auto"], span[dir="auto"]'));
-          return nodes.map((n) => (n.innerText || '').trim()).filter(Boolean).slice(-4);
-        });
-
-        const recentCombined = recentChat.join(' ').toLowerCase();
-
-        // 1. Jika CS menanyakan bantuan lanjutan (mis. "apakah ada lagi yang dapat kami bantu?")
-        const isCsAskingMore =
-          recentCombined.includes('ada lagi yang dapat kami bantu') ||
-          recentCombined.includes('ada lagi yang bisa kami bantu') ||
-          recentCombined.includes('bisa dibantu kembali') ||
-          recentCombined.includes('bisa kami bantu kembali');
-
-        const lastMsg = (recentChat[recentChat.length - 1] || '').toLowerCase();
-        const alreadyAnsweredNoMore =
-          lastMsg.includes('sudah tidak ada') ||
-          lastMsg.includes('sudah cukup') ||
-          lastMsg.includes('tidak ada lagi');
-
-        if (isCsAskingMore && !alreadyAnsweredNoMore && !answeredFollowUp) {
-          answeredFollowUp = true;
-          const noMoreMsg = `Sudah tidak ada Kak, sudah cukup. Terima kasih banyak atas bantuannya!`;
-          console.log(`💬 [JAWAB PERTANYAAN CS] CS menanyakan bantuan lanjutan. Menjawab: "${noMoreMsg}"`);
-          try {
-            await sendMessageToDirectThread(page, noMoreMsg);
-            await supabase.from('ticket_messages').insert({
-              ticket_id: activeTicket.id,
-              direction: 'out',
-              sender: 'ai',
-              body: noMoreMsg,
-            });
-          } catch {}
-          await new Promise((r) => setTimeout(r, 5000));
-          continue;
-        }
-
-        // 2. Jika CS sudah mengirimkan salam penutup / perpisahan resmi
-        const isCsGoodbye =
-          recentCombined.includes('terima kasih telah menghubungi') ||
-          recentCombined.includes('chat akan kami akhiri') ||
-          recentCombined.includes('percakapan kami akhiri') ||
-          recentCombined.includes('sesi kami akhiri');
-
-        if (isCsGoodbye) {
-          console.log(`🏁 [SESI CS RESMI DITUTUP] CS ICONNET telah menutup sesi percakapan.`);
-          // Beri jeda 8 detik agar sistem CRM CS benar-benar detach sesi
-          await new Promise((r) => setTimeout(r, 8000));
-          break;
-        }
-      }
+      console.log(`⏳ [JEDA PENUTUPAN SESI] Memberi jeda 25 detik agar CS menyelesaikan tiket sebelum memproses antrean baru...`);
+      await new Promise((r) => setTimeout(r, 25000));
 
       const now = new Date().toISOString();
       await supabase
