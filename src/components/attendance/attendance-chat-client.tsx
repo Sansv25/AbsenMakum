@@ -156,32 +156,61 @@ export function AttendanceChatClient({
     }
   }, []);
 
-  useEffect(() => {
-    scrollToBottom(false);
-  }, [scrollToBottom]);
+  // Muat daftar pesan: dukung mode silent (background polling) dan forceScroll
+  const loadMessages = useCallback(
+    async (date: string, isSilent = false, forceScroll = false) => {
+      try {
+        if (!isSilent) setLoading(true);
+        const res = await fetch(`/api/attendance/feed?work_date=${date}`);
+        if (res.ok) {
+          const json = await res.json();
+          const newMsgs: AttendanceFeedMessage[] = json.messages || [];
 
-  // Muat daftar pesan saat workDate berubah
-  const loadMessages = useCallback(async (date: string) => {
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/attendance/feed?work_date=${date}`);
-      if (res.ok) {
-        const json = await res.json();
-        setMessages(json.messages || []);
-        setTimeout(() => scrollToBottom(false), 150);
+          // Cek apakah pengguna saat ini sedang berada di dekat dasar scroll (< 150px)
+          const el = chatScrollRef.current;
+          const isNearBottom = el
+            ? el.scrollHeight - el.scrollTop - el.clientHeight < 150
+            : true;
+
+          setMessages((prevMsgs) => {
+            const prevLastId = prevMsgs.length > 0 ? prevMsgs[prevMsgs.length - 1].id : null;
+            const newLastId = newMsgs.length > 0 ? newMsgs[newMsgs.length - 1].id : null;
+            const isSame = prevMsgs.length === newMsgs.length && prevLastId === newLastId;
+
+            // Jika data identik dan tidak dipaksa scroll, jangan trigger re-render
+            if (isSame && !forceScroll) {
+              return prevMsgs;
+            }
+
+            // HANYA tarik ke bawah jika:
+            // 1. forceScroll aktif (pertama kali buka / baru kirim chat / klik tombol refresh)
+            // 2. ATAU pengguna memang sedang berada di paling bawah chat saat pesan baru masuk
+            if (forceScroll || isNearBottom) {
+              setTimeout(() => scrollToBottom(!forceScroll), 100);
+            }
+
+            return newMsgs;
+          });
+
+          if (forceScroll) {
+            setTimeout(() => scrollToBottom(false), 150);
+          }
+        }
+      } catch {
+        // Abaikan kegagalan berkala
+      } finally {
+        if (!isSilent) setLoading(false);
       }
-    } catch {
-      // Abaikan kegagalan berkala
-    } finally {
-      setLoading(false);
-    }
-  }, [scrollToBottom]);
+    },
+    [scrollToBottom]
+  );
 
+  // Initial load saat tanggal pertama kali dipilih
   useEffect(() => {
-    loadMessages(workDate);
+    loadMessages(workDate, false, true);
   }, [workDate, loadMessages]);
 
-  // Realtime Multi-Layer: Broadcast (<100ms) + Postgres Changes + Active 3s Polling
+  // Realtime Multi-Layer: Broadcast (<100ms) + Postgres Changes + Active 3s Polling (Silent & Preserves Scroll)
   useEffect(() => {
     const supabase = createClient();
     const channelName = `attendance_chat_${workDate}`;
@@ -192,12 +221,12 @@ export function AttendanceChatClient({
       },
     });
 
-    // 1. Terima sinyal Broadcast seketika (<100ms) saat perangkat lain memposting
+    // 1. Terima sinyal Broadcast seketika (<100ms) saat perangkat lain memposting (Silent)
     channel.on('broadcast', { event: 'new_chat' }, () => {
-      loadMessages(workDate);
+      loadMessages(workDate, true, false);
     });
 
-    // 2. Terima perubahan CDC PostgreSQL dari tabel attendance_feed
+    // 2. Terima perubahan CDC PostgreSQL dari tabel attendance_feed (Silent)
     channel.on(
       'postgres_changes',
       {
@@ -206,11 +235,11 @@ export function AttendanceChatClient({
         table: 'attendance_feed',
       },
       () => {
-        loadMessages(workDate);
+        loadMessages(workDate, true, false);
       }
     );
 
-    // 3. Terima perubahan sesi group_attendance_sessions
+    // 3. Terima perubahan sesi group_attendance_sessions (Silent)
     channel.on(
       'postgres_changes',
       {
@@ -219,23 +248,23 @@ export function AttendanceChatClient({
         table: 'group_attendance_sessions',
       },
       () => {
-        loadMessages(workDate);
+        loadMessages(workDate, true, false);
       }
     );
 
     channel.subscribe();
 
-    // 4. Polling cerdas setiap 3 detik bila tab sedang aktif sebagai jaring pengaman jaringan seluler
+    // 4. Polling berkala setiap 3 detik secara senyap (tidak reset scroll pengguna)
     const pollInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        loadMessages(workDate);
+        loadMessages(workDate, true, false);
       }
     }, 3000);
 
     // 5. Otomatis refresh saat layar HP menyala kembali atau pengguna kembali ke browser
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        loadMessages(workDate);
+        loadMessages(workDate, true, false);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -557,7 +586,7 @@ export function AttendanceChatClient({
       }
 
       // Refresh list lokal
-      await loadMessages(workDate);
+      await loadMessages(workDate, true, true);
       scrollToBottom(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mengirim';
@@ -601,7 +630,7 @@ export function AttendanceChatClient({
           </button>
 
           <button
-            onClick={() => loadMessages(workDate)}
+            onClick={() => loadMessages(workDate, false, true)}
             disabled={loading}
             className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             title="Segarkan Feed"
@@ -1191,7 +1220,7 @@ export function AttendanceChatClient({
         onClose={() => setGroupModalOpen(false)}
         initialDate={workDate}
         onSuccess={() => {
-          loadMessages(workDate);
+          loadMessages(workDate, true, true);
         }}
       />
 
