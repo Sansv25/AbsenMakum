@@ -220,7 +220,7 @@ export function AttendanceChatClient({
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto bg-slate-50 dark:bg-slate-950 border-x border-slate-200 dark:border-slate-800 shadow-sm relative">
+    <div className="flex flex-col h-full max-h-full w-full max-w-4xl mx-auto bg-slate-50 dark:bg-slate-950 border-x border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
       {/* 1. Header Absen Pagi */}
       <div className="shrink-0 p-3 sm:p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         <div className="flex items-center gap-2.5">
@@ -282,7 +282,7 @@ export function AttendanceChatClient({
       {/* 2. Messages Feed Scrollable Area */}
       <div
         ref={chatScrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
+        className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 scroll-smooth overscroll-contain"
       >
         {/* Info Banner Tanggal */}
         <div className="flex items-center justify-center my-1">

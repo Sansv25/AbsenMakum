@@ -197,20 +197,29 @@ export function AppNavigation({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Kunci scroll body saat drawer terbuka di mobile
+  // Kunci scroll body saat drawer terbuka di mobile atau saat berada di halaman chat absen
+  const isChatPage = pathname.startsWith('/absen-chat');
+
   useEffect(() => {
-    if (drawerOpen) {
+    if (drawerOpen || isChatPage) {
       document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     }
     return () => {
       document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     };
-  }, [drawerOpen]);
+  }, [drawerOpen, isChatPage]);
 
   return (
-    <div className="min-h-screen w-full max-w-full flex bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 transition-colors overflow-x-hidden">
+    <div
+      className={`w-full max-w-full flex bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 transition-colors overflow-x-hidden ${
+        isChatPage ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-screen'
+      }`}
+    >
       {/* ============================================================== */}
       {/* 1. DESKTOP SIDEBAR (Lebar, Elegan, Terkategori)                */}
       {/* ============================================================== */}
@@ -404,7 +413,11 @@ export function AppNavigation({
       {/* ============================================================== */}
       {/* 3. MAIN CONTENT CONTAINER & HEADERS                            */}
       {/* ============================================================== */}
-      <div className="flex-1 min-w-0 max-w-full md:ml-64 flex flex-col min-h-screen overflow-x-hidden">
+      <div
+        className={`flex-1 min-w-0 max-w-full md:ml-64 flex flex-col transition-colors ${
+          isChatPage ? 'h-[100dvh] max-h-[100dvh] overflow-hidden' : 'min-h-screen overflow-x-hidden'
+        }`}
+      >
         {/* Mobile Header with Hamburger Button ☰ */}
         <header className="md:hidden sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-3 py-2.5 flex items-center justify-between transition-colors shadow-xs">
           <div className="flex items-center gap-2.5">
@@ -488,7 +501,15 @@ export function AppNavigation({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 min-w-0 max-w-full pb-20 md:pb-8 overflow-x-hidden">{children}</main>
+        <main
+          className={`flex-1 min-w-0 max-w-full ${
+            isChatPage
+              ? 'min-h-0 overflow-hidden flex flex-col pb-14 md:pb-0'
+              : 'pb-20 md:pb-8 overflow-x-hidden'
+          }`}
+        >
+          {children}
+        </main>
       </div>
 
       {/* ============================================================== */}
