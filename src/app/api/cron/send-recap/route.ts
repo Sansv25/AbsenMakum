@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getEmailRecapSettings, sendRecapEmailNow } from '@/lib/data/email-recap';
+import { getEmailRecapSettings, sendRecapEmailNow, sendDailyRecapEmailNow } from '@/lib/data/email-recap';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const forceType = searchParams.get('force') as 'mingguan' | 'bulanan' | null;
+    const forceType = searchParams.get('force') as 'mingguan' | 'bulanan' | 'harian' | null;
 
     // Proteksi Cron Secret (opsional di env Vercel)
     const authHeader = req.headers.get('authorization');
@@ -19,40 +19,45 @@ export async function GET(req: Request) {
 
     const settings = await getEmailRecapSettings();
 
-    // Jika pengiriman dinonaktifkan dan bukan force
-    if (!settings.isActive && !forceType) {
-      return NextResponse.json({ message: 'Email recap is disabled in settings.' });
-    }
-
-    if (settings.recipients.length === 0) {
-      return NextResponse.json({ message: 'No recipients configured.' });
-    }
-
     // Waktu WITA (UTC+8)
     const now = new Date();
     const nowUtc = now.getTime() + now.getTimezoneOffset() * 60000;
     const wita = new Date(nowUtc + 8 * 3600000);
     const dayOfWeek = wita.getDay() === 0 ? 7 : wita.getDay(); // 1 = Senin, 7 = Minggu
     const dayOfMonth = wita.getDate();
+    const currentHour = wita.getHours();
 
     let triggerWeekly = false;
     let triggerMonthly = false;
+    let triggerDaily = false;
 
-    if (forceType === 'mingguan') {
+    if (forceType === 'harian') {
+      triggerDaily = true;
+    } else if (forceType === 'mingguan') {
       triggerWeekly = true;
     } else if (forceType === 'bulanan') {
       triggerMonthly = true;
     } else {
-      // Cek jadwal mingguan
+      // 1. Cek Rekapan Harian (Jika jam >= jam kirim yang disetting dan aktif)
+      if (settings.dailyIsActive) {
+        const [targetHour] = (settings.dailySendTime || '18:00').split(':').map(Number);
+        if (currentHour === targetHour) {
+          triggerDaily = true;
+        }
+      }
+
+      // 2. Cek jadwal mingguan
       if (
+        settings.isActive &&
         (settings.frequency === 'mingguan' || settings.frequency === 'keduanya') &&
         dayOfWeek === settings.sendDayWeekly
       ) {
         triggerWeekly = true;
       }
 
-      // Cek jadwal bulanan (setiap tanggal 1)
+      // 3. Cek jadwal bulanan (setiap tanggal 1)
       if (
+        settings.isActive &&
         (settings.frequency === 'bulanan' || settings.frequency === 'keduanya') &&
         dayOfMonth === 1
       ) {
@@ -61,6 +66,11 @@ export async function GET(req: Request) {
     }
 
     const results = [];
+
+    if (triggerDaily) {
+      const res = await sendDailyRecapEmailNow();
+      results.push({ type: 'harian', ...res });
+    }
 
     if (triggerWeekly) {
       const res = await sendRecapEmailNow('mingguan');
@@ -72,12 +82,18 @@ export async function GET(req: Request) {
       results.push({ type: 'bulanan', ...res });
     }
 
-    if (!triggerWeekly && !triggerMonthly) {
+    if (!triggerDaily && !triggerWeekly && !triggerMonthly) {
       return NextResponse.json({
-        message: 'No recap scheduled for today.',
+        message: 'No recap scheduled for right now.',
         dayOfWeek,
         dayOfMonth,
-        frequency: settings.frequency,
+        currentHour,
+        settings: {
+          dailyIsActive: settings.dailyIsActive,
+          dailySendTime: settings.dailySendTime,
+          piketIsActive: settings.isActive,
+          frequency: settings.frequency,
+        },
       });
     }
 

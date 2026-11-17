@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Star,
   GraduationCap,
+  ClipboardCheck,
 } from 'lucide-react';
 import { logout } from '@/app/(auth)/login/actions';
 import type { AppRole } from '@/lib/supabase/types';
@@ -122,6 +123,11 @@ function getNavigationSections(canAccessTicketing: boolean, isMaster: boolean): 
           icon: MessagesSquare,
           badge: 'Baru',
           badgeColor: 'bg-blue-500 text-white',
+        },
+        {
+          href: '/rekap-harian',
+          label: 'Rekap Absen Harian',
+          icon: ClipboardCheck,
         },
         { href: '/riwayat', label: 'Riwayat Absensi', icon: History },
       ],

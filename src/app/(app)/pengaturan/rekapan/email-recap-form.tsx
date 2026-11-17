@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { EmailRecapSettings } from '@/lib/data/email-recap';
-import { saveRecapSettingsAction, sendRecapNowAction } from './actions';
+import { saveRecapSettingsAction, sendRecapNowAction, sendDailyRecapNowAction } from './actions';
 import { showAlert, showConfirm } from '@/lib/swal';
 import {
   Mail,
@@ -12,6 +12,7 @@ import {
   Calendar,
   Key,
   User,
+  Users,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -28,17 +29,18 @@ interface EmailRecapFormProps {
 export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
   const [settings, setSettings] = useState<EmailRecapSettings>(initialSettings);
   const [newEmail, setNewEmail] = useState('');
+  const [newDailyEmail, setNewDailyEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [sendingTest, setSendingTest] = useState<'mingguan' | 'bulanan' | null>(null);
+  const [sendingDailyTest, setSendingDailyTest] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Tambah email penerima
+  // Tambah email penerima piket
   function handleAddEmail() {
     const email = newEmail.trim().toLowerCase();
     if (!email) return;
 
-    // Validasi format email sederhana
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       showAlert('Format Email Tidak Valid', 'Pastikan memasukkan alamat email yang benar.', 'warning');
@@ -57,11 +59,43 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
     setNewEmail('');
   }
 
-  // Hapus email penerima
+  // Hapus email penerima piket
   function handleRemoveEmail(emailToRemove: string) {
     setSettings((prev) => ({
       ...prev,
       recipients: prev.recipients.filter((e) => e !== emailToRemove),
+    }));
+  }
+
+  // Tambah email penerima rekapan harian (anak magang)
+  function handleAddDailyEmail() {
+    const email = newDailyEmail.trim().toLowerCase();
+    if (!email) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showAlert('Format Email Tidak Valid', 'Pastikan memasukkan alamat email yang benar.', 'warning');
+      return;
+    }
+
+    const currentList = settings.dailyRecipients || [];
+    if (currentList.includes(email)) {
+      showAlert('Email Sudah Ada', 'Alamat email ini sudah terdaftar di daftar penerima rekapan harian.', 'info');
+      return;
+    }
+
+    setSettings((prev) => ({
+      ...prev,
+      dailyRecipients: [...currentList, email],
+    }));
+    setNewDailyEmail('');
+  }
+
+  // Hapus email penerima rekapan harian
+  function handleRemoveDailyEmail(emailToRemove: string) {
+    setSettings((prev) => ({
+      ...prev,
+      dailyRecipients: (prev.dailyRecipients || []).filter((e) => e !== emailToRemove),
     }));
   }
 
@@ -77,6 +111,9 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
         showAlert('Gagal Menyimpan', res.error || 'Terjadi kesalahan sistem.', 'error');
       } else {
         setSaveSuccess(true);
+        if (res.error) {
+          showAlert('Tersimpan dengan Catatan', res.error, 'info');
+        }
         setTimeout(() => setSaveSuccess(false), 3000);
       }
     } catch {
@@ -86,7 +123,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
     }
   }
 
-  // Test kirim PDF sekarang
+  // Test kirim PDF Piket sekarang
   async function handleSendTest(periodType: 'mingguan' | 'bulanan') {
     if (settings.recipients.length === 0) {
       showAlert('Penerima Kosong', 'Tambahkan minimal 1 alamat email penerima sebelum menguji pengiriman.', 'warning');
@@ -110,9 +147,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
     setSendingTest(periodType);
 
     try {
-      // Simpan pengaturan terlebih dahulu jika ada perubahan
       await saveRecapSettingsAction(settings);
-
       const res = await sendRecapNowAction(periodType);
       if (res.success) {
         showAlert(
@@ -120,7 +155,6 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
           res.message || 'Laporan PDF rekapan piket telah berhasil dikirim ke seluruh email tujuan.',
           'success'
         );
-        // Update local state last sent
         setSettings((prev) => ({
           ...prev,
           lastSentAt: new Date().toISOString(),
@@ -140,9 +174,206 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
     }
   }
 
+  // Test kirim Rekap Absensi Harian Magang Sekarang
+  async function handleSendDailyTest() {
+    const dailyList = settings.dailyRecipients && settings.dailyRecipients.length > 0
+      ? settings.dailyRecipients
+      : settings.recipients;
+
+    if (!dailyList || dailyList.length === 0) {
+      showAlert('Email Penerima Kosong', 'Tambahkan minimal 1 alamat email penerima rekapan harian terlebih dahulu.', 'warning');
+      return;
+    }
+
+    if (!settings.senderEmail.trim()) {
+      showAlert('Email Pengirim Kosong', 'Harap isi alamat Email Pengirim (Sender Email) yang terdaftar di akun Brevo Anda.', 'warning');
+      return;
+    }
+
+    const confirmed = await showConfirm(
+      'Kirim Rekapan Absen Harian Hari Ini?',
+      `Sistem akan mengompilasi data kehadiran anak magang hari ini (hadir vs tidak hadir) dan mengirimkannya ke ${dailyList.length} email tujuan (${dailyList.join(', ')}).`,
+      'Ya, Kirim Sekarang'
+    );
+
+    if (!confirmed) return;
+
+    setSendingDailyTest(true);
+
+    try {
+      await saveRecapSettingsAction(settings);
+      const res = await sendDailyRecapNowAction();
+      if (res.success) {
+        showAlert(
+          'Rekapan Harian Berhasil Dikirim! 🚀',
+          res.message || 'Laporan rekapan absensi anak magang hari ini telah dikirim ke seluruh email tujuan.',
+          'success'
+        );
+        setSettings((prev) => ({
+          ...prev,
+          dailyLastSentAt: new Date().toISOString(),
+          dailyLastStatus: res.message || 'Berhasil terkirim via Brevo',
+        }));
+      } else {
+        showAlert(
+          'Pengiriman Gagal',
+          `Gagal mengirim rekapan: ${res.error}`,
+          'error'
+        );
+      }
+    } catch {
+      showAlert('Error', 'Terjadi kesalahan saat memproses pengiriman email.', 'error');
+    } finally {
+      setSendingDailyTest(false);
+    }
+  }
+
   return (
     <form onSubmit={handleSaveSettings} className="space-y-6">
-      {/* 1. STATUS PENGIRIMAN OTOMATIS (TOGGLE) */}
+      {/* ============================================================== */}
+      {/* 1. REKAPAN ABSEN HARIAN (ANAK MAGANG)                          */}
+      {/* ============================================================== */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border-2 border-emerald-500/30 dark:border-emerald-500/40 shadow-xs space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400">
+                <Users className="h-4 w-4" />
+              </span>
+              <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100">
+                Email Tujuan Rekapan Absen Harian (Anak Magang)
+              </h3>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+              Atur email penerima khusus laporan harian kehadiran anak magang (menampilkan rincian anak magang yang hadir dan yang tidak hadir).
+            </p>
+          </div>
+
+          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5" title="Aktifkan/Nonaktifkan Pengiriman Rekapan Harian">
+            <input
+              type="checkbox"
+              checked={settings.dailyIsActive}
+              onChange={(e) => setSettings({ ...settings, dailyIsActive: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+          </label>
+        </div>
+
+        {/* Input Tambah Email Harian */}
+        <div className="space-y-2 pt-1">
+          <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300">
+            Daftar Alamat Email Penerima Laporan Harian
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="email"
+              value={newDailyEmail}
+              onChange={(e) => setNewDailyEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddDailyEmail();
+                }
+              }}
+              placeholder="Masukkan email (contoh: spv.magang@iconnet.id)..."
+              className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddDailyEmail}
+              className="px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors flex items-center gap-1.5 shrink-0"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Tambah</span>
+            </button>
+          </div>
+
+          {/* Chips Email Harian */}
+          {(settings.dailyRecipients || []).length === 0 ? (
+            <div className="p-3.5 rounded-xl border border-dashed border-gray-200 dark:border-slate-700 text-center text-xs text-gray-400 dark:text-slate-500">
+              Belum ada email khusus harian. (Jika belum diisi, laporan akan dikirim ke email piket di bawah).
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {(settings.dailyRecipients || []).map((email) => (
+                <span
+                  key={email}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                >
+                  <Mail className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                  <span>{email}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDailyEmail(email)}
+                    className="p-0.5 rounded-full hover:bg-emerald-200 dark:hover:bg-emerald-800 text-emerald-600 hover:text-emerald-800 transition-colors ml-0.5"
+                    title="Hapus email ini"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Jam Kirim Harian & Tombol Uji Coba */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100 dark:border-slate-800">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
+              Jadwal Kirim Otomatis Harian (WITA)
+            </label>
+            <div className="relative">
+              <input
+                type="time"
+                value={settings.dailySendTime || '18:00'}
+                onChange={(e) => setSettings({ ...settings, dailySendTime: e.target.value })}
+                className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none"
+              />
+            </div>
+            <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
+              Laporan dikirim otomatis pada jam ini setiap hari kerja.
+            </p>
+          </div>
+
+          <div className="flex flex-col justify-end">
+            <button
+              type="button"
+              disabled={sendingDailyTest}
+              onClick={handleSendDailyTest}
+              className="w-full py-2.5 px-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs"
+            >
+              {sendingDailyTest ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Mengirim Rekap...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Kirim Tes Rekap Harian Sekarang</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Status Terakhir Rekapan Harian */}
+        {settings.dailyLastSentAt && (
+          <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-800 text-[11px] text-gray-500 dark:text-slate-400 flex items-center justify-between">
+            <span>
+              Pengiriman terakhir: <strong>{new Date(settings.dailyLastSentAt).toLocaleString('id-ID', { timeZone: 'Asia/Makassar' })} WITA</strong>
+            </span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold truncate max-w-[200px]">
+              {settings.dailyLastStatus || 'Berhasil'}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================== */}
+      {/* 2. REKAPAN PIKET & SHIFT (MINGGUAN / BULANAN)                   */}
+      {/* ============================================================== */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 shadow-xs flex items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2">
