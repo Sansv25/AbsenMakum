@@ -42,7 +42,11 @@ CREATE POLICY "Pembuat atau admin/owner dapat menghapus pesan feed"
     auth.uid() = user_id OR
     EXISTS (
       SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid() AND (profiles.role = 'master' OR profiles.roles && ARRAY['owner', 'admin']::app_role[])
+      WHERE profiles.id = auth.uid() AND (
+        profiles.role = 'master'
+        OR 'owner' = ANY(profiles.roles)
+        OR 'admin' = ANY(profiles.roles)
+      )
     )
   );
 
