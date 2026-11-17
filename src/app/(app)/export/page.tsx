@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { todayWITA, toYearMonth, getDatesInMonth } from '@/lib/dates';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 import { getDailyAttendanceRecap } from '@/lib/data/daily-attendance-recap';
@@ -7,14 +8,24 @@ import { ExportView } from './export-view';
 export const dynamic = 'force-dynamic';
 
 export default async function ExportPage() {
+  const profile = await getCurrentUserProfile();
+
+  // Pengguna tanpa akses piket dan tanpa role magang tidak diizinkan masuk
+  if (!profile.canAccessPiket && !profile.isMagang) {
+    if (profile.canCreateTicket) {
+      redirect('/ticketing');
+    }
+    redirect('/profil');
+  }
+
   const today = todayWITA();
   const currentMonth = toYearMonth(today);
   const dates = getDatesInMonth(currentMonth);
   const defaultStartDate = dates[0];
   const defaultEndDate = dates[dates.length - 1];
 
-  const profile = await getCurrentUserProfile();
-  const dailyRecap = await getDailyAttendanceRecap(today);
+  // Rekap harian magang hanya diambil jika akun memiliki role magang
+  const dailyRecap = profile.isMagang ? await getDailyAttendanceRecap(today) : null;
   const emailSettings = await getEmailRecapSettings();
 
   const emailCount =
@@ -31,6 +42,7 @@ export default async function ExportPage() {
         initialDailyRecap={dailyRecap}
         isMaster={profile.canManageSettings}
         canAccessPiket={profile.canAccessPiket}
+        isMagang={profile.isMagang}
         emailRecipientsCount={emailCount}
       />
     </div>

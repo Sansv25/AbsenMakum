@@ -141,7 +141,7 @@ function getNavigationSections(
     });
   }
 
-  // Presensi Harian HANYA untuk akun yang memiliki role magang
+  // Presensi Harian & Rekapitulasi Harian HANYA untuk akun yang memiliki role magang
   if (isMagang) {
     absensiItems.push({
       href: '/absen-chat',
@@ -150,13 +150,13 @@ function getNavigationSections(
       badge: 'Baru',
       badgeColor: 'bg-blue-500 text-white',
     });
-  }
 
-  absensiItems.push({
-    href: '/rekap-harian',
-    label: 'Rekap Absen Harian',
-    icon: ClipboardCheck,
-  });
+    absensiItems.push({
+      href: '/rekap-harian',
+      label: 'Rekap Absen Harian',
+      icon: ClipboardCheck,
+    });
+  }
 
   // Riwayat Piket HANYA untuk pengguna yang memiliki akses piket
   if (canAccessPiket) {
@@ -167,12 +167,13 @@ function getNavigationSections(
     });
   }
 
-  const sections: NavSection[] = [
-    {
+  const sections: NavSection[] = [];
+  if (absensiItems.length > 0) {
+    sections.push({
       title: canAccessPiket ? 'Absensi & Piket' : 'Absensi Harian Magang',
       items: absensiItems,
-    },
-  ];
+    });
+  }
 
   if (canAccessTicketing) {
     sections.push({
@@ -592,7 +593,7 @@ export function AppNavigation({
       {/* ============================================================== */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200 dark:border-slate-800 md:hidden transition-colors shadow-lg">
         <ul className="flex items-center justify-around h-14">
-          {/* 1. Tombol Utama (Absen Piket jika punya akses piket, atau Absen Harian untuk Magang, atau Rekap) */}
+          {/* 1. Tombol Utama (Absen Piket jika punya akses piket, atau Absen Harian untuk Magang, atau Tiket/Profil) */}
           <li className="flex-1">
             {userCanAccessPiket ? (
               <Link
@@ -624,22 +625,34 @@ export function AppNavigation({
                 </div>
                 <span>Absen Harian</span>
               </Link>
-            ) : (
+            ) : hasTicketAccess ? (
               <Link
-                href="/rekap-harian"
+                href="/ticketing"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
-                  pathname.startsWith('/rekap-harian')
+                  pathname.startsWith('/ticketing')
                     ? 'text-blue-600 dark:text-blue-400 font-bold'
                     : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
                 }`}
               >
-                <ClipboardCheck className="h-4 w-4 mb-0.5" />
-                <span>Rekap</span>
+                <Ticket className="h-4 w-4 mb-0.5" />
+                <span>Tiket</span>
+              </Link>
+            ) : (
+              <Link
+                href="/profil"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
+                  pathname.startsWith('/profil')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <User className="h-4 w-4 mb-0.5" />
+                <span>Profil</span>
               </Link>
             )}
           </li>
 
-          {/* 2. Tombol Kedua (Absen Harian jika punya akses, atau Rekap Harian) */}
+          {/* 2. Tombol Kedua */}
           <li className="flex-1">
             {userCanAccessPiket && userIsMagang ? (
               <Link
@@ -659,7 +672,19 @@ export function AppNavigation({
                 </div>
                 <span>Absen Harian</span>
               </Link>
-            ) : (
+            ) : userCanAccessPiket && !userIsMagang ? (
+              <Link
+                href="/riwayat"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
+                  pathname.startsWith('/riwayat')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <History className="h-4 w-4 mb-0.5" />
+                <span>Riwayat</span>
+              </Link>
+            ) : userIsMagang ? (
               <Link
                 href="/rekap-harian"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
@@ -671,10 +696,22 @@ export function AppNavigation({
                 <ClipboardCheck className="h-4 w-4 mb-0.5" />
                 <span>Rekap</span>
               </Link>
+            ) : (
+              <Link
+                href="/profil"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
+                  pathname.startsWith('/profil')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <User className="h-4 w-4 mb-0.5" />
+                <span>Profil</span>
+              </Link>
             )}
           </li>
 
-          {/* 3. Ticketing (Jika punya akses) atau Riwayat (Piket) atau Profil */}
+          {/* 3. Tombol Ketiga (Tiket jika punya akses, atau Rekap untuk Magang, atau Export/Profil) */}
           <li className="flex-1">
             {hasTicketAccess ? (
               <Link
@@ -688,17 +725,29 @@ export function AppNavigation({
                 <Ticket className="h-4 w-4 mb-0.5" />
                 <span>Tiket</span>
               </Link>
-            ) : userCanAccessPiket ? (
+            ) : userCanAccessPiket && userIsMagang ? (
               <Link
-                href="/riwayat"
+                href="/rekap-harian"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
-                  pathname.startsWith('/riwayat')
+                  pathname.startsWith('/rekap-harian')
                     ? 'text-blue-600 dark:text-blue-400 font-bold'
                     : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
                 }`}
               >
-                <History className="h-4 w-4 mb-0.5" />
-                <span>Riwayat</span>
+                <ClipboardCheck className="h-4 w-4 mb-0.5" />
+                <span>Rekap</span>
+              </Link>
+            ) : userCanAccessPiket && !userIsMagang ? (
+              <Link
+                href="/export"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
+                  pathname.startsWith('/export')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <FileDown className="h-4 w-4 mb-0.5" />
+                <span>Export</span>
               </Link>
             ) : (
               <Link

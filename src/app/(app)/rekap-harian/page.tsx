@@ -22,7 +22,20 @@ export default async function RekapHarianPage({ searchParams }: RekapHarianPageP
     redirect('/login');
   }
 
-  const { isMaster, isOwner } = await getCurrentUserProfile();
+  const profile = await getCurrentUserProfile();
+
+  // Akun yang tidak memiliki role magang tidak bisa mengakses rekap absen harian
+  if (!profile.isMagang) {
+    if (profile.canAccessPiket) {
+      redirect('/');
+    }
+    if (profile.canCreateTicket) {
+      redirect('/ticketing');
+    }
+    redirect('/profil');
+  }
+
+  const { isMaster, isOwner } = profile;
 
   const today = todayWITA();
   const params = await searchParams;

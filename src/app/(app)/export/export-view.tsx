@@ -10,9 +10,10 @@ interface ExportViewProps {
   defaultStartDate: string;
   defaultEndDate: string;
   todayDate: string;
-  initialDailyRecap: DailyAttendanceRecapResult;
+  initialDailyRecap: DailyAttendanceRecapResult | null;
   isMaster: boolean;
   canAccessPiket?: boolean;
+  isMagang?: boolean;
   emailRecipientsCount: number;
 }
 
@@ -23,6 +24,7 @@ export function ExportView({
   initialDailyRecap,
   isMaster,
   canAccessPiket = false,
+  isMagang = false,
   emailRecipientsCount,
 }: ExportViewProps) {
   const [activeTab, setActiveTab] = useState<'piket' | 'harian'>(
@@ -39,15 +41,17 @@ export function ExportView({
             Pusat Export &amp; Rekapitulasi Laporan
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mt-1">
-            {canAccessPiket
+            {canAccessPiket && isMagang
               ? 'Unduh atau cetak laporan resmi: Pilih antara Rekapan Piket Shift atau Rekapan Absensi Harian Magang.'
+              : canAccessPiket
+              ? 'Unduh atau cetak laporan resmi dokumentasi presensi piket shift.'
               : 'Pantau, cetak, atau unduh laporan rekapitulasi presensi harian anak magang ICONNET.'}
           </p>
         </div>
       </div>
 
-      {/* 2. TAB SWITCHER (HANYA DITAMPILKAN JIKA PENGGUNA MEMILIKI AKSES PIKET) */}
-      {canAccessPiket && (
+      {/* 2. TAB SWITCHER (HANYA DITAMPILKAN JIKA PENGGUNA MEMILIKI KEDUA AKSES: PIKET & MAGANG) */}
+      {canAccessPiket && isMagang && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 no-print">
           {/* Tab 1: Rekap Piket Shift */}
           <button
@@ -121,21 +125,21 @@ export function ExportView({
 
       {/* 3. KONTEN TAB AKTIF */}
       <div>
-        {canAccessPiket && activeTab === 'piket' ? (
+        {canAccessPiket && (!isMagang || activeTab === 'piket') ? (
           <div className="space-y-4">
             <ExportForm
               defaultStartDate={defaultStartDate}
               defaultEndDate={defaultEndDate}
             />
           </div>
-        ) : (
+        ) : isMagang && initialDailyRecap ? (
           <ExportHarianSection
             initialDate={todayDate}
             initialRecap={initialDailyRecap}
             isMaster={isMaster}
             emailRecipientsCount={emailRecipientsCount}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -137,6 +137,10 @@ export async function fetchExportData(
 }
 
 export async function getDailyExportData(date: string) {
+  const profile = await getCurrentUserProfile();
+  if (!profile.isMagang) {
+    throw new Error('Hanya akun dengan role magang yang dapat mengakses rekapitulasi presensi harian magang.');
+  }
   const { getDailyAttendanceRecap } = await import('@/lib/data/daily-attendance-recap');
   return await getDailyAttendanceRecap(date);
 }
