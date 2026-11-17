@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Ticket, TicketStatus } from '@/lib/ticketing/types';
 import { getStatusBadgeClass, getStatusLabel, getModeLabel, formatDateWITA } from '@/lib/ticketing/format';
@@ -35,6 +36,7 @@ import {
 } from 'lucide-react';
 
 export default function TicketingDashboardPage() {
+  const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -878,140 +880,168 @@ export default function TicketingDashboardPage() {
           })
         ) : (
           /* ========================================================================= */
-          /* TAMPILAN MENU LIST (DAFTAR BARIS RINGKAS & PRAKTIS)                       */
+          /* TAMPILAN MENU LIST (ULTRA RINGKAS & TERTATA SEPERTI DATA TABLE)           */
           /* ========================================================================= */
-          filteredTickets.map((ticket, index) => {
-            const isQueued = ticket.status === 'queued';
-            const hasTicketNo = !!ticket.ticket_number;
+          <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-2xl overflow-hidden divide-y divide-gray-100 dark:divide-slate-800/80 shadow-2xs">
+            {/* Table Header (Desktop) */}
+            <div className="hidden lg:grid grid-cols-12 gap-3 px-4 py-2.5 bg-gray-50/90 dark:bg-slate-850 text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider items-center">
+              <div className="col-span-4">Pelanggan &amp; ID</div>
+              <div className="col-span-3">Keluhan</div>
+              <div className="col-span-2">Output / Resolusi</div>
+              <div className="col-span-2">Status</div>
+              <div className="col-span-1 text-right">Aksi</div>
+            </div>
 
-            return (
-              <div
-                key={ticket.id}
-                className="bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 hover:border-blue-400 dark:hover:border-slate-700 rounded-2xl p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-3.5"
-              >
-                {/* Info Utama: Avatar, Nama, ID, Telepon, Tanggal */}
-                <div className="flex items-start gap-3 min-w-0 flex-1">
-                  {/* Urutan antrean */}
-                  {isQueued && statusFilter === 'queued' && (
-                    <div className="flex flex-col gap-1 items-center flex-shrink-0 pt-0.5">
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        onClick={() => handleMoveQueue(ticket.id, 'up')}
-                        className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-30 transition"
-                        title="Naikkan antrean"
-                      >
-                        <ArrowUp className="h-3 w-3" />
-                      </button>
-                      <span className="text-[10px] font-bold text-gray-400 font-mono">
+            {/* List Rows */}
+            {filteredTickets.map((ticket, index) => {
+              const isQueued = ticket.status === 'queued';
+              const hasTicketNo = !!ticket.ticket_number;
+
+              return (
+                <div
+                  key={ticket.id}
+                  onClick={() => router.push(`/ticketing/${ticket.id}`)}
+                  className="group px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-blue-50/60 dark:hover:bg-slate-800/60 transition-colors cursor-pointer flex flex-col lg:grid lg:grid-cols-12 gap-1.5 lg:gap-3 items-start lg:items-center"
+                >
+                  {/* Kolom 1: Pelanggan (Dot Status, Nama, ID, Phone) - Col 4 */}
+                  <div className="flex items-center gap-2.5 min-w-0 w-full lg:col-span-4">
+                    {/* Status Dot */}
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        ticket.status === 'closed' || ticket.status === 'ticket_issued'
+                          ? 'bg-emerald-500'
+                          : ticket.status === 'in_conversation'
+                          ? 'bg-blue-500 animate-pulse'
+                          : ticket.status === 'needs_admin'
+                          ? 'bg-amber-500 animate-pulse'
+                          : 'bg-gray-400'
+                      }`}
+                      title={getStatusLabel(ticket.status as TicketStatus)}
+                    />
+
+                    {isQueued && statusFilter === 'queued' && (
+                      <span className="text-[10px] font-mono font-bold text-gray-500 bg-gray-100 dark:bg-slate-800 px-1 py-0.2 rounded">
                         #{index + 1}
                       </span>
-                      <button
-                        type="button"
-                        disabled={index === filteredTickets.length - 1}
-                        onClick={() => handleMoveQueue(ticket.id, 'down')}
-                        className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-30 transition"
-                        title="Turunkan antrean"
-                      >
-                        <ArrowDown className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
+                    )}
 
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
-                    {ticket.name.trim().charAt(0).toUpperCase()}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                        <span className="text-xs sm:text-sm font-bold text-gray-900 dark:text-slate-100 truncate group-hover:text-blue-600 transition">
+                          {ticket.name}
+                        </span>
+                        {/* Status mini chip on mobile */}
+                        <span
+                          className={`lg:hidden text-[9px] font-bold px-1.5 py-0.2 rounded-full border ${getStatusBadgeClass(
+                            ticket.status as TicketStatus
+                          )}`}
+                        >
+                          {getStatusLabel(ticket.status as TicketStatus)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-slate-400">
+                        <span className="font-mono text-gray-700 dark:text-slate-300 font-semibold">
+                          {ticket.customer_id}
+                        </span>
+                        {ticket.phone && (
+                          <>
+                            <span>&bull;</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-medium truncate max-w-[110px]">
+                              {ticket.phone}
+                            </span>
+                          </>
+                        )}
+                        <span className="hidden sm:inline">&bull;</span>
+                        <span className="hidden sm:inline text-gray-400">
+                          {formatDateWITA(ticket.created_at)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-bold text-gray-900 dark:text-slate-100">
-                        {ticket.name}
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusBadgeClass(ticket.status as TicketStatus)}`}>
-                        {getStatusLabel(ticket.status as TicketStatus)}
-                      </span>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
-                        {getModeLabel(ticket.mode)}
-                      </span>
-                      {ticket.creator_name && (
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border border-gray-200 dark:border-slate-700">
-                          Dibuat: {ticket.creator_name}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500 dark:text-slate-400">
-                      <span>ID: <strong className="text-gray-700 dark:text-slate-200 font-mono">{ticket.customer_id}</strong></span>
-                      {ticket.phone && (
-                        <>
-                          <span>&bull;</span>
-                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{ticket.phone}</span>
-                        </>
-                      )}
-                      <span>&bull;</span>
-                      <span>{formatDateWITA(ticket.created_at)}</span>
-                    </div>
-
-                    <p className="text-xs text-gray-600 dark:text-slate-300 line-clamp-1 text-ellipsis">
-                      <span className="font-semibold text-gray-700 dark:text-slate-200">Keluhan: </span>
+                  {/* Kolom 2: Keluhan - Col 3 */}
+                  <div className="min-w-0 w-full lg:col-span-3 text-xs text-gray-600 dark:text-slate-300">
+                    <p className="line-clamp-1 text-ellipsis">
+                      <span className="lg:hidden text-gray-400 font-medium">Keluhan: </span>
                       {ticket.complaint}
                     </p>
                   </div>
+
+                  {/* Kolom 3: Output / Tiket - Col 2 */}
+                  <div className="min-w-0 w-full lg:col-span-2">
+                    {hasTicketNo ? (
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] font-semibold font-mono bg-sky-50 dark:bg-sky-950/50 border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200 max-w-full">
+                        <span className="truncate">{ticket.ticket_number}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyTicketNumber(ticket.ticket_number!, ticket.id, e);
+                          }}
+                          className="p-0.5 hover:bg-sky-100 dark:hover:bg-sky-900 rounded shrink-0 transition"
+                          title="Salin Output"
+                        >
+                          {copiedId === ticket.id ? (
+                            <Check className="h-3 w-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-xs">-</span>
+                    )}
+                  </div>
+
+                  {/* Kolom 4: Status Badge (Desktop) - Col 2 */}
+                  <div className="hidden lg:flex items-center gap-1.5 col-span-2">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusBadgeClass(
+                        ticket.status as TicketStatus
+                      )}`}
+                    >
+                      {getStatusLabel(ticket.status as TicketStatus)}
+                    </span>
+                    <span className="text-[10px] text-gray-400">
+                      {formatDateWITA(ticket.created_at)}
+                    </span>
+                  </div>
+
+                  {/* Kolom 5: Aksi Ringkas - Col 1 */}
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center justify-end gap-1 w-full lg:col-span-1 self-end lg:self-center shrink-0"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setEditingTicket(ticket)}
+                      className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 transition"
+                      title="Edit Tiket"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDeletingTicket(ticket)}
+                      className="p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition"
+                      title="Hapus Tiket"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+
+                    <Link
+                      href={`/ticketing/${ticket.id}`}
+                      className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 transition"
+                      title="Buka Chat & Detail"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  </div>
                 </div>
-
-                {/* Right: Output Badge & Action Buttons */}
-                <div className="flex items-center gap-2 self-end md:self-center shrink-0 flex-wrap sm:flex-nowrap">
-                  {hasTicketNo && (
-                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-300 dark:border-sky-800 text-sky-900 dark:text-sky-200 text-xs">
-                      <span className="font-bold font-mono">{ticket.ticket_number}</span>
-                      <button
-                        type="button"
-                        onClick={(e) => handleCopyTicketNumber(ticket.ticket_number!, ticket.id, e)}
-                        className="p-1 hover:bg-sky-100 dark:hover:bg-sky-900 rounded transition"
-                        title="Salin"
-                      >
-                        {copiedId === ticket.id ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setEditingTicket(ticket);
-                    }}
-                    className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-gray-600 dark:text-slate-300 hover:text-blue-600 transition shadow-2xs"
-                    title="Edit Tiket"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDeletingTicket(ticket);
-                    }}
-                    className="p-2 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-gray-600 dark:text-slate-300 hover:text-rose-600 transition shadow-2xs"
-                    title="Hapus Tiket"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-
-                  <Link
-                    href={`/ticketing/${ticket.id}`}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
-                  >
-                    <span>Detail &amp; Chat</span>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
 
