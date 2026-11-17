@@ -7,7 +7,6 @@ import { showAlert, showToast } from '@/lib/swal';
 import { logout } from '@/app/(auth)/login/actions';
 import {
   User,
-  Phone,
   Mail,
   FileText,
   Sun,
@@ -25,6 +24,7 @@ import {
 } from 'lucide-react';
 import { RoleBadgeGroup } from '@/components/ui/nav';
 import type { AppRole } from '@/lib/supabase/types';
+import { normalizeIndonesianPhone, isValidIndonesianPhone, extractLocalPhoneDigits } from '@/lib/phone';
 
 interface ProfileFormProps {
   initialData: {
@@ -43,7 +43,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
   const { theme, setTheme } = useTheme();
 
   const [fullName, setFullName] = useState(initialData.fullName ?? '');
-  const [phone, setPhone] = useState(initialData.phone ?? '');
+  const [phone, setPhone] = useState(initialData.phone ? extractLocalPhoneDigits(initialData.phone) : '');
   const [description, setDescription] = useState(initialData.description ?? '');
 
   const [loading, setLoading] = useState(false);
@@ -106,9 +106,9 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       return;
     }
 
-    const cleanedPhone = phone.replace(/[^0-9+]/g, '');
-    if (cleanedPhone.length < 9) {
-      setError('Nomor Telepon tidak valid (minimal 9 digit).');
+    const normalizedPhone = normalizeIndonesianPhone(phone);
+    if (!phone.trim() || !isValidIndonesianPhone(normalizedPhone)) {
+      setError('Nomor Telepon / WhatsApp tidak valid. Masukkan nomor HP aktif (contoh: 81234567890).');
       return;
     }
 
@@ -116,7 +116,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       setLoading(true);
       const formData = new FormData();
       formData.append('fullName', fullName.trim());
-      formData.append('phone', cleanedPhone);
+      formData.append('phone', normalizedPhone);
       formData.append('description', description.trim());
 
       const res = await updateProfileAction(formData);
@@ -286,18 +286,28 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
             >
               Nomor Telepon / WhatsApp <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
-              <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
+            <div className="relative flex rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all overflow-hidden min-h-[42px]">
+              <div className="flex items-center gap-1.5 px-3 bg-gray-50 dark:bg-slate-800/80 border-r border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-700 dark:text-slate-300 select-none">
+                <span className="text-sm">🇮🇩</span>
+                <span>+62</span>
+              </div>
               <input
                 id="phone"
                 type="tel"
                 required
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Contoh: 081234567890"
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-xs text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
+                onChange={(e) => {
+                  const cleaned = extractLocalPhoneDigits(e.target.value);
+                  setPhone(cleaned);
+                }}
+                placeholder="812-3456-7890"
+                className="w-full px-3 py-2 bg-transparent text-xs text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none"
               />
             </div>
+            <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1 flex items-center justify-between">
+              <span>Format: <strong>+62 {phone || '8xx-xxxx-xxxx'}</strong></span>
+              <span className="text-[10px] text-gray-400">Ketik mulai 8... (atau 08...)</span>
+            </p>
           </div>
 
           {/* Deskripsi Akun (Nomor Mandiri, No DANA, dll) */}

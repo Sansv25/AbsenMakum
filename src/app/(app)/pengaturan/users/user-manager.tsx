@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { formatIndonesia } from '@/lib/dates';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
+import { normalizeIndonesianPhone, isValidIndonesianPhone, extractLocalPhoneDigits } from '@/lib/phone';
 
 const MASTER_EMAIL = 'madesanjaya255@gmail.com';
 
@@ -200,7 +201,7 @@ export function UserManager({
   function handleOpenEditModal(user: AdminUserItem) {
     setEditModalUser(user);
     setEditFullName(user.full_name || '');
-    setEditPhone(user.phone || '');
+    setEditPhone(user.phone ? extractLocalPhoneDigits(user.phone) : '');
     setEditRoles(resolveUserRoles(user));
     setEditApproved(user.is_approved);
     setEditError(null);
@@ -217,6 +218,13 @@ export function UserManager({
     if (!editModalUser) return;
 
     setEditError(null);
+
+    const normalizedPhone = normalizeIndonesianPhone(editPhone);
+    if (!editPhone.trim() || !isValidIndonesianPhone(normalizedPhone)) {
+      setEditError('Nomor Telepon / WhatsApp tidak valid. Masukkan nomor HP aktif (contoh: 81234567890).');
+      return;
+    }
+
     setLoadingAction('edit-save');
 
     const isMasterUser = editRoles.some((r) => r === 'owner' || r === 'admin' || r === 'senior');
@@ -227,7 +235,7 @@ export function UserManager({
     const res = await updateUserProfileAdminAction(
       editModalUser.id,
       editFullName,
-      editPhone,
+      normalizedPhone,
       syncedRole,
       editApproved,
       excludeFromRecap,
@@ -906,14 +914,26 @@ export function UserManager({
                 <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1">
                   Nomor Telepon / WhatsApp
                 </label>
-                <input
-                  type="tel"
-                  required
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  placeholder="Contoh: 081234567890"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
-                />
+                <div className="relative flex rounded-xl border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all overflow-hidden min-h-[44px]">
+                  <div className="flex items-center gap-1.5 px-3 bg-gray-50 dark:bg-slate-800/80 border-r border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-700 dark:text-slate-300 select-none">
+                    <span className="text-sm">🇮🇩</span>
+                    <span>+62</span>
+                  </div>
+                  <input
+                    type="tel"
+                    required
+                    value={editPhone}
+                    onChange={(e) => {
+                      const cleaned = extractLocalPhoneDigits(e.target.value);
+                      setEditPhone(cleaned);
+                    }}
+                    placeholder="812-3456-7890"
+                    className="w-full px-3 py-2 bg-transparent text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 text-sm focus:outline-none"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1">
+                  Tersimpan sebagai: <strong>+62 {editPhone || '8xx-xxxx-xxxx'}</strong>
+                </p>
               </div>
 
               {/* Pilihan Role Bertumpuk di Edit Modal */}
