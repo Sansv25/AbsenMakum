@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Script from 'next/script';
 import { createClient } from '@/lib/supabase/client';
 import { GoogleIcon } from '@/components/ui/google-icon';
 import { Loader2, User, Phone, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
@@ -20,6 +21,86 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gisReady, setGisReady] = useState(false);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  const handleGoogleCredentialResponse = useCallback(async (response: { credential?: string }) => {
+    if (!response?.credential) return;
+    setError(null);
+    setGoogleLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { data, error: idTokenErr } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.credential,
+      });
+
+      if (idTokenErr) {
+        setError(idTokenErr.message || 'Gagal mendaftar via Google.');
+        setGoogleLoading(false);
+        return;
+      }
+
+      if (data?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('phone, is_approved, role')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        const isMaster =
+          profile?.role === 'master' ||
+          data.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
+
+        if (!profile?.phone || profile.phone.trim() === '') {
+          window.location.href = '/complete-profile';
+        } else if (!isMaster && (profile?.is_approved === false || !profile)) {
+          window.location.href = '/pending-approval';
+        } else {
+          window.location.href = '/';
+        }
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
+      setError(message);
+      setGoogleLoading(false);
+    }
+  }, []);
+
+  const initGoogle = useCallback(() => {
+    if (typeof window === 'undefined' || !window.google?.accounts?.id) return;
+    const clientId =
+      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+      '265734214863-3qgdbt7hu9jqh41bg5raoq7vrf5nibvq.apps.googleusercontent.com';
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleGoogleCredentialResponse,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+
+    if (googleBtnRef.current) {
+      googleBtnRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'signup_with',
+        shape: 'rectangular',
+        logo_alignment: 'left',
+        width: 320,
+      });
+    }
+    setGisReady(true);
+  }, [handleGoogleCredentialResponse]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      initGoogle();
+    }
+  }, [initGoogle]);
 
   async function handleGoogleSignUp() {
     setError(null);
@@ -177,21 +258,36 @@ export default function RegisterPage() {
           </p>
         </div>
 
+        {/* Script Google Identity Services */}
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="afterInteractive"
+          onLoad={initGoogle}
+        />
+
         {/* Tombol Google OAuth */}
         <div className="space-y-4 mb-6">
-          <button
-            type="button"
-            onClick={handleGoogleSignUp}
-            disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 font-medium text-sm rounded-xl border border-gray-300 dark:border-slate-700 shadow-xs transition-colors disabled:opacity-50 min-h-[44px]"
-          >
-            {googleLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin text-gray-500 dark:text-slate-400" />
-            ) : (
-              <GoogleIcon className="h-5 w-5" />
+          <div className="w-full flex justify-center items-center min-h-[44px]">
+            <div
+              ref={googleBtnRef}
+              className={gisReady ? 'w-full flex justify-center overflow-hidden rounded-xl' : 'hidden'}
+            />
+            {!gisReady && (
+              <button
+                type="button"
+                onClick={handleGoogleSignUp}
+                disabled={googleLoading || loading}
+                className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 font-medium text-sm rounded-xl border border-gray-300 dark:border-slate-700 shadow-xs transition-colors disabled:opacity-50 min-h-[44px]"
+              >
+                {googleLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-500 dark:text-slate-400" />
+                ) : (
+                  <GoogleIcon className="h-5 w-5" />
+                )}
+                <span>Daftar dengan Google</span>
+              </button>
             )}
-            <span>Daftar dengan Google</span>
-          </button>
+          </div>
 
           <div className="relative flex items-center justify-center">
             <div className="border-t border-gray-200 dark:border-slate-800 w-full" />
