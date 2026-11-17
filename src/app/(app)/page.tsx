@@ -34,6 +34,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const profile = await getCurrentUserProfile();
   if (!profile.canAccessPiket) {
+    if (profile.isTiket && !profile.isMagang) {
+      redirect('/ticketing');
+    }
     redirect('/absen-chat');
   }
 

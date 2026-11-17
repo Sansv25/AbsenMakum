@@ -508,11 +508,14 @@ export async function sendRecapEmailNow(
 export async function sendDailyRecapEmailNow(
   targetDate?: string,
   overrideRecipients?: string[],
-  forceSendOnHoliday = false
+  forceSendOnHoliday = false,
+  skipAuthCheck = false
 ): Promise<{ success: boolean; message?: string; error?: string; isHolidaySkipped?: boolean }> {
-  const { isMaster } = await getCurrentUserProfile();
-  if (!isMaster) {
-    return { success: false, error: 'Hanya Akun Master yang diizinkan mengirim rekapan email.' };
+  if (!skipAuthCheck) {
+    const { isMaster } = await getCurrentUserProfile();
+    if (!isMaster) {
+      return { success: false, error: 'Hanya Akun Master yang diizinkan mengirim rekapan email.' };
+    }
   }
 
   const workDate = targetDate || todayWITA();

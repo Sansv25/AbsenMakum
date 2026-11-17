@@ -67,7 +67,7 @@ export async function cleanupOldChatAction(
 ): Promise<{ deletedCount: number; error?: string }> {
   const profile = await getCurrentUserProfile();
   if (!profile.canManageSettings) {
-    return { deletedCount: 0, error: 'Hanya Admin, Senior, atau Owner yang diizinkan membersihkan obrolan.' };
+    return { deletedCount: 0, error: 'Hanya Admin atau Owner yang diizinkan membersihkan obrolan.' };
   }
 
   const { cleanupOldChatMessages } = await import('@/lib/data/attendance-feed');
@@ -83,7 +83,7 @@ export async function cleanupOldChatAction(
 export async function cleanupAllChatAction(): Promise<{ deletedCount: number; error?: string }> {
   const profile = await getCurrentUserProfile();
   if (!profile.canManageSettings) {
-    return { deletedCount: 0, error: 'Hanya Admin, Senior, atau Owner yang diizinkan membersihkan obrolan.' };
+    return { deletedCount: 0, error: 'Hanya Admin atau Owner yang diizinkan membersihkan obrolan.' };
   }
 
   const { cleanupOldChatMessages } = await import('@/lib/data/attendance-feed');

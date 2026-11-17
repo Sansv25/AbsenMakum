@@ -95,7 +95,7 @@ export async function GET(req: Request) {
     const results = [];
 
     if (triggerDaily) {
-      const res = await sendDailyRecapEmailNow(todayWitaStr, undefined, forceType === 'harian');
+      const res = await sendDailyRecapEmailNow(todayWitaStr, undefined, forceType === 'harian', true);
       results.push({ type: 'harian', ...res });
     } else if (settings.dailyIsActive && isDayOff) {
       const [targetHour] = (settings.dailySendTime || '18:00').split(':').map(Number);
