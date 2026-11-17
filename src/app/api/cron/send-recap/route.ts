@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getEmailRecapSettings, sendRecapEmailNow, sendDailyRecapEmailNow } from '@/lib/data/email-recap';
+import { cleanupOldChatMessages } from '@/lib/data/attendance-feed';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,12 +83,17 @@ export async function GET(req: Request) {
       results.push({ type: 'bulanan', ...res });
     }
 
+    // Pembersihan otomatis pesan obrolan (feed_type = 'chat') yang lebih lama dari 168 jam (7 hari)
+    const cleanupResult = await cleanupOldChatMessages(168);
+    results.push({ type: 'cleanup_chat_168h', ...cleanupResult });
+
     if (!triggerDaily && !triggerWeekly && !triggerMonthly) {
       return NextResponse.json({
-        message: 'No recap scheduled for right now.',
+        message: 'No recap email scheduled for right now. Old chat cleanup completed.',
         dayOfWeek,
         dayOfMonth,
         currentHour,
+        cleanupResult,
         settings: {
           dailyIsActive: settings.dailyIsActive,
           dailySendTime: settings.dailySendTime,

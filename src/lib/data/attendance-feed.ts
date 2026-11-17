@@ -43,8 +43,21 @@ export async function getAttendanceFeedMessages(
     return { messages: [] };
   }
 
+  // 168 jam = 7 hari: pesan obrolan biasa ('chat') yang lebih lama dari 168 jam tidak lagi ditampilkan
+  const sevenDaysAgo = new Date(Date.now() - 168 * 60 * 60 * 1000).toISOString();
+  const activeRawMessages = rawMessages.filter(
+    (msg) => msg.feed_type !== 'chat' || msg.created_at >= sevenDaysAgo
+  );
+
+  // Jalankan pembersihan obrolan > 168 jam di background
+  cleanupOldChatMessages(168).catch(() => {});
+
+  if (activeRawMessages.length === 0) {
+    return { messages: [] };
+  }
+
   // Ambil data anggota grup jika ada pesan group_attendance
-  const groupSessionIds = rawMessages
+  const groupSessionIds = activeRawMessages
     .filter((m) => m.group_session_id)
     .map((m) => m.group_session_id as string);
 
@@ -82,7 +95,7 @@ export async function getAttendanceFeedMessages(
 
   // Generate signed URLs untuk gambar bukti absen
   const formattedMessages: AttendanceFeedMessage[] = await Promise.all(
-    rawMessages.map(async (msg) => {
+    activeRawMessages.map(async (msg) => {
       const media_paths = (msg.media_paths || []) as string[];
       const media_urls: string[] = [];
 
@@ -197,6 +210,9 @@ export async function createAttendanceFeedMessage(payload: {
 
   const prof = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
 
+  // Jalankan pembersihan obrolan lama di background
+  cleanupOldChatMessages(168).catch(() => {});
+
   const media_paths = (data.media_paths || []) as string[];
   const media_urls: string[] = [];
   for (const p of media_paths) {
@@ -233,4 +249,73 @@ export async function createAttendanceFeedMessage(payload: {
         : undefined,
     },
   };
+}
+
+/**
+ * Menghapus pesan obrolan biasa (feed_type = 'chat') yang sudah berumur lebih lama dari 168 jam (7 hari).
+ * Catatan Penting:
+ * - Data absensi masuk resmi ('absen_pagi' dan 'group_attendance') TETAP DIPERTAHANKAN untuk riwayat & rekapan bulanan.
+ * - File media lampiran dari obrolan yang dihapus juga dibersihkan dari Supabase Storage.
+ */
+export async function cleanupOldChatMessages(
+  hoursThreshold = 168
+): Promise<{ deletedCount: number; error?: string }> {
+  try {
+    const supabase = await createClient();
+
+    // Ambang batas waktu: 168 jam (7 hari) yang lalu
+    const thresholdDate = new Date(Date.now() - hoursThreshold * 60 * 60 * 1000).toISOString();
+
+    // 1. Cari pesan obrolan biasa yang sudah melebihi 168 jam
+    const { data: oldChats, error: fetchErr } = await supabase
+      .from('attendance_feed')
+      .select('id, media_paths')
+      .eq('feed_type', 'chat')
+      .lt('created_at', thresholdDate);
+
+    if (fetchErr) {
+      return { deletedCount: 0, error: fetchErr.message };
+    }
+
+    if (!oldChats || oldChats.length === 0) {
+      return { deletedCount: 0 };
+    }
+
+    const chatIds = oldChats.map((c) => c.id);
+    const mediaPaths: string[] = [];
+
+    for (const c of oldChats) {
+      if (Array.isArray(c.media_paths)) {
+        for (const p of c.media_paths) {
+          if (p && typeof p === 'string') {
+            mediaPaths.push(p);
+          }
+        }
+      }
+    }
+
+    // 2. Bersihkan file media obrolan lama di storage jika ada
+    if (mediaPaths.length > 0) {
+      try {
+        await supabase.storage.from('evidence').remove(mediaPaths);
+      } catch (storageErr) {
+        console.warn('Gagal menghapus beberapa file lampiran obrolan lama:', storageErr);
+      }
+    }
+
+    // 3. Hapus baris pesan obrolan dari tabel attendance_feed
+    const { error: deleteErr } = await supabase
+      .from('attendance_feed')
+      .delete()
+      .in('id', chatIds);
+
+    if (deleteErr) {
+      return { deletedCount: 0, error: deleteErr.message };
+    }
+
+    return { deletedCount: chatIds.length };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem';
+    return { deletedCount: 0, error: msg };
+  }
 }
