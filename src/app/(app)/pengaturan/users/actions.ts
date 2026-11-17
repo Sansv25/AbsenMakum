@@ -18,7 +18,7 @@ export async function createUserAction(formData: FormData) {
   const password = formData.get('password') as string;
   const rolesRaw = formData.getAll('roles') as AppRole[];
   const roles: AppRole[] = rolesRaw.length > 0 ? rolesRaw : ['magang'];
-  const hasAdminRights = roles.some((r) => r === 'owner' || r === 'admin' || r === 'senior');
+  const hasAdminRights = roles.some((r) => r === 'owner' || r === 'admin');
   const role: UserRole = hasAdminRights ? 'master' : 'user';
 
   if (!email || !password) {

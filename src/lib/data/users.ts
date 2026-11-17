@@ -142,7 +142,7 @@ export async function adminUpdateUserRoles(
     newRoles = ['magang'];
   }
 
-  const hasAdminRights = newRoles.some((r) => r === 'owner' || r === 'admin' || r === 'senior');
+  const hasAdminRights = newRoles.some((r) => r === 'owner' || r === 'admin');
   const syncedRole: UserRole = hasAdminRights ? 'master' : 'user';
   const hasShiftRole = newRoles.includes('magang') || newRoles.includes('piket');
   const excludeFromRecap = !hasShiftRole;

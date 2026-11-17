@@ -15,7 +15,7 @@ export interface UserProfileInfo {
   isMagang: boolean;
   isTiket: boolean;
   isMaster: boolean; // true if isOwner || isAdmin || isSenior (general admin rights)
-  canManageSettings: boolean; // isOwner || isAdmin || isSenior
+  canManageSettings: boolean; // isOwner || isAdmin (senior tidak memiliki akses)
   canManageAdvanced: boolean; // isOwner only (monitoring, email recap, reset data)
   canCreateTicket: boolean; // isOwner || isAdmin || isTiket
   canAccessPiket: boolean; // isOwner || isAdmin || isSenior || isPiket
@@ -93,12 +93,12 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
     const isPiket = roles.includes('piket');
     const isMagang = roles.includes('magang');
     const isTiket = roles.includes('tiket');
-    const isMaster = isOwner || isAdmin || isSenior || profile.role === 'master';
-    const canManageSettings = isMaster;
+    const isMaster = isOwner || isAdmin || (profile.role === 'master' && !isSenior);
+    const canManageSettings = isOwner || isAdmin || (profile.role === 'master' && !isSenior);
     const canManageAdvanced = isOwner;
     const canCreateTicket = isOwner || isAdmin || isTiket;
     const canAccessPiket = isOwner || isAdmin || isSenior || isPiket;
-    const isApproved = isMaster ? true : (profile.is_approved ?? false);
+    const isApproved = isMaster || isSenior ? true : (profile.is_approved ?? false);
 
     // Sinkronisasi self-healing jika master_email belum tercatat sebagai master/owner di db
     if (isMasterEmail && (profile.role !== 'master' || !profile.roles?.includes('owner') || profile.is_approved !== true)) {

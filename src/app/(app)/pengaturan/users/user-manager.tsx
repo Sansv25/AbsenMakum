@@ -79,7 +79,7 @@ export const ROLE_INFO: Record<
     text: 'text-purple-800 dark:text-purple-300',
     border: 'border-purple-300 dark:border-purple-800',
     badgeBg: 'bg-purple-500/15 text-purple-900 dark:text-purple-200 border-purple-300 dark:border-purple-700',
-    description: 'Sama seperti Admin (akses Shift & Akun), namun otomatis TIDAK direkap kehadiran kecuali ditumpuk dengan Piket / Magang.',
+    description: 'Pembimbing & pengawas operasional. Akses Dashboard Piket, Riwayat, Absen Harian & Rekap Harian (bisa hubungi WA). Tidak memiliki akses ke Pengaturan & Manajemen Akun.',
   },
   piket: {
     label: 'Petugas Piket',
@@ -227,7 +227,7 @@ export function UserManager({
 
     setLoadingAction('edit-save');
 
-    const isMasterUser = editRoles.some((r) => r === 'owner' || r === 'admin' || r === 'senior');
+    const isMasterUser = editRoles.some((r) => r === 'owner' || r === 'admin');
     const syncedRole = isMasterUser ? 'master' : 'user';
     const isShiftUser = editRoles.includes('magang') || editRoles.includes('piket');
     const excludeFromRecap = !isShiftUser;
