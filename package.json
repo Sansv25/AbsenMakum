@@ -19,6 +19,7 @@
     "next": "^15.5.29",
     "postcss": "^8.5.32",
     "puppeteer-core": "^25.17.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "sweetalert2": "^11.26.25",

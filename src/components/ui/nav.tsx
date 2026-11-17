@@ -580,10 +580,10 @@ export function AppNavigation({
 }
 
 // Kompatibilitas mundur jika ada modul yang mengimpor BottomNav atau Sidebar secara terpisah
-export function BottomNav(_props?: Record<string, unknown>) {
+export function BottomNav() {
   return null;
 }
 
-export function Sidebar(_props?: Record<string, unknown>) {
+export function Sidebar() {
   return null;
 }
