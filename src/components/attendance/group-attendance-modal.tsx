@@ -445,11 +445,8 @@ export function GroupAttendanceModal({
                       <div className="w-11 h-11 rounded-2xl bg-amber-100 dark:bg-amber-900/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-2xs">
                         <Camera className="w-5 h-5" />
                       </div>
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                        <span>Kamera GPS Map</span>
-                        <span className="text-[9px] bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200 font-bold px-1.5 py-0.2 rounded-full">
-                          Piket
-                        </span>
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                        Kamera GPS Map
                       </span>
                       <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                         Watermark waktu WITA &amp; lokasi resmi

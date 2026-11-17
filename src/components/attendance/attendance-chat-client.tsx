@@ -1068,11 +1068,8 @@ export function AttendanceChatClient({
                 <Camera className="w-4 h-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-bold flex items-center gap-1">
-                  <span>Kamera GPS Map</span>
-                  <span className="text-[9px] bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-bold px-1.5 py-0.2 rounded-full">
-                    Piket
-                  </span>
+                <div className="font-bold text-slate-900 dark:text-slate-100">
+                  Kamera GPS Map
                 </div>
                 <div className="text-[10px] text-slate-400 font-normal truncate">
                   Watermark waktu WITA &amp; lokasi resmi
