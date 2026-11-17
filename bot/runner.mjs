@@ -477,6 +477,36 @@ async function openDirectThread(page) {
   await new Promise((r) => setTimeout(r, 1000));
 }
 
+// Ketikkan dan kirim pesan teks ke thread DM Instagram
+async function sendMessageToDirectThread(page, text) {
+  const messageInputSelector =
+    'div[role="textbox"][contenteditable="true"], div[aria-label="Message"], div[aria-label="Pesan"]';
+  const messageBox = await page.waitForSelector(messageInputSelector, { timeout: 15000 });
+
+  if (!messageBox) {
+    throw new Error('Kotak ketik pesan Instagram DM tidak ditemukan.');
+  }
+
+  await messageBox.click();
+  await new Promise((r) => setTimeout(r, 400));
+
+  for (const char of text) {
+    if (char === '\n') {
+      await page.keyboard.down('Shift');
+      await page.keyboard.press('Enter');
+      await page.keyboard.up('Shift');
+    } else {
+      await page.keyboard.sendCharacter(char);
+    }
+    const delay = Math.floor(Math.random() * (45 - 20 + 1)) + 20;
+    await new Promise((r) => setTimeout(r, delay));
+  }
+
+  await new Promise((r) => setTimeout(r, 600));
+  await page.keyboard.press('Enter');
+  await new Promise((r) => setTimeout(r, 2500));
+}
+
 // Eksekusi Kirim Tiket Baru ke Instagram
 async function dispatchTicket(ticket) {
   console.log(`\n🚀 [KIRIM TIKET] Memulai pengiriman: "${ticket.name}" (ID: ${ticket.customer_id})...`);
@@ -488,33 +518,29 @@ async function dispatchTicket(ticket) {
     const page = (await browser.pages())[0] || (await browser.newPage());
     await openDirectThread(page);
 
-    const messageInputSelector =
-      'div[role="textbox"][contenteditable="true"], div[aria-label="Message"], div[aria-label="Pesan"]';
-    const messageBox = await page.waitForSelector(messageInputSelector, { timeout: 15000 });
+    // KUNCI PENGAMAN: Periksa apakah ada sisa sesi sebelumnya yang belum ditutup oleh CS
+    const lastChatText = await page.evaluate(() => {
+      const nodes = Array.from(document.querySelectorAll('div[dir="auto"], span[dir="auto"]'));
+      return nodes.map((n) => (n.innerText || '').trim()).filter(Boolean).slice(-4).join(' ');
+    });
 
-    if (!messageBox) {
-      throw new Error('Kotak ketik pesan Instagram DM tidak ditemukan.');
+    const lowerChat = lastChatText.toLowerCase();
+    if (
+      lowerChat.includes('menunggu jawaban') ||
+      lowerChat.includes('ada lagi yang dapat kami bantu') ||
+      lowerChat.includes('bisa kami bantu kembali') ||
+      lowerChat.includes('bisa dibantu kembali')
+    ) {
+      console.log(`⚠️ [PERINGATAN] CS masih menunggu penutupan sesi sebelumnya!`);
+      console.log(`💬 Mengirimkan salam penutup resmi sebelum dispatch tiket antrean baru...`);
+      const closeMsg = `Sudah cukup Kak, tidak ada lagi. Terima kasih banyak atas bantuannya. ${getWitaTimeContext().greeting}!`;
+      await sendMessageToDirectThread(page, closeMsg);
+      console.log(`⏳ Memberi jeda 35 detik agar CS menutup sesi chat lama di sistemnya...`);
+      await new Promise((r) => setTimeout(r, 35000));
     }
 
-    await messageBox.click();
-    await new Promise((r) => setTimeout(r, 500));
-
-    console.log('   Mengetik teks keluhan...');
-    for (const char of messageText) {
-      if (char === '\n') {
-        await page.keyboard.down('Shift');
-        await page.keyboard.press('Enter');
-        await page.keyboard.up('Shift');
-      } else {
-        await page.keyboard.sendCharacter(char);
-      }
-      const delay = Math.floor(Math.random() * (60 - 25 + 1)) + 25;
-      await new Promise((r) => setTimeout(r, delay));
-    }
-
-    await new Promise((r) => setTimeout(r, 600));
-    await page.keyboard.press('Enter');
-    await new Promise((r) => setTimeout(r, 3000));
+    console.log('   Mengetik teks keluhan tiket baru...');
+    await sendMessageToDirectThread(page, messageText);
     console.log('   ✓ Teks pesan terkirim.');
 
     // Upload foto keluhan jika ada
@@ -890,14 +916,53 @@ async function syncActiveChat(activeTicket) {
       activeTicket.ticket_number = directOutcome.value;
     }
 
-    // 2.1 JIKA TIKET INI STATUSNYA 'needs_admin' NAMUN SUDAH MENDAPATKAN NOMOR TIKET RESMI CS
+    // 2.1 JIKA TIKET INI MENDAPATKAN NOMOR TIKET RESMI CS ATAU RESOLUSI
     const isActualTicketFound =
       (directOutcome && directOutcome.type === 'ticket') ||
       (activeTicket.ticket_number && /^[A-Z0-9]{8}$/.test(activeTicket.ticket_number));
+    const confirmedNumber = directOutcome?.value || activeTicket.ticket_number;
 
-    if (activeTicket.status === 'needs_admin' && isActualTicketFound) {
-      const confirmedNumber = directOutcome?.value || activeTicket.ticket_number;
-      console.log(`\n🎉 [TIKET RESMI DIDAPATKAN] Tiket "${activeTicket.name}" sudah mendapatkan nomor tiket ${confirmedNumber}. Menyelesaikan status tiket...`);
+    if (isActualTicketFound && confirmedNumber) {
+      console.log(`\n🎉 [TIKET RESMI DIDAPATKAN] Tiket "${activeTicket.name}" mendapatkan nomor tiket resmi: ${confirmedNumber}`);
+
+      // Cek apakah kita sudah pernah mengirimkan ucapan penutup / terima kasih untuk tiket ini
+      const { data: outMsgs } = await supabase
+        .from('ticket_messages')
+        .select('body')
+        .eq('ticket_id', activeTicket.id)
+        .eq('direction', 'out');
+
+      const hasSentClosing = (outMsgs || []).some(
+        (m) =>
+          (m.body || '').toLowerCase().includes('terima kasih') ||
+          (m.body || '').toLowerCase().includes('sudah cukup') ||
+          (m.body || '').toLowerCase().includes('selamat pagi') ||
+          (m.body || '').toLowerCase().includes('selamat siang') ||
+          (m.body || '').toLowerCase().includes('selamat sore') ||
+          (m.body || '').toLowerCase().includes('selamat malam')
+      );
+
+      if (!hasSentClosing) {
+        const timeCtx = getWitaTimeContext();
+        const closingText = `Baik Kak, sudah cukup dan tidak ada lagi. Terima kasih banyak atas bantuannya. ${timeCtx.greeting}!`;
+        console.log(`💬 [KIRIM SALAM PENUTUP] Mengirim salam penutup resmi ke Instagram: "${closingText}"`);
+        try {
+          await sendMessageToDirectThread(page, closingText);
+          await supabase.from('ticket_messages').insert({
+            ticket_id: activeTicket.id,
+            direction: 'out',
+            sender: 'ai',
+            body: closingText,
+          });
+          console.log(`✓ Salam penutup terkirim ke CS ICONNET.`);
+        } catch (e) {
+          console.warn('⚠️ Gagal mengetikkan salam penutup:', e.message);
+        }
+      }
+
+      console.log(`⏳ [JEDA PENUTUPAN SESI] Memberi jeda 45 detik agar CS menutup sesi chat sebelum menyelesaikan tiket...`);
+      await new Promise((r) => setTimeout(r, 45000));
+
       const now = new Date().toISOString();
       await supabase
         .from('tickets')
@@ -914,6 +979,7 @@ async function syncActiveChat(activeTicket) {
         .delete()
         .eq('key', 'pending_ai_reply');
 
+      console.log(`✅ [TIKET SELESAI] Tiket "${activeTicket.name}" resmi ticket_issued dengan nomor ${confirmedNumber}. Antrean baru aman diproses!\n`);
       return;
     }
 
@@ -1008,31 +1074,9 @@ async function syncActiveChat(activeTicket) {
         } else {
           // Mode AI Auto: Ketikkan balasan langsung ke Instagram DM
           console.log(`   Mengetikkan balasan ke DM Instagram...`);
-          const messageInputSelector =
-            'div[role="textbox"][contenteditable="true"], div[aria-label="Message"], div[aria-label="Pesan"]';
-          const messageBox = await page.waitForSelector(messageInputSelector, { timeout: 10000 });
+          await sendMessageToDirectThread(page, aiReply.text);
 
-          if (messageBox) {
-            await messageBox.click();
-            await new Promise((r) => setTimeout(r, 400));
-
-            for (const char of aiReply.text) {
-              if (char === '\n') {
-                await page.keyboard.down('Shift');
-                await page.keyboard.press('Enter');
-                await page.keyboard.up('Shift');
-              } else {
-                await page.keyboard.sendCharacter(char);
-              }
-              const delay = Math.floor(Math.random() * (50 - 20 + 1)) + 20;
-              await new Promise((r) => setTimeout(r, delay));
-            }
-
-            await new Promise((r) => setTimeout(r, 600));
-            await page.keyboard.press('Enter');
-            await new Promise((r) => setTimeout(r, 2500));
-
-            // Rekam ke ticket_messages dan update ai_turns
+          // Rekam ke ticket_messages dan update ai_turns
             await supabase.from('ticket_messages').insert({
               ticket_id: activeTicket.id,
               direction: 'out',
