@@ -2,7 +2,6 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserProfile } from '@/lib/data/profile';
-import { todayWITA } from '@/lib/dates';
 import type { ShiftType } from '@/lib/supabase/types';
 import type { PdfAttendanceItem } from '@/lib/pdf';
 
@@ -27,11 +26,10 @@ export async function fetchExportData(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: [], error: 'Tidak terautentikasi' };
 
-  // Security check: Petugas piket & admin dapat mengekspor data
+  // Security check: Hanya pengguna dengan akses piket (Owner, Admin, Senior, Petugas Piket) yang diizinkan mengekspor dokumen piket
   const { isMaster, canAccessPiket } = await getCurrentUserProfile();
-  const today = todayWITA();
-  if (!isMaster && !canAccessPiket && (startDate < today || endDate < today)) {
-    return { data: [], error: 'Anda hanya dapat mengekspor data absensi di hari itu (hari ini).' };
+  if (!isMaster && !canAccessPiket) {
+    return { data: [], error: 'Hanya Petugas Piket, Senior, atau Admin yang diizinkan mengekspor dokumen dokumentasi piket.' };
   }
 
   // Fetch attendances in range

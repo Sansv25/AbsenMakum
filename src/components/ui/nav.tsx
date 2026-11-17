@@ -123,26 +123,50 @@ export function RoleBadgeGroup({ roles, isMaster }: { roles?: AppRole[]; isMaste
   );
 }
 
-function getNavigationSections(canAccessTicketing: boolean, isMaster: boolean): NavSection[] {
+function getNavigationSections(
+  canAccessTicketing: boolean,
+  isMaster: boolean,
+  canAccessPiket: boolean
+): NavSection[] {
+  const absensiItems: NavItem[] = [];
+
+  // Halaman Piket HANYA untuk pengguna yang memiliki akses piket (Petugas Piket, Senior, Admin, Owner)
+  if (canAccessPiket) {
+    absensiItems.push({
+      href: '/',
+      label: 'Dashboard Absen Piket',
+      icon: LayoutDashboard,
+    });
+  }
+
+  // Presensi Harian & Rekap Kehadiran Harian Anak Magang
+  absensiItems.push({
+    href: '/absen-chat',
+    label: 'Absen Harian',
+    icon: MessagesSquare,
+    badge: 'Baru',
+    badgeColor: 'bg-blue-500 text-white',
+  });
+
+  absensiItems.push({
+    href: '/rekap-harian',
+    label: 'Rekap Absen Harian',
+    icon: ClipboardCheck,
+  });
+
+  // Riwayat Piket HANYA untuk pengguna yang memiliki akses piket
+  if (canAccessPiket) {
+    absensiItems.push({
+      href: '/riwayat',
+      label: 'Riwayat Absen Piket',
+      icon: History,
+    });
+  }
+
   const sections: NavSection[] = [
     {
-      title: 'Absensi & Piket',
-      items: [
-        { href: '/', label: 'Dashboard Absen Piket', icon: LayoutDashboard },
-        {
-          href: '/absen-chat',
-          label: 'Absen Harian',
-          icon: MessagesSquare,
-          badge: 'Baru',
-          badgeColor: 'bg-blue-500 text-white',
-        },
-        {
-          href: '/rekap-harian',
-          label: 'Rekap Absen Harian',
-          icon: ClipboardCheck,
-        },
-        { href: '/riwayat', label: 'Riwayat Absen Piket', icon: History },
-      ],
+      title: canAccessPiket ? 'Absensi & Piket' : 'Absensi Harian Magang',
+      items: absensiItems,
     },
   ];
 
@@ -200,6 +224,7 @@ function isNavItemActive(pathname: string, href: string, allItems: NavItem[]): b
 export function AppNavigation({
   isMaster = false,
   canAccessTicketing = false,
+  canAccessPiket = false,
   userName,
   userEmail,
   roles,
@@ -214,7 +239,15 @@ export function AppNavigation({
     Boolean(roles?.includes('owner')) ||
     Boolean(roles?.includes('admin'));
 
-  const sections = getNavigationSections(hasTicketAccess, isMaster);
+  const userCanAccessPiket =
+    canAccessPiket ||
+    isMaster ||
+    Boolean(roles?.includes('owner')) ||
+    Boolean(roles?.includes('admin')) ||
+    Boolean(roles?.includes('senior')) ||
+    Boolean(roles?.includes('piket'));
+
+  const sections = getNavigationSections(hasTicketAccess, isMaster, userCanAccessPiket);
   const allNavItems = useMemo(() => sections.flatMap((sec) => sec.items), [sections]);
   const displayName = userName || userEmail || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'U';
@@ -552,22 +585,36 @@ export function AppNavigation({
       {/* ============================================================== */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-gray-200 dark:border-slate-800 md:hidden transition-colors shadow-lg">
         <ul className="flex items-center justify-around h-14">
-          {/* 1. Dashboard Absen Piket */}
+          {/* 1. Dashboard Absen Piket (Jika punya akses piket) atau Rekap Harian (Untuk yang hanya Magang) */}
           <li className="flex-1">
-            <Link
-              href="/"
-              className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
-                pathname === '/'
-                  ? 'text-blue-600 dark:text-blue-400 font-bold'
-                  : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
-              }`}
-            >
-              <LayoutDashboard className="h-4 w-4 mb-0.5" />
-              <span>Absen Piket</span>
-            </Link>
+            {userCanAccessPiket ? (
+              <Link
+                href="/"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
+                  pathname === '/'
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <LayoutDashboard className="h-4 w-4 mb-0.5" />
+                <span>Absen Piket</span>
+              </Link>
+            ) : (
+              <Link
+                href="/rekap-harian"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
+                  pathname.startsWith('/rekap-harian')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <ClipboardCheck className="h-4 w-4 mb-0.5" />
+                <span>Rekap</span>
+              </Link>
+            )}
           </li>
 
-          {/* 2. Chat Absen (Halaman Baru) */}
+          {/* 2. Chat Absen (Presensi Harian Magang) */}
           <li className="flex-1">
             <Link
               href="/absen-chat"
@@ -588,7 +635,7 @@ export function AppNavigation({
             </Link>
           </li>
 
-          {/* 3. Ticketing (Jika punya akses) atau Riwayat */}
+          {/* 3. Ticketing (Jika punya akses) atau Riwayat (Piket) atau Profil (Magang) */}
           <li className="flex-1">
             {hasTicketAccess ? (
               <Link
@@ -602,7 +649,7 @@ export function AppNavigation({
                 <Ticket className="h-4 w-4 mb-0.5" />
                 <span>Tiket</span>
               </Link>
-            ) : (
+            ) : userCanAccessPiket ? (
               <Link
                 href="/riwayat"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
@@ -613,6 +660,18 @@ export function AppNavigation({
               >
                 <History className="h-4 w-4 mb-0.5" />
                 <span>Riwayat</span>
+              </Link>
+            ) : (
+              <Link
+                href="/profil"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
+                  pathname.startsWith('/profil')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <User className="h-4 w-4 mb-0.5" />
+                <span>Profil</span>
               </Link>
             )}
           </li>

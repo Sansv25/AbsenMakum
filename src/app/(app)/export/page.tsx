@@ -30,6 +30,7 @@ export default async function ExportPage() {
         todayDate={today}
         initialDailyRecap={dailyRecap}
         isMaster={profile.canManageSettings}
+        canAccessPiket={profile.canAccessPiket}
         emailRecipientsCount={emailCount}
       />
     </div>

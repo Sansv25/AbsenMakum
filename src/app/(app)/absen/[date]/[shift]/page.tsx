@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getHolidays } from '@/lib/data/holidays';
 import { getAttendanceWithAttachments } from '@/lib/data/attendance';
@@ -42,7 +42,11 @@ export default async function AbsenPage({ params, searchParams }: PageProps) {
   const jobType: JobType = validJobs.includes(job as JobType) ? (job as JobType) : 'marketer';
 
   const supabase = await createClient();
-  const { isMaster, fullName, email } = await getCurrentUserProfile();
+  const profile = await getCurrentUserProfile();
+  if (!profile.canAccessPiket) {
+    redirect('/absen-chat');
+  }
+  const { isMaster, fullName, email } = profile;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return null;

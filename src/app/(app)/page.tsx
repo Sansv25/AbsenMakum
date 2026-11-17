@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { getCurrentUserProfile } from '@/lib/data/profile';
 import { todayWITA, formatIndonesia, getDatesInMonth, toYearMonth } from '@/lib/dates';
 import { getRequiredShifts, shiftLabel, JOB_TYPES, jobLabel, type JobType } from '@/lib/shifts';
 import Link from 'next/link';
@@ -30,6 +31,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   } = await supabase.auth.getUser();
 
   if (!user) redirect('/login');
+
+  const profile = await getCurrentUserProfile();
+  if (!profile.canAccessPiket) {
+    redirect('/absen-chat');
+  }
 
   const today = todayWITA();
   const params = await searchParams;

@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 import { todayWITA, getDatesInMonth, toYearMonth } from '@/lib/dates';
@@ -17,6 +18,9 @@ export default async function RiwayatPage({ searchParams }: RiwayatPageProps) {
   if (!user) return null;
 
   const profile = await getCurrentUserProfile();
+  if (!profile.canAccessPiket) {
+    redirect('/absen-chat');
+  }
   const isMaster = profile.isMaster;
 
   const today = todayWITA();
