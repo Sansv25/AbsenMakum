@@ -12,6 +12,27 @@ export type MessageDirection = 'in' | 'out';
 
 export type MessageSender = 'iconnet' | 'ai' | 'admin' | 'system';
 
+export interface PendingAiReplyDraft {
+  ticket_id: string;
+  customer_name: string;
+  reply_text: string;
+  incoming_text: string;
+  created_at: string;
+  runner_label?: string | null;
+}
+
+export interface BotWorkerInfo {
+  bot_id: string;
+  ig_user_id: string;
+  ig_username: string | null;
+  user_email: string;
+  hostname: string;
+  active_ticket_id: string | null;
+  status: 'online' | 'paused' | 'offline';
+  last_heartbeat: string;
+  seconds_ago?: number;
+}
+
 export interface Ticket {
   id: string;
   customer_id: string;
@@ -31,6 +52,10 @@ export interface Ticket {
   queue_order?: number;
   created_by: string | null;
   creator_name?: string | null;
+  runner_id?: string | null;
+  runner_ig_id?: string | null;
+  runner_label?: string | null;
+  pending_ai_reply?: PendingAiReplyDraft | null;
   started_at: string | null;
   ticket_issued_at: string | null;
   created_at: string;

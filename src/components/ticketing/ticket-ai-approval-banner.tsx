@@ -8,6 +8,7 @@ interface PendingDraft {
   reply_text: string;
   incoming_text: string;
   created_at: string;
+  runner_label?: string | null;
 }
 
 interface TicketAiApprovalBannerProps {
@@ -42,6 +43,11 @@ export function TicketAiApprovalBanner({
             </h3>
             <p className="text-xs text-amber-800 dark:text-amber-400">
               Tiket Pelanggan: <strong className="font-semibold">{draft.customer_name}</strong>
+              {draft.runner_label && (
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-200/70 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+                  🤖 {draft.runner_label}
+                </span>
+              )}
             </p>
           </div>
         </div>

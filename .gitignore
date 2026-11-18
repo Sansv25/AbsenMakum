@@ -44,4 +44,6 @@ next-env.d.ts
 .session.json
 *.session.json
 bot/.session.json
+.bot_id
+bot/.bot_id
 .chrome_instagram_profile/

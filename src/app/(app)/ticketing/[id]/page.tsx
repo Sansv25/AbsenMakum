@@ -67,6 +67,7 @@ function TicketDetailContent() {
   const [autoSending, setAutoSending] = useState(false);
   const [syncingChat, setSyncingChat] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
+  const [releasingTicket, setReleasingTicket] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [copiedTicketNo, setCopiedTicketNo] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -161,8 +162,8 @@ function TicketDetailContent() {
         setMessages(messagesData as Message[]);
       }
 
-      // 5. Check pending draft in monitoring mode
-      fetch('/api/ticketing/ai/pending-reply')
+      // 5. Check pending draft in monitoring mode (khusus untuk tiket ini)
+      fetch(`/api/ticketing/ai/pending-reply?ticketId=${encodeURIComponent(ticketId)}`)
         .then((r) => r.json())
         .then((d) => {
           if (d?.pending && d.pending.ticket_id === ticketId) {
@@ -186,11 +187,11 @@ function TicketDetailContent() {
 
   const lastDraftCreatedAtRef = useRef<string | null>(null);
 
-  // Fungsi sinkronisasi draf AI balasan
+  // Fungsi sinkronisasi draf AI balasan (khusus tiket ini)
   const fetchPendingDraft = useCallback(async () => {
     if (!ticketId) return;
     try {
-      const res = await fetch('/api/ticketing/ai/pending-reply');
+      const res = await fetch(`/api/ticketing/ai/pending-reply?ticketId=${encodeURIComponent(ticketId)}`);
       const d = await res.json();
       if (d?.pending && d.pending.ticket_id === ticketId) {
         setPendingDraft(d.pending);
@@ -627,6 +628,25 @@ function TicketDetailContent() {
     ? `https://wa.me/${cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone}`
     : null;
 
+  const handleReleaseTicket = async () => {
+    if (!ticket || releasingTicket) return;
+    setReleasingTicket(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/ticketing/${ticket.id}/release`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal melepas tiket');
+      setPendingDraft(null);
+      setActionSuccess('✓ Tiket dilepas dari bot sebelumnya dan dikembalikan ke antrean.');
+      setTimeout(() => setActionSuccess(null), 4000);
+      await loadTicketAndImages();
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Gagal melepas tiket');
+    } finally {
+      setReleasingTicket(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-16">
       {/* Top Breadcrumb & Controls */}
@@ -651,6 +671,11 @@ function TicketDetailContent() {
             <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusBadgeClass(ticket.status)}`}>
               {getStatusLabel(ticket.status)}
             </span>
+            {ticket.runner_label && (ticket.status === 'in_conversation' || ticket.status === 'needs_admin') && (
+              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                🤖 {ticket.runner_label}
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 pt-0.5">
             <span className="flex items-center gap-1">
@@ -666,6 +691,18 @@ function TicketDetailContent() {
 
         {/* Right Action Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {(ticket.status === 'in_conversation' || ticket.status === 'needs_admin') && (
+            <button
+              onClick={handleReleaseTicket}
+              disabled={releasingTicket}
+              className="px-3.5 py-2 rounded-2xl text-xs font-bold border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+              title="Lepas dari bot saat ini dan kembalikan tiket ke antrean agar bisa diproses bot lain"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${releasingTicket ? 'animate-spin' : ''}`} />
+              <span>{releasingTicket ? 'Melepas...' : 'Kembalikan ke Antrean'}</span>
+            </button>
+          )}
+
           <button
             onClick={() => setIsEditModalOpen(true)}
             className="px-3.5 py-2 rounded-2xl text-xs font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition flex items-center gap-1.5 shadow-2xs"

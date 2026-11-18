@@ -31,6 +31,15 @@ export function TicketControlSwitches({
 }: TicketControlSwitchesProps) {
   const [botStatus, setBotStatus] = useState<{
     online: boolean;
+    online_count?: number;
+    workers?: Array<{
+      bot_id: string;
+      ig_username: string | null;
+      user_email: string;
+      hostname: string;
+      active_ticket_id: string | null;
+      seconds_ago?: number;
+    }>;
     user_email?: string | null;
     seconds_ago?: number;
   } | null>(null);
@@ -47,6 +56,9 @@ export function TicketControlSwitches({
     return () => clearInterval(interval);
   }, []);
 
+  const onlineWorkers = botStatus?.workers || [];
+  const onlineCount = botStatus?.online_count ?? (botStatus?.online ? 1 : 0);
+
   return (
     <div className="bg-white dark:bg-slate-900 border border-gray-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -59,10 +71,18 @@ export function TicketControlSwitches({
             {botStatus?.online ? (
               <span
                 className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                title={`Bot sedang online di laptop petugas (${botStatus.user_email || 'Aktif'})`}
+                title={
+                  onlineWorkers.length > 0
+                    ? onlineWorkers
+                        .map((w) => `${w.hostname} (${w.user_email}${w.ig_username ? ` • @${w.ig_username}` : ''})`)
+                        .join('\n')
+                    : `Bot online (${botStatus.user_email || 'Aktif'})`
+                }
               >
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Bot Piket Online ({botStatus.user_email?.split('@')[0] || 'Aktif'})
+                {onlineCount > 1
+                  ? `${onlineCount} Bot Piket Online`
+                  : `Bot Piket Online (${onlineWorkers[0]?.ig_username ? `@${onlineWorkers[0].ig_username}` : botStatus.user_email?.split('@')[0] || 'Aktif'})`}
               </span>
             ) : (
               <span
@@ -79,7 +99,27 @@ export function TicketControlSwitches({
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+          {onlineWorkers.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              {onlineWorkers.map((w) => (
+                <span
+                  key={w.bot_id}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  <span className="font-semibold">{w.ig_username ? `@${w.ig_username}` : w.hostname}</span>
+                  <span className="text-slate-400">•</span>
+                  <span className="truncate max-w-[140px]">{w.user_email.split('@')[0]}</span>
+                  {w.active_ticket_id && (
+                    <span className="ml-0.5 px-1 rounded bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold">
+                      Sibuk
+                    </span>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
             {isOwner
               ? 'Atur otomasi pengiriman antrean, respon kecerdasan buatan (AI), dan verifikasi jawaban.'
               : 'Status otomasi pengiriman antrean, respon kecerdasan buatan (AI), dan verifikasi jawaban (hanya Owner yang dapat mengubah).'}

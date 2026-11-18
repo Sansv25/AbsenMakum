@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Ticket, TicketStatus } from '@/lib/ticketing/types';
+import type { Ticket, TicketStatus, PendingAiReplyDraft } from '@/lib/ticketing/types';
 import { getStatusBadgeClass, getStatusLabel, getModeLabel, formatDateWITA } from '@/lib/ticketing/format';
 import { TicketStatsCards } from '@/components/ticketing/ticket-stats-cards';
 import { TicketControlSwitches } from '@/components/ticketing/ticket-control-switches';
@@ -66,16 +66,10 @@ export default function TicketingDashboardPage() {
   const [canCreateTicket, setCanCreateTicket] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
 
-  // Pending Draft in Monitoring Mode
-  const [pendingDraft, setPendingDraft] = useState<{
-    ticket_id: string;
-    customer_name: string;
-    reply_text: string;
-    incoming_text: string;
-    created_at: string;
-  } | null>(null);
-  const [editedDraftText, setEditedDraftText] = useState('');
-  const [processingDraft, setProcessingDraft] = useState(false);
+  // Pending Drafts in Monitoring Mode (mendukung banyak tiket/bot paralel sekaligus)
+  const [pendingDrafts, setPendingDrafts] = useState<PendingAiReplyDraft[]>([]);
+  const [editedDraftTexts, setEditedDraftTexts] = useState<Record<string, string>>({});
+  const [processingDraftId, setProcessingDraftId] = useState<string | null>(null);
 
   // Cek query ?create=true atau ?new=true saat pertama kali dibuka
   useEffect(() => {
@@ -151,22 +145,31 @@ export default function TicketingDashboardPage() {
       fetch('/api/ticketing/ai/pending-reply')
         .then((r) => r.json())
         .then((d) => {
-          if (d?.pending) {
-            setPendingDraft((prev) => {
-              if (
-                !prev ||
-                prev.created_at !== d.pending.created_at ||
-                prev.incoming_text !== d.pending.incoming_text ||
-                prev.reply_text !== d.pending.reply_text
-              ) {
-                setEditedDraftText(d.pending.reply_text || '');
+          const list: PendingAiReplyDraft[] = Array.isArray(d?.pendingList)
+            ? d.pendingList
+            : d?.pending
+            ? [d.pending]
+            : [];
+
+          setPendingDrafts((prev) => {
+            // Update teks editan hanya untuk draf baru atau yang diperbarui AI
+            setEditedDraftTexts((prevTexts) => {
+              const nextTexts = { ...prevTexts };
+              for (const item of list) {
+                const oldItem = prev.find((p) => p.ticket_id === item.ticket_id);
+                if (
+                  !oldItem ||
+                  oldItem.created_at !== item.created_at ||
+                  oldItem.incoming_text !== item.incoming_text ||
+                  oldItem.reply_text !== item.reply_text
+                ) {
+                  nextTexts[item.ticket_id] = item.reply_text || '';
+                }
               }
-              return d.pending;
+              return nextTexts;
             });
-          } else {
-            setPendingDraft(null);
-            setEditedDraftText('');
-          }
+            return list;
+          });
         })
         .catch(() => {});
     };
@@ -317,58 +320,57 @@ export default function TicketingDashboardPage() {
   };
 
   // Draf yang valid hanya jika tiket terkait masih aktif dan belum terbit / selesai
-  const activeDraft = useMemo(() => {
-    if (!pendingDraft) return null;
-    const targetTicket = tickets.find((t) => t.id === pendingDraft.ticket_id);
-    if (targetTicket) {
-      if (
-        targetTicket.status === 'ticket_issued' ||
-        targetTicket.status === 'closed' ||
-        targetTicket.status === 'failed' ||
-        Boolean(targetTicket.ticket_number)
-      ) {
-        return null;
+  const activeDrafts = useMemo(() => {
+    return pendingDrafts.filter((draft) => {
+      const targetTicket = tickets.find((t) => t.id === draft.ticket_id);
+      if (targetTicket) {
+        if (
+          targetTicket.status === 'ticket_issued' ||
+          targetTicket.status === 'closed' ||
+          targetTicket.status === 'failed' ||
+          Boolean(targetTicket.ticket_number)
+        ) {
+          return false;
+        }
       }
-    }
-    return pendingDraft;
-  }, [pendingDraft, tickets]);
+      return true;
+    });
+  }, [pendingDrafts, tickets]);
 
-  const handleApproveDraft = async () => {
-    if (!activeDraft) return;
-    setProcessingDraft(true);
+  const handleApproveDraft = async (ticketId: string) => {
+    setProcessingDraftId(ticketId);
     try {
       await fetch('/api/ticketing/ai/pending-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'approve',
-          ticketId: activeDraft.ticket_id,
-          replyText: editedDraftText,
+          ticketId,
+          replyText: editedDraftTexts[ticketId] || '',
         }),
       });
-      setPendingDraft(null);
+      setPendingDrafts((prev) => prev.filter((d) => d.ticket_id !== ticketId));
       await fetchTickets();
     } finally {
-      setProcessingDraft(false);
+      setProcessingDraftId(null);
     }
   };
 
-  const handleRejectDraft = async () => {
-    if (!activeDraft) return;
-    setProcessingDraft(true);
+  const handleRejectDraft = async (ticketId: string) => {
+    setProcessingDraftId(ticketId);
     try {
       await fetch('/api/ticketing/ai/pending-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'reject',
-          ticketId: activeDraft.ticket_id,
+          ticketId,
         }),
       });
-      setPendingDraft(null);
+      setPendingDrafts((prev) => prev.filter((d) => d.ticket_id !== ticketId));
       await fetchTickets();
     } finally {
-      setProcessingDraft(false);
+      setProcessingDraftId(null);
     }
   };
 
@@ -515,15 +517,24 @@ export default function TicketingDashboardPage() {
         onCreateTicket={canCreateTicket ? () => setIsNewTicketModalOpen(true) : undefined}
       />
 
-      {/* AI Approval Floating Banner */}
-      <TicketAiApprovalBanner
-        draft={activeDraft}
-        editedText={editedDraftText}
-        onTextChange={setEditedDraftText}
-        onApprove={handleApproveDraft}
-        onReject={handleRejectDraft}
-        processing={processingDraft}
-      />
+      {/* AI Approval Floating Banners (mendukung banyak tiket paralel) */}
+      {activeDrafts.length > 0 && (
+        <div className="space-y-3">
+          {activeDrafts.map((draft) => (
+            <TicketAiApprovalBanner
+              key={draft.ticket_id}
+              draft={draft}
+              editedText={editedDraftTexts[draft.ticket_id] ?? draft.reply_text ?? ''}
+              onTextChange={(txt) =>
+                setEditedDraftTexts((prev) => ({ ...prev, [draft.ticket_id]: txt }))
+              }
+              onApprove={() => handleApproveDraft(draft.ticket_id)}
+              onReject={() => handleRejectDraft(draft.ticket_id)}
+              processing={processingDraftId === draft.ticket_id}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Filter Tabs, Search Bar & View Mode Toggle */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2.5 sm:p-3 rounded-2xl border border-gray-200/80 dark:border-slate-800 shadow-2xs">
@@ -717,6 +728,12 @@ export default function TicketingDashboardPage() {
                           <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-700 flex items-center gap-1">
                             <User className="h-3 w-3 text-gray-400" />
                             <span>Dibuat: {ticket.creator_name}</span>
+                          </span>
+                        )}
+
+                        {ticket.runner_label && (ticket.status === 'in_conversation' || ticket.status === 'needs_admin') && (
+                          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1">
+                            <span>🤖 {ticket.runner_label}</span>
                           </span>
                         )}
 
