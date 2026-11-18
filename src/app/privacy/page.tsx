@@ -83,7 +83,7 @@ export default function PrivacyPolicyPage() {
               5. Hak Pengguna &amp; Penghapusan Data
             </h2>
             <p>
-              Pengguna berhak untuk mengakses, memperbarui, atau meminta penghapusan data akun mereka kapan saja. Untuk petunjuk lengkap mengenai penghapusan data, silakan kunjungi halaman <Link href="/data-deletion" className="text-blue-600 dark:text-blue-400 underline">Instruksi Penghapusan Data Pengguna</Link>.
+              Pengguna berhak untuk mengakses, memperbarui, atau meminta penghapusan data akun mereka kapan saja dengan menghubungi administrator melalui email yang tercantum di bawah ini.
             </p>
           </section>
 

@@ -39,7 +39,6 @@ export async function middleware(request: NextRequest) {
     '/auth/approve',
     '/privacy',
     '/terms',
-    '/data-deletion',
   ];
   const isPublicPage = publicPaths.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
