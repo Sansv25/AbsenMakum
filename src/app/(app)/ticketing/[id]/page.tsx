@@ -512,7 +512,7 @@ function TicketDetailContent() {
         direction: 'out',
         sender: 'admin',
         body: replyInput.trim(),
-        ig_mid: 'pending',
+        ig_mid: `pending_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       };
 
       const { data, error } = await supabase.from('ticket_messages').insert(newMsg).select().single();
@@ -1272,7 +1272,7 @@ function TicketDetailContent() {
                         </span>
                         <span>•</span>
                         <span>{formatDateWITA(m.created_at)}</span>
-                        {isOut && m.ig_mid === 'pending' && (
+                        {isOut && m.ig_mid?.startsWith('pending') && (
                           <span className="text-amber-400 font-medium ml-1">
                             • Mengirim ke Instagram...
                           </span>

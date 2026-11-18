@@ -722,7 +722,7 @@ async function sendPendingOutboundMessages(page, activeTicket) {
       .eq('ticket_id', activeTicket.id)
       .eq('direction', 'out')
       .eq('sender', 'admin')
-      .eq('ig_mid', 'pending')
+      .like('ig_mid', 'pending%')
       .order('created_at', { ascending: true });
 
     if (!pendingMsgs || pendingMsgs.length === 0) return;
@@ -731,14 +731,14 @@ async function sendPendingOutboundMessages(page, activeTicket) {
       console.log(`\n📤 [KIRIM MANUAL WEB -> IG] Mengirim pesan admin ke DM Instagram: "${msg.body}"`);
       await supabase
         .from('ticket_messages')
-        .update({ ig_mid: 'sending' })
+        .update({ ig_mid: `sending_${msg.id}` })
         .eq('id', msg.id);
 
       await sendMessageToDirectThread(page, msg.body);
 
       await supabase
         .from('ticket_messages')
-        .update({ ig_mid: 'sent' })
+        .update({ ig_mid: `sent_${msg.id}` })
         .eq('id', msg.id);
 
       console.log(`   ✓ Pesan manual admin sukses terkirim ke Instagram DM.`);
@@ -746,6 +746,94 @@ async function sendPendingOutboundMessages(page, activeTicket) {
   } catch (err) {
     console.error('⚠️ Gagal mengirim pesan manual pending ke Instagram:', err.message);
   }
+}
+
+// Pantau secara pasif sampai CS ICONNET mengirim salam penutup resmi (maks 90 detik)
+async function waitForCsSessionClose(page, closingText, activeTicketId) {
+  console.log(`⏳ [MENUNGGU PENUTUPAN CS] Memantau salam penutup dari CS ICONNET (maks 90 detik)...`);
+  const startWait = Date.now();
+  const maxWaitMs = 90000;
+  const closingSnippet = (closingText || '').slice(0, 30).toLowerCase();
+  let answeredFollowUp = false;
+
+  while (Date.now() - startWait < maxWaitMs) {
+    await new Promise((r) => setTimeout(r, 4000));
+    try {
+      await scrollChatToBottom(page);
+      const tailTexts = await page.evaluate(() => {
+        const nodes = Array.from(document.querySelectorAll('div[dir="auto"], span[dir="auto"]'))
+          .filter((n) => !n.querySelector('div[dir="auto"], span[dir="auto"]'))
+          .filter((n) => !n.closest('[role="textbox"], [aria-label="Message"], [aria-label="Pesan"], form, nav, aside'));
+        return nodes
+          .map((n) => (n.innerText || '').replace(/\s+/g, ' ').trim())
+          .filter(Boolean)
+          .slice(-10);
+      });
+
+      // Cari posisi salam penutup kita sendiri, lalu ambil hanya pesan CS yang muncul SETELAHNYA
+      let afterClosing = [];
+      if (closingSnippet) {
+        let idx = -1;
+        for (let i = tailTexts.length - 1; i >= 0; i--) {
+          if (tailTexts[i].toLowerCase().includes(closingSnippet)) {
+            idx = i;
+            break;
+          }
+        }
+        if (idx !== -1) {
+          afterClosing = tailTexts.slice(idx + 1);
+        }
+      }
+
+      if (afterClosing.length === 0) continue;
+
+      const afterLower = afterClosing.join(' ').toLowerCase();
+
+      // 1. Cek apakah CS sudah mengirimkan salam perpisahan / penutupan sesi resmi
+      const isCsGoodbye =
+        afterLower.includes('terima kasih telah menghubungi') ||
+        afterLower.includes('chat akan kami akhiri') ||
+        afterLower.includes('percakapan kami akhiri') ||
+        afterLower.includes('sesi kami akhiri') ||
+        afterLower.includes('senang dapat membantu') ||
+        afterLower.includes('selamat beraktivitas') ||
+        afterLower.includes('sehat selalu') ||
+        afterLower.includes('terima kasih kembali') ||
+        afterLower.includes('sampai jumpa');
+
+      if (isCsGoodbye) {
+        console.log(`🏁 [SESI CS RESMI DITUTUP] CS telah membalas salam penutup. Menunggu 8 detik agar sesi tertutup sempurna...`);
+        await new Promise((r) => setTimeout(r, 8000));
+        return;
+      }
+
+      // 2. Jika CS menanyakan "apakah ada lagi yang dapat kami bantu?" SETELAH salam penutup kita (maks 1x jawab)
+      const isCsAskingMore =
+        !answeredFollowUp &&
+        (afterLower.includes('ada lagi yang dapat kami bantu') ||
+          afterLower.includes('ada lagi yang bisa kami bantu') ||
+          afterLower.includes('bisa dibantu kembali') ||
+          afterLower.includes('bisa kami bantu kembali'));
+
+      if (isCsAskingMore) {
+        answeredFollowUp = true;
+        const followUpMsg = `Sudah tidak ada Kak, sudah cukup. Terima kasih banyak atas bantuannya!`;
+        console.log(`💬 [JAWAB KONFIRMASI CS] CS menanyakan bantuan lain. Menjawab 1x: "${followUpMsg}"`);
+        await sendMessageToDirectThread(page, followUpMsg);
+        await supabase.from('ticket_messages').insert({
+          ticket_id: activeTicketId,
+          direction: 'out',
+          sender: 'ai',
+          body: followUpMsg,
+          ig_mid: `closing_followup_${activeTicketId}_${Date.now()}`,
+        });
+      }
+    } catch {
+      // Abaikan error sementara saat polling penutupan
+    }
+  }
+
+  console.log(`⏳ [BATAS TUNGGU PENUTUPAN] Selesai menunggu 90 detik, melanjutkan ke penuntasan tiket.`);
 }
 
 // Cek Pesan Masuk, Ekstrak Nomor Tiket, & Jalankan AI Auto-Reply
@@ -1048,7 +1136,7 @@ async function syncActiveChat(activeTicket) {
             direction: 'out',
             sender: 'admin',
             body: m,
-            ig_mid: 'from_ig',
+            ig_mid: `from_ig_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           });
           outBodies.add(normM);
         }
@@ -1187,26 +1275,25 @@ async function syncActiveChat(activeTicket) {
     if (isActualTicketFound && confirmedNumber) {
       console.log(`\n🎉 [TIKET RESMI DIDAPATKAN] Tiket "${activeTicket.name}" mendapatkan nomor tiket resmi: ${confirmedNumber}`);
 
-      // Cek apakah kita sudah pernah mengirimkan ucapan penutup / terima kasih untuk tiket ini
+      // Cek apakah kita BENAR-BENAR sudah pernah mengirimkan salam penutup akhir (JANGAN cocokkan "terima kasih" dari jawaban tengah!)
       const { data: outMsgs } = await supabase
         .from('ticket_messages')
-        .select('body')
+        .select('body, ig_mid')
         .eq('ticket_id', activeTicket.id)
         .eq('direction', 'out');
 
       const hasSentClosing = (outMsgs || []).some(
         (m) =>
-          (m.body || '').toLowerCase().includes('terima kasih') ||
+          (m.ig_mid || '').startsWith('closing_') ||
           (m.body || '').toLowerCase().includes('sudah cukup') ||
-          (m.body || '').toLowerCase().includes('selamat pagi') ||
-          (m.body || '').toLowerCase().includes('selamat siang') ||
-          (m.body || '').toLowerCase().includes('selamat sore') ||
-          (m.body || '').toLowerCase().includes('selamat malam')
+          (m.body || '').toLowerCase().includes('tidak ada lagi')
       );
 
+      let closingTextUsed = '';
       if (!hasSentClosing) {
         const timeCtx = getWitaTimeContext();
         const closingText = `Baik Kak, sudah cukup dan tidak ada lagi. Terima kasih banyak atas bantuannya. ${timeCtx.greeting}!`;
+        closingTextUsed = closingText;
         console.log(`💬 [KIRIM SALAM PENUTUP] Mengirim salam penutup resmi ke Instagram: "${closingText}"`);
         try {
           await sendMessageToDirectThread(page, closingText);
@@ -1215,6 +1302,7 @@ async function syncActiveChat(activeTicket) {
             direction: 'out',
             sender: 'ai',
             body: closingText,
+            ig_mid: `closing_${activeTicket.id}_${Date.now()}`,
           });
           console.log(`✓ Salam penutup terkirim ke CS ICONNET.`);
         } catch (e) {
@@ -1222,8 +1310,8 @@ async function syncActiveChat(activeTicket) {
         }
       }
 
-      console.log(`⏳ [JEDA PENUTUPAN SESI] Memberi jeda 25 detik agar CS menyelesaikan tiket sebelum memproses antrean baru...`);
-      await new Promise((r) => setTimeout(r, 25000));
+      // Tunggu sampai CS membalas salam penutup resmi sebelum memproses tiket antrean berikutnya
+      await waitForCsSessionClose(page, closingTextUsed || 'sudah cukup dan tidak ada lagi', activeTicket.id);
 
       const now = new Date().toISOString();
       await supabase
@@ -1252,18 +1340,20 @@ async function syncActiveChat(activeTicket) {
     if (isSpecialResolution) {
       console.log(`\n📌 [RESOLUSI NON-TIKET] Terdeteksi status khusus: "${directOutcome.value}"`);
 
-      // Cek apakah kita sudah pernah mengirimkan ucapan konfirmasi/penutup untuk tiket ini
+      // Cek apakah kita BENAR-BENAR sudah mengirim ucapan penutup resolusi (JANGAN cocokkan "terima kasih" biasa!)
       const { data: outMsgs } = await supabase
         .from('ticket_messages')
-        .select('body')
+        .select('body, ig_mid')
         .eq('ticket_id', activeTicket.id)
         .eq('direction', 'out');
 
       const hasSentAck = (outMsgs || []).some(
         (m) =>
-          (m.body || '').toLowerCase().includes('terima kasih') ||
-          (m.body || '').toLowerCase().includes('kami sampaikan') ||
-          (m.body || '').toLowerCase().includes('kami infokan')
+          (m.ig_mid || '').startsWith('closing_') ||
+          (m.body || '').toLowerCase().includes('sudah cukup') ||
+          (m.body || '').toLowerCase().includes('akan kami koordinasikan ke pelanggan') ||
+          (m.body || '').toLowerCase().includes('akan kami informasikan ke pelanggan') ||
+          (m.body || '').toLowerCase().includes('kami tunggu proses normalisasinya')
       );
 
       // Cek apakah sesi chat sudah diakhiri oleh CS
@@ -1279,11 +1369,11 @@ async function syncActiveChat(activeTicket) {
 
       if (!hasSentAck && !isAlreadyClosedByCs) {
         const timeCtx = getWitaTimeContext();
-        let replyMsg = `Baik Kak, terima kasih atas informasinya. Akan kami koordinasikan ke pelanggan. ${timeCtx.greeting}!`;
+        let replyMsg = `Baik Kak, sudah cukup dan terima kasih atas informasinya. Akan kami koordinasikan ke pelanggan. ${timeCtx.greeting}!`;
         if (directOutcome.type === 'billing') {
-          replyMsg = `Baik Kak, terima kasih atas informasinya. Akan kami informasikan ke pelanggan terkait pembayaran. Terima kasih banyak Kak. ${timeCtx.greeting}!`;
+          replyMsg = `Baik Kak, sudah cukup dan terima kasih atas informasinya. Akan kami informasikan ke pelanggan terkait pembayaran. Terima kasih banyak Kak. ${timeCtx.greeting}!`;
         } else if (directOutcome.type === 'mass_outage') {
-          replyMsg = `Baik Kak, terima kasih atas informasinya terkait pemeliharaan/gangguan massal. Kami tunggu proses normalisasinya Kak. ${timeCtx.greeting}!`;
+          replyMsg = `Baik Kak, sudah cukup dan terima kasih atas informasinya terkait pemeliharaan/gangguan massal. Kami tunggu proses normalisasinya Kak. ${timeCtx.greeting}!`;
         }
 
         console.log(`💬 [KIRIM BALASAN RESOLUSI] Mengirim balasan ke CS: "${replyMsg}"`);
@@ -1294,14 +1384,14 @@ async function syncActiveChat(activeTicket) {
             direction: 'out',
             sender: 'ai',
             body: replyMsg,
+            ig_mid: `closing_${activeTicket.id}_${Date.now()}`,
           });
           console.log(`✓ Balasan resolusi terkirim.`);
         } catch (e) {
           console.warn('⚠️ Gagal mengirim balasan resolusi:', e.message);
         }
 
-        console.log(`⏳ [JEDA PENUTUPAN SESI] Memberi jeda 30 detik agar CS menutup percakapan...`);
-        await new Promise((r) => setTimeout(r, 30000));
+        await waitForCsSessionClose(page, replyMsg, activeTicket.id);
       }
 
       const now = new Date().toISOString();
@@ -1577,21 +1667,21 @@ function setupRealtimeOutboundListener() {
         },
         async (payload) => {
           const msg = payload.new;
-          if (msg && msg.sender === 'admin' && msg.ig_mid === 'pending') {
+          if (msg && msg.sender === 'admin' && typeof msg.ig_mid === 'string' && msg.ig_mid.startsWith('pending')) {
             try {
               const page = await getDirectThreadPage();
               if (page) {
                 console.log(`\n⚡ [REALTIME WEB -> IG] Mengirim pesan manual admin: "${msg.body}"`);
                 await supabase
                   .from('ticket_messages')
-                  .update({ ig_mid: 'sending' })
+                  .update({ ig_mid: `sending_${msg.id}` })
                   .eq('id', msg.id);
 
                 await sendMessageToDirectThread(page, msg.body);
 
                 await supabase
                   .from('ticket_messages')
-                  .update({ ig_mid: 'sent' })
+                  .update({ ig_mid: `sent_${msg.id}` })
                   .eq('id', msg.id);
 
                 console.log(`   ✓ Pesan admin berhasil diketikkan ke Instagram DM secara instan.`);
