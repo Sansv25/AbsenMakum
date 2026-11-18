@@ -42,10 +42,10 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
   // Ambil pesan awal absen pagi di server
   const { messages } = await getAttendanceFeedMessages(workDate);
 
-  // Ambil daftar user untuk fitur @ tag / mention
+  // Ambil daftar user untuk fitur @ tag / mention dan daftar anak magang (untuk absen manual admin)
   const { data: rawProfiles } = await supabase
     .from('profiles')
-    .select('id, full_name, email')
+    .select('id, full_name, email, role, roles, is_approved, exclude_from_recap')
     .order('full_name');
 
   const availableProfiles = (rawProfiles || []).map((p) => ({
@@ -54,6 +54,30 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
     email: p.email || null,
   }));
 
+  const internProfiles = (rawProfiles || [])
+    .filter((p) => {
+      if (!p.is_approved || p.exclude_from_recap) return false;
+      const roles = Array.isArray(p.roles) ? (p.roles as string[]) : [];
+      if (
+        roles.includes('senior') ||
+        roles.includes('owner') ||
+        roles.includes('admin') ||
+        p.role === 'senior' ||
+        p.role === 'master'
+      ) {
+        return false;
+      }
+      return roles.includes('magang');
+    })
+    .map((p) => ({
+      id: p.id,
+      full_name: p.full_name || p.email || 'Anak Magang',
+      email: p.email || null,
+    }));
+
+  const isAdmin =
+    myProfile.canManageSettings || myProfile.isOwner || myProfile.isAdmin || myProfile.isMaster;
+
   return (
     <AttendanceChatClient
       initialDate={workDate}
@@ -61,6 +85,8 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
       currentUserName={myProfile.fullName || user.email || 'Petugas'}
       initialMessages={messages}
       availableProfiles={availableProfiles}
+      internProfiles={internProfiles}
+      isAdmin={isAdmin}
     />
   );
 }

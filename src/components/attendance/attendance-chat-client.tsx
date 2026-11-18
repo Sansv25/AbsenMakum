@@ -17,6 +17,9 @@ import {
   Image as ImageIcon,
   ExternalLink,
   ClipboardCheck,
+  UserCheck,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { compressImage, isImageFile } from '@/lib/image';
@@ -25,7 +28,16 @@ import { formatIndonesia } from '@/lib/dates';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { CameraModal } from '@/components/upload/camera-modal';
 import { GroupAttendanceModal } from './group-attendance-modal';
+import { markManualAttendanceAction } from '@/app/(app)/rekap-harian/actions';
 import type { AttendanceFeedMessage, FeedType } from '@/lib/types/attendance-feed';
+
+const CHAT_MANUAL_NOTE_PRESETS = [
+  'Hadir di kantor (tanpa foto)',
+  'Hadir di lapangan',
+  'Hadir, kendala kamera / HP',
+  'Hadir (konfirmasi manual admin)',
+  'Hadir WFH / tugas luar',
+];
 
 export interface MentionProfile {
   id: string;
@@ -45,6 +57,8 @@ interface AttendanceChatClientProps {
   currentUserName?: string;
   initialMessages: AttendanceFeedMessage[];
   availableProfiles?: MentionProfile[];
+  internProfiles?: MentionProfile[];
+  isAdmin?: boolean;
 }
 
 export function AttendanceChatClient({
@@ -53,10 +67,18 @@ export function AttendanceChatClient({
   currentUserName = 'Petugas',
   initialMessages,
   availableProfiles = [],
+  internProfiles = [],
+  isAdmin = false,
 }: AttendanceChatClientProps) {
   const [workDate] = useState<string>(initialDate);
   const [messages, setMessages] = useState<AttendanceFeedMessage[]>(initialMessages);
   const [loading, setLoading] = useState<boolean>(false);
+
+  // Modal Tandai Hadir Manual Tanpa Foto (Khusus Admin/Owner)
+  const [manualModalOpen, setManualModalOpen] = useState<boolean>(false);
+  const [manualTargetUserId, setManualTargetUserId] = useState<string>('');
+  const [manualNote, setManualNote] = useState<string>(CHAT_MANUAL_NOTE_PRESETS[0]);
+  const [savingManual, setSavingManual] = useState<boolean>(false);
 
   // Mention (@ tag) state
   const [profiles, setProfiles] = useState<MentionProfile[]>(availableProfiles);
@@ -524,22 +546,88 @@ export function AttendanceChatClient({
     });
   }
 
+  // Kirim keterangan hadir manual tanpa foto untuk anak magang (Khusus Admin/Owner)
+  async function handleSubmitManualAttendance(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isAdmin || savingManual) return;
+
+    if (!manualTargetUserId) {
+      showAlert('Pilih Anak Magang', 'Silakan pilih nama anak magang terlebih dahulu.', 'warning');
+      return;
+    }
+
+    const noteTrimmed = manualNote.trim();
+    if (!noteTrimmed) {
+      showAlert('Keterangan Wajib Diisi', 'Silakan masukkan keterangan kehadiran.', 'warning');
+      return;
+    }
+
+    setSavingManual(true);
+    try {
+      const res = await markManualAttendanceAction(manualTargetUserId, workDate, noteTrimmed);
+      if (res.error) {
+        showAlert('Gagal Mencatat Kehadiran', res.error, 'error');
+        return;
+      }
+
+      const selectedUser = internProfiles.find((p) => p.id === manualTargetUserId);
+      setManualModalOpen(false);
+      setManualTargetUserId('');
+      setManualNote(CHAT_MANUAL_NOTE_PRESETS[0]);
+
+      // Segarkan pesan dan siarkan broadcast ke perangkat lain
+      await loadMessages(workDate, true, true);
+      try {
+        const supabase = createClient();
+        const broadcastChannel = supabase.channel(`attendance_chat_${workDate}`);
+        await broadcastChannel.send({
+          type: 'broadcast',
+          event: 'new_feed_message',
+          payload: { work_date: workDate, sender_id: currentUserId, ts: Date.now() },
+        });
+      } catch {
+        // Abaikan jika broadcast gagal
+      }
+
+      showAlert(
+        'Kehadiran Dicatat ✓',
+        `${selectedUser?.full_name || 'Anak magang'} berhasil ditandai HADIR tanpa foto.`,
+        'success'
+      );
+    } catch {
+      showAlert('Error', 'Terjadi kesalahan jaringan saat menyimpan kehadiran.', 'error');
+    } finally {
+      setSavingManual(false);
+    }
+  }
+
   // Kirim absen pagi / pesan chat / balasan
   async function handleSendMessage(e?: React.FormEvent) {
     if (e) e.preventDefault();
     if (isSending || isCompressing) return;
 
-    // Absen Foto WAJIB melampirkan foto
+    const trimmed = inputText.trim();
+
+    // Non-admin WAJIB melampirkan foto untuk Absen Masuk; Admin boleh tanpa foto asal ada teks keterangan
     if (feedType === 'absen_pagi' && !attachedFile) {
-      showAlert(
-        'Foto Wajib Diisi',
-        'Untuk melakukan Absen Foto, silakan ambil foto selfie kehadiran terlebih dahulu.',
-        'warning'
-      );
-      return;
+      if (!isAdmin) {
+        showAlert(
+          'Foto Wajib Diisi',
+          'Untuk melakukan Absen Foto, silakan ambil foto selfie kehadiran terlebih dahulu.',
+          'warning'
+        );
+        return;
+      }
+      if (!trimmed) {
+        showAlert(
+          'Keterangan Wajib Diisi',
+          'Sebagai Admin, Anda bisa absen hadir tanpa foto dengan mengisi keterangan kehadiran.',
+          'warning'
+        );
+        return;
+      }
     }
 
-    const trimmed = inputText.trim();
     if (!trimmed && !attachedFile) {
       return;
     }
@@ -641,7 +729,23 @@ export function AttendanceChatClient({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setManualTargetUserId('');
+                setManualNote(CHAT_MANUAL_NOTE_PRESETS[0]);
+                setManualModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition"
+              title="Tandai Anak Magang Hadir Tanpa Foto (Khusus Admin)"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Hadir Manual</span>
+            </button>
+          )}
+
           <Link
             href={`/rekap-harian?date=${workDate}`}
             className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xs transition"
@@ -653,7 +757,7 @@ export function AttendanceChatClient({
 
           <button
             onClick={() => setGroupModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition"
           >
             <Users className="w-3.5 h-3.5" />
             <span>Absen Bareng</span>
@@ -761,17 +865,37 @@ export function AttendanceChatClient({
                       : 'bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 text-slate-900 dark:text-slate-100 rounded-bl-xs'
                   }`}
                 >
-                  {/* LABEL ABSEN SISTEM: ABSEN FOTO */}
+                  {/* LABEL ABSEN SISTEM: ABSEN FOTO / HADIR MANUAL TANPA FOTO */}
                   {msg.feed_type === 'absen_pagi' && (
-                    <div
-                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md mb-0.5 ${
-                        isMe
-                          ? 'bg-white/20 text-white'
-                          : 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
-                      }`}
-                    >
-                      <Camera className="w-3 h-3" />
-                      <span>Absen Masuk</span>
+                    <div className="flex flex-col gap-0.5 mb-0.5">
+                      <div
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md w-fit ${
+                          isMe
+                            ? 'bg-white/20 text-white'
+                            : 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
+                        }`}
+                      >
+                        {photoUrl ? (
+                          <>
+                            <Camera className="w-3 h-3" />
+                            <span>Absen Masuk</span>
+                          </>
+                        ) : (
+                          <>
+                            <UserCheck className="w-3 h-3" />
+                            <span>Hadir Manual (Tanpa Foto)</span>
+                          </>
+                        )}
+                      </div>
+                      {msg.manual_admin_by && (
+                        <span
+                          className={`text-[10px] ${
+                            isMe ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'
+                          }`}
+                        >
+                          Dikonfirmasi oleh Admin: {msg.manual_admin_by}
+                        </span>
+                      )}
                     </div>
                   )}
 
@@ -1279,6 +1403,8 @@ export function AttendanceChatClient({
                 : feedType === 'absen_pagi'
                 ? attachedFile
                   ? 'Keterangan absen foto (opsional)...'
+                  : isAdmin
+                  ? 'Ambil foto atau tulis keterangan hadir (Admin boleh tanpa foto)...'
                   : 'Wajib ambil foto selfie untuk Absen Masuk...'
                 : 'Tulis pesan / ketik @ untuk tag...'
             }
@@ -1290,7 +1416,11 @@ export function AttendanceChatClient({
             disabled={
               isSending ||
               isCompressing ||
-              (feedType === 'absen_pagi' ? !attachedFile : !inputText.trim() && !attachedFile)
+              (feedType === 'absen_pagi'
+                ? isAdmin
+                  ? !attachedFile && !inputText.trim()
+                  : !attachedFile
+                : !inputText.trim() && !attachedFile)
             }
             className="w-9 h-9 shrink-0 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-xs transition"
           >
@@ -1302,6 +1432,148 @@ export function AttendanceChatClient({
           </button>
         </form>
       </div>
+
+      {/* Modal Hadir Manual Tanpa Foto (Khusus Admin/Owner) */}
+      {isAdmin && manualModalOpen && (() => {
+        const presentUserIds = new Set<string>();
+        for (const m of messages) {
+          if (m.feed_type === 'absen_pagi' || m.feed_type === 'group_attendance') {
+            presentUserIds.add(m.user_id);
+            if (m.group_members) {
+              for (const gm of m.group_members) {
+                presentUserIds.add(gm.user_id);
+              }
+            }
+          }
+        }
+        const selectableUsers = (internProfiles.length > 0 ? internProfiles : profiles).filter(
+          (p) => p.id !== currentUserId || internProfiles.some((ip) => ip.id === p.id)
+        );
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={() => !savingManual && setManualModalOpen(false)}
+          >
+            <div
+              className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-emerald-50/60 dark:bg-emerald-950/30">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                    <UserCheck className="h-4.5 w-4.5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      Tandai Hadir Tanpa Foto
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Konfirmasi Admin &bull; {formatIndonesia(workDate)}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={savingManual}
+                  onClick={() => setManualModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-white/80 dark:hover:bg-slate-800 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitManualAttendance} className="p-5 space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1.5">
+                    Pilih Anak Magang
+                  </label>
+                  <select
+                    value={manualTargetUserId}
+                    onChange={(e) => setManualTargetUserId(e.target.value)}
+                    required
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="">-- Pilih nama anak magang --</option>
+                    {selectableUsers.map((u) => {
+                      const alreadyPresent = presentUserIds.has(u.id);
+                      return (
+                        <option key={u.id} value={u.id} disabled={alreadyPresent}>
+                          {u.full_name} {alreadyPresent ? '(Sudah Hadir)' : '(Belum Hadir)'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
+                    Pilih Cepat Keterangan:
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CHAT_MANUAL_NOTE_PRESETS.map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setManualNote(preset)}
+                        className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold border transition ${
+                          manualNote === preset
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1.5">
+                    Keterangan Kehadiran
+                  </label>
+                  <textarea
+                    value={manualNote}
+                    onChange={(e) => setManualNote(e.target.value)}
+                    rows={3}
+                    required
+                    placeholder="Contoh: Hadir di kantor namun terkendala kamera HP..."
+                    className="w-full p-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    disabled={savingManual}
+                    onClick={() => setManualModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingManual || !manualTargetUserId || !manualNote.trim()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition shadow-xs"
+                  >
+                    {savingManual ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Menyimpan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>Simpan Hadir</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modal Kamera GPS Map Timestamp (Desain Seperti Halaman Piket) */}
       <CameraModal

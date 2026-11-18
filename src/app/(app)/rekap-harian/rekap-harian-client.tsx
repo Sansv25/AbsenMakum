@@ -21,12 +21,28 @@ import {
   Loader2,
   CalendarOff,
   X,
+  UserCheck,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { formatIndonesia, todayWITA } from '@/lib/dates';
 import { showAlert, showConfirm } from '@/lib/swal';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { sendDailyRecapNowAction } from '@/app/(app)/pengaturan/rekapan/actions';
+import {
+  markManualAttendanceAction,
+  updateManualAttendanceNoteAction,
+  cancelManualAttendanceAction,
+} from './actions';
 import type { DailyAttendanceRecapResult, DailyAttendanceRecord } from '@/lib/data/daily-attendance-recap';
+
+const MANUAL_NOTE_PRESETS = [
+  'Hadir di kantor (tanpa foto)',
+  'Hadir di lapangan',
+  'Hadir, kendala kamera / HP',
+  'Hadir (konfirmasi manual admin)',
+  'Hadir WFH / tugas luar',
+];
 
 interface RekapHarianClientProps {
   initialDate: string;
@@ -58,6 +74,101 @@ export function RekapHarianClient({
   // Lightbox Preview Foto Bukti
   const [lightboxOpen, setLightboxOpen] = useState<boolean>(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  // Modal Konfirmasi Hadir Manual Tanpa Foto (Khusus Admin/Owner)
+  const [manualModal, setManualModal] = useState<{
+    mode: 'create' | 'edit';
+    userId: string;
+    userName: string;
+    feedId?: string;
+  } | null>(null);
+  const [manualNote, setManualNote] = useState<string>(MANUAL_NOTE_PRESETS[0]);
+  const [savingManual, setSavingManual] = useState<boolean>(false);
+  const [cancelingFeedId, setCancelingFeedId] = useState<string | null>(null);
+
+  function openMarkManualModal(userId: string, userName: string) {
+    setManualModal({ mode: 'create', userId, userName });
+    setManualNote(MANUAL_NOTE_PRESETS[0]);
+  }
+
+  function openEditManualModal(userId: string, userName: string, feedId: string, currentNote?: string | null) {
+    setManualModal({ mode: 'edit', userId, userName, feedId });
+    setManualNote(currentNote || MANUAL_NOTE_PRESETS[0]);
+  }
+
+  async function handleSubmitManualAttendance(e: React.FormEvent) {
+    e.preventDefault();
+    if (!manualModal || savingManual) return;
+
+    const noteTrimmed = manualNote.trim();
+    if (!noteTrimmed) {
+      showAlert('Keterangan Wajib Diisi', 'Silakan masukkan keterangan kehadiran terlebih dahulu.', 'warning');
+      return;
+    }
+
+    setSavingManual(true);
+    try {
+      const res =
+        manualModal.mode === 'edit' && manualModal.feedId
+          ? await updateManualAttendanceNoteAction(
+              manualModal.feedId,
+              manualModal.userId,
+              currentDate,
+              noteTrimmed
+            )
+          : await markManualAttendanceAction(manualModal.userId, currentDate, noteTrimmed);
+
+      if (res.error) {
+        showAlert('Gagal Menyimpan', res.error, 'error');
+        return;
+      }
+
+      const targetName = manualModal.userName;
+      const isEdit = manualModal.mode === 'edit';
+      setManualModal(null);
+      startTransition(() => {
+        router.refresh();
+      });
+      showAlert(
+        isEdit ? 'Keterangan Diperbarui' : 'Kehadiran Dicatat ✓',
+        isEdit
+          ? `Keterangan hadir untuk ${targetName} berhasil diperbarui.`
+          : `${targetName} berhasil ditandai HADIR (tanpa foto) pada ${formatIndonesia(currentDate)}.`,
+        'success'
+      );
+    } catch {
+      showAlert('Error', 'Terjadi kesalahan jaringan saat menyimpan kehadiran.', 'error');
+    } finally {
+      setSavingManual(false);
+    }
+  }
+
+  async function handleCancelManualAttendance(feedId: string, userName: string) {
+    const confirmed = await showConfirm(
+      `Batalkan Hadir Manual?`,
+      `Status hadir tanpa foto untuk ${userName} pada ${formatIndonesia(currentDate)} akan dibatalkan dan kembali menjadi Tidak Hadir / Belum Absen.`,
+      'Ya, Batalkan',
+      true
+    );
+    if (!confirmed) return;
+
+    setCancelingFeedId(feedId);
+    try {
+      const res = await cancelManualAttendanceAction(feedId);
+      if (res.error) {
+        showAlert('Gagal Membatalkan', res.error, 'error');
+        return;
+      }
+      startTransition(() => {
+        router.refresh();
+      });
+      showAlert('Dibatalkan', `Kehadiran manual ${userName} telah dibatalkan.`, 'success');
+    } catch {
+      showAlert('Error', 'Terjadi kesalahan jaringan saat membatalkan kehadiran.', 'error');
+    } finally {
+      setCancelingFeedId(null);
+    }
+  }
 
   // Sinkronisasi tanggal saat server mengirim props baru
   useEffect(() => {
@@ -596,7 +707,7 @@ export function RekapHarianClient({
                 </div>
 
                 {/* Detail Waktu, Metode, & Bukti Foto */}
-                <div className="flex items-center gap-3 self-start md:self-center shrink-0 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center gap-2.5 self-start md:self-center shrink-0 flex-wrap sm:flex-nowrap">
                   {rec.isHadir ? (
                     <>
                       {/* Jam & Metode */}
@@ -628,34 +739,80 @@ export function RekapHarianClient({
                           </div>
                         </div>
                       ) : (
-                        <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 flex items-center justify-center text-gray-400 text-[10px]">
-                          Tanpa Foto
+                        <div className="w-12 h-12 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex flex-col items-center justify-center text-emerald-700 dark:text-emerald-300 text-[9px] font-bold text-center leading-tight px-1">
+                          <UserCheck className="h-3.5 w-3.5 mb-0.5" />
+                          <span>Tanpa Foto</span>
+                        </div>
+                      )}
+
+                      {/* Aksi Admin untuk Edit / Batalkan Kehadiran Manual Tanpa Foto */}
+                      {isMaster && rec.isManualAdmin && rec.feedId && (
+                        <div className="flex items-center gap-1 ml-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openEditManualModal(rec.user.id, rec.user.full_name, rec.feedId!, rec.message)
+                            }
+                            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 transition"
+                            title="Ubah Keterangan Hadir Manual"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={cancelingFeedId === rec.feedId}
+                            onClick={() => handleCancelManualAttendance(rec.feedId!, rec.user.full_name)}
+                            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/60 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 transition disabled:opacity-50"
+                            title="Batalkan Keterangan Hadir Manual"
+                          >
+                            {cancelingFeedId === rec.feedId ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </button>
                         </div>
                       )}
                     </>
-                  ) : canContactWA ? (
-                    /* Jika Belum Hadir: Tombol Hubungi WhatsApp HANYA untuk role Senior, Admin, dan Owner */
-                    waPhone ? (
-                      <a
-                        href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
-                          `Halo ${rec.user.full_name}, kami melihat Anda belum melakukan absensi harian ICONNET pada hari ini (${formatIndonesia(
-                            currentDate
-                          )}). Mohon segera melakukan absensi melalui aplikasi: https://www.magang-iconnet.online/absen-chat`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-semibold transition"
-                        title="Hubungi anak magang via WhatsApp"
-                      >
-                        <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
-                        <span>Hubungi WA</span>
-                      </a>
-                    ) : (
-                      <span className="text-xs text-rose-500 font-medium italic">
-                        Belum ada nomor WA
-                      </span>
-                    )
-                  ) : null}
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* Tombol Tandai Hadir Manual Tanpa Foto (Khusus Admin & Owner) */}
+                      {isMaster && (
+                        <button
+                          type="button"
+                          onClick={() => openMarkManualModal(rec.user.id, rec.user.full_name)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition shadow-xs"
+                          title="Berikan keterangan hadir manual tanpa perlu foto"
+                        >
+                          <UserCheck className="h-3.5 w-3.5" />
+                          <span>Tandai Hadir</span>
+                        </button>
+                      )}
+
+                      {/* Tombol Hubungi WhatsApp HANYA untuk role Senior, Admin, dan Owner */}
+                      {canContactWA &&
+                        (waPhone ? (
+                          <a
+                            href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
+                              `Halo ${rec.user.full_name}, kami melihat Anda belum melakukan absensi harian ICONNET pada hari ini (${formatIndonesia(
+                                currentDate
+                              )}). Mohon segera melakukan absensi melalui aplikasi: https://www.magang-iconnet.online/absen-chat`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-semibold transition"
+                            title="Hubungi anak magang via WhatsApp"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+                            <span>Hubungi WA</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs text-rose-500 font-medium italic">
+                            Belum ada nomor WA
+                          </span>
+                        ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -663,7 +820,113 @@ export function RekapHarianClient({
         )}
       </div>
 
-      {/* 6. LIGHTBOX MODAL PREVIEW FOTO RESMI GPS MAP */}
+      {/* 6. MODAL KONFIRMASI HADIR MANUAL TANPA FOTO (ADMIN/OWNER) */}
+      {manualModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => !savingManual && setManualModal(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-emerald-50/60 dark:bg-emerald-950/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                  <UserCheck className="h-4.5 w-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {manualModal.mode === 'edit' ? 'Ubah Keterangan Hadir' : 'Tandai Hadir Tanpa Foto'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {manualModal.userName} &bull; {formatIndonesia(currentDate)}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={savingManual}
+                onClick={() => setManualModal(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-white/80 dark:hover:bg-slate-800 transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitManualAttendance} className="p-5 space-y-4">
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-2">
+                  Pilih Cepat Keterangan:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {MANUAL_NOTE_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setManualNote(preset)}
+                      className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold border transition ${
+                        manualNote === preset
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block mb-1.5">
+                  Keterangan Kehadiran
+                </label>
+                <textarea
+                  value={manualNote}
+                  onChange={(e) => setManualNote(e.target.value)}
+                  rows={3}
+                  placeholder="Contoh: Hadir di kantor namun terkendala kamera HP..."
+                  required
+                  className="w-full p-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Pengguna akan tercatat berstatus <strong>Hadir</strong> pada Rekap Harian, Chat Absen, Export, dan Email Rekapan tanpa memerlukan foto.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  disabled={savingManual}
+                  onClick={() => setManualModal(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingManual || !manualNote.trim()}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition shadow-xs"
+                >
+                  {savingManual ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>{manualModal.mode === 'edit' ? 'Simpan Perubahan' : 'Simpan Hadir'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. LIGHTBOX MODAL PREVIEW FOTO RESMI GPS MAP */}
       {lightboxSrc && (
         <ImageLightbox
           open={lightboxOpen}

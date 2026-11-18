@@ -1,6 +1,39 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserProfile } from '@/lib/data/profile';
-import type { AttendanceFeedMessage, FeedType, GroupMemberInfo } from '@/lib/types/attendance-feed';
+import type { AttendanceFeedMessage, FeedType, GroupMemberInfo, FeedUser } from '@/lib/types/attendance-feed';
+
+export interface ParsedManualAdminTag {
+  targetUserId: string | null;
+  adminName: string | null;
+  isManualAdmin: boolean;
+}
+
+/**
+ * Mengurai metadata kehadiran manual admin dari kolom reply_to_text
+ */
+export function parseManualAdminTag(replyToText?: string | null): ParsedManualAdminTag {
+  if (!replyToText) {
+    return { targetUserId: null, adminName: null, isManualAdmin: false };
+  }
+  if (replyToText.startsWith('__manual_admin_for__:')) {
+    const rest = replyToText.slice('__manual_admin_for__:'.length);
+    const [targetUserId, ...adminParts] = rest.split('|');
+    return {
+      targetUserId: targetUserId?.trim() || null,
+      adminName: adminParts.join('|').trim() || 'Admin',
+      isManualAdmin: true,
+    };
+  }
+  if (replyToText.startsWith('__manual_admin__:')) {
+    const adminName = replyToText.slice('__manual_admin__:'.length).trim();
+    return {
+      targetUserId: null,
+      adminName: adminName || 'Admin',
+      isManualAdmin: true,
+    };
+  }
+  return { targetUserId: null, adminName: null, isManualAdmin: false };
+}
 
 /**
  * Mengambil daftar pesan feed chat absen pagi untuk tanggal tertentu
@@ -93,6 +126,35 @@ export async function getAttendanceFeedMessages(
     }
   }
 
+  // Kumpulkan target user_id untuk kehadiran manual admin (fallback RLS)
+  const manualTargetUserIds = new Set<string>();
+  for (const msg of activeRawMessages) {
+    const manualInfo = parseManualAdminTag(msg.reply_to_text);
+    if (manualInfo.targetUserId) {
+      manualTargetUserIds.add(manualInfo.targetUserId);
+    }
+  }
+
+  const manualTargetProfileMap = new Map<string, FeedUser>();
+  if (manualTargetUserIds.size > 0) {
+    const { data: targetProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role, roles')
+      .in('id', Array.from(manualTargetUserIds));
+
+    if (targetProfiles) {
+      for (const tp of targetProfiles) {
+        manualTargetProfileMap.set(tp.id, {
+          id: tp.id,
+          full_name: tp.full_name,
+          email: tp.email,
+          role: tp.role,
+          roles: tp.roles,
+        });
+      }
+    }
+  }
+
   // Generate signed URLs untuk gambar bukti absen
   const formattedMessages: AttendanceFeedMessage[] = await Promise.all(
     activeRawMessages.map(async (msg) => {
@@ -111,21 +173,12 @@ export async function getAttendanceFeedMessages(
       }
 
       const prof = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles;
-
-      return {
-        id: msg.id,
-        work_date: msg.work_date,
-        user_id: msg.user_id,
-        feed_type: msg.feed_type as FeedType,
-        message: msg.message,
-        media_paths,
-        media_urls,
-        group_session_id: msg.group_session_id,
-        reply_to_id: msg.reply_to_id,
-        reply_to_text: msg.reply_to_text,
-        reply_to_user: msg.reply_to_user,
-        created_at: msg.created_at,
-        user: prof
+      const manualInfo = parseManualAdminTag(msg.reply_to_text);
+      const effectiveUserId = manualInfo.targetUserId || msg.user_id;
+      const effectiveUser: FeedUser | undefined =
+        manualInfo.targetUserId && manualTargetProfileMap.has(manualInfo.targetUserId)
+          ? manualTargetProfileMap.get(manualInfo.targetUserId)
+          : prof
           ? {
               id: prof.id,
               full_name: prof.full_name,
@@ -133,8 +186,25 @@ export async function getAttendanceFeedMessages(
               role: prof.role,
               roles: prof.roles,
             }
-          : undefined,
+          : undefined;
+
+      return {
+        id: msg.id,
+        work_date: msg.work_date,
+        user_id: effectiveUserId,
+        feed_type: msg.feed_type as FeedType,
+        message: msg.message,
+        media_paths,
+        media_urls,
+        group_session_id: msg.group_session_id,
+        reply_to_id: msg.reply_to_id,
+        reply_to_text: manualInfo.isManualAdmin ? null : msg.reply_to_text,
+        reply_to_user: msg.reply_to_user,
+        created_at: msg.created_at,
+        user: effectiveUser,
         group_members: msg.group_session_id ? groupMembersMap[msg.group_session_id] || [] : undefined,
+        manual_admin_by: manualInfo.isManualAdmin ? manualInfo.adminName : null,
+        manual_target_user_id: manualInfo.isManualAdmin ? effectiveUserId : null,
       };
     })
   );
@@ -170,6 +240,20 @@ export async function createAttendanceFeedMessage(payload: {
     return { message: null, error: 'Hanya akun dengan role magang atau senior yang dapat mengirim pesan di absensi harian.' };
   }
 
+  const isAdminOrOwner = profile.canManageSettings || profile.isOwner || profile.isAdmin || profile.isMaster;
+  const hasPhoto = Boolean(payload.media_paths && payload.media_paths.length > 0);
+
+  // Non-admin tetap wajib menyertakan foto saat absen_pagi
+  if (payload.feed_type === 'absen_pagi' && !hasPhoto && !isAdminOrOwner) {
+    return { message: null, error: 'Foto wajib dilampirkan untuk melakukan Absen Masuk.' };
+  }
+
+  const adminName = profile.fullName || profile.email || 'Admin';
+  const finalReplyToText =
+    payload.feed_type === 'absen_pagi' && !hasPhoto && isAdminOrOwner && !payload.reply_to_user
+      ? `__manual_admin__:${adminName}`
+      : payload.reply_to_text || null;
+
   const { data, error } = await supabase
     .from('attendance_feed')
     .insert({
@@ -180,7 +264,7 @@ export async function createAttendanceFeedMessage(payload: {
       media_paths: payload.media_paths || [],
       group_session_id: payload.group_session_id || null,
       reply_to_id: payload.reply_to_id || null,
-      reply_to_text: payload.reply_to_text || null,
+      reply_to_text: finalReplyToText,
       reply_to_user: payload.reply_to_user || null,
     })
     .select(`
@@ -225,6 +309,8 @@ export async function createAttendanceFeedMessage(payload: {
     }
   }
 
+  const manualInfo = parseManualAdminTag(data.reply_to_text);
+
   return {
     message: {
       id: data.id,
@@ -236,7 +322,7 @@ export async function createAttendanceFeedMessage(payload: {
       media_urls,
       group_session_id: data.group_session_id,
       reply_to_id: data.reply_to_id,
-      reply_to_text: data.reply_to_text,
+      reply_to_text: manualInfo.isManualAdmin ? null : data.reply_to_text,
       reply_to_user: data.reply_to_user,
       created_at: data.created_at,
       user: prof
@@ -248,6 +334,8 @@ export async function createAttendanceFeedMessage(payload: {
             roles: prof.roles,
           }
         : undefined,
+      manual_admin_by: manualInfo.isManualAdmin ? manualInfo.adminName : null,
+      manual_target_user_id: manualInfo.isManualAdmin ? data.user_id : null,
     },
   };
 }

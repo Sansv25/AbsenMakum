@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { parseManualAdminTag } from '@/lib/data/attendance-feed';
 import type { AppRole } from '@/lib/supabase/types';
 
 export interface DailyAttendanceRecord {
@@ -13,10 +14,13 @@ export interface DailyAttendanceRecord {
   isHadir: boolean;
   attendanceTime?: string | null; // e.g. "07:45 WITA"
   feedType?: 'absen_pagi' | 'group_attendance' | null;
-  methodLabel?: string | null; // e.g. "Absen Foto (Selfie)" atau "Absen Bareng (QR)"
+  methodLabel?: string | null; // e.g. "Absen Foto (Selfie)", "Absen Bareng", "Hadir Manual (Admin)"
   photoUrl?: string | null;
   message?: string | null;
   verifiedAtRaw?: string | null;
+  feedId?: string | null;
+  isManualAdmin?: boolean;
+  confirmedBy?: string | null;
 }
 
 export interface DailyAttendanceRecapResult {
@@ -72,6 +76,7 @@ export async function getDailyAttendanceRecap(
         message,
         media_paths,
         group_session_id,
+        reply_to_text,
         created_at
       `)
       .eq('work_date', workDate)
@@ -133,8 +138,16 @@ export async function getDailyAttendanceRecap(
     const userGroupInitiatorMap = new Map<string, (typeof feedList)[0]>();
 
     for (const f of feedList) {
-      if (f.feed_type === 'absen_pagi' && !userAbsenPagiMap.has(f.user_id)) {
-        userAbsenPagiMap.set(f.user_id, f);
+      if (f.feed_type === 'absen_pagi') {
+        const manualInfo = parseManualAdminTag(f.reply_to_text);
+        const effectiveUserId = manualInfo.targetUserId || f.user_id;
+        const existing = userAbsenPagiMap.get(effectiveUserId);
+        const existingHasPhoto = Boolean(existing?.media_paths && existing.media_paths.length > 0);
+        const currentHasPhoto = Boolean(f.media_paths && f.media_paths.length > 0);
+        // Prioritaskan absen foto asli jika ada, jika belum ada simpan catatan manual admin
+        if (!existing || (!existingHasPhoto && currentHasPhoto)) {
+          userAbsenPagiMap.set(effectiveUserId, f);
+        }
       } else if (f.feed_type === 'group_attendance' && !userGroupInitiatorMap.has(f.user_id)) {
         userGroupInitiatorMap.set(f.user_id, f);
       }
@@ -190,19 +203,36 @@ export async function getDailyAttendanceRecap(
       let photoUrl: string | null = null;
       let message: string | null = null;
       let verifiedAtRaw: string | null = null;
+      let feedId: string | null = null;
+      let isManualAdmin = false;
+      let confirmedBy: string | null = null;
 
       if (hasAbsenPagi) {
         const item = userAbsenPagiMap.get(p.id)!;
+        const manualInfo = parseManualAdminTag(item.reply_to_text);
+        feedId = item.id;
         verifiedAtRaw = item.created_at;
         attendanceTime = formatTimeWITA(item.created_at);
         feedType = 'absen_pagi';
-        methodLabel = 'Absen Foto (Selfie)';
         message = item.message;
         if (item.media_paths?.[0]) {
           photoUrl = signedUrlMap.get(item.media_paths[0]) || null;
         }
+        const hasPhoto = Boolean(photoUrl);
+        isManualAdmin = manualInfo.isManualAdmin || !hasPhoto;
+        confirmedBy = manualInfo.adminName;
+        if (manualInfo.isManualAdmin) {
+          methodLabel = manualInfo.adminName
+            ? `Hadir Manual • Admin (${manualInfo.adminName})`
+            : 'Hadir Manual (Tanpa Foto)';
+        } else if (!hasPhoto) {
+          methodLabel = 'Hadir Tanpa Foto';
+        } else {
+          methodLabel = 'Absen Foto (Selfie)';
+        }
       } else if (isInitiator) {
         const item = userGroupInitiatorMap.get(p.id)!;
+        feedId = item.id;
         verifiedAtRaw = item.created_at;
         attendanceTime = formatTimeWITA(item.created_at);
         feedType = 'group_attendance';
@@ -219,6 +249,7 @@ export async function getDailyAttendanceRecap(
         methodLabel = 'Absen Bareng';
         const groupFeed = groupFeedMap.get(memberRow.session_id);
         if (groupFeed) {
+          feedId = groupFeed.id;
           message = groupFeed.message;
           if (groupFeed.media_paths?.[0]) {
             photoUrl = signedUrlMap.get(groupFeed.media_paths[0]) || null;
@@ -242,6 +273,9 @@ export async function getDailyAttendanceRecap(
         photoUrl,
         message,
         verifiedAtRaw,
+        feedId,
+        isManualAdmin,
+        confirmedBy,
       };
     });
 

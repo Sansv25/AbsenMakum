@@ -32,6 +32,8 @@ export interface AttendanceFeedMessage {
   created_at: string;
   user?: FeedUser;
   group_members?: GroupMemberInfo[];
+  manual_admin_by?: string | null;
+  manual_target_user_id?: string | null;
 }
 
 export interface GroupAttendanceSession {
