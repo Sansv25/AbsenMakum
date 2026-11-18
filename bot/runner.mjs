@@ -1001,6 +1001,23 @@ async function syncActiveChat(activeTicket) {
           return true;
         }
 
+        // Abaikan seluruh isi kartu "Nomor telepon / Phone number + Pesan WhatsApp" otomatis dari Instagram
+        let cardCheck = el.parentElement;
+        for (let step = 0; step < 6 && cardCheck && cardCheck !== document.body; step++) {
+          const cardText = (cardCheck.innerText || '').toLowerCase();
+          if (
+            cardText.length < 220 &&
+            (cardText.includes('pesan whatsapp') ||
+              cardText.includes('panggilan whatsapp') ||
+              cardText.includes('whatsapp message') ||
+              cardText.includes('whatsapp call')) &&
+            (cardText.includes('nomor telepon') || cardText.includes('phone number'))
+          ) {
+            return true;
+          }
+          cardCheck = cardCheck.parentElement;
+        }
+
         let p = el.parentElement;
         while (p && p !== document.body) {
           const tag = p.tagName;
@@ -1068,13 +1085,44 @@ async function syncActiveChat(activeTicket) {
           .replace(/[\s\u202F\u00A0]+/g, ' ')
           .trim();
         if (!s) return true;
+        // Angka murni, durasi, atau format nomor telepon internasional/lokal tanpa kalimat (mis. +44 1502 878602, +55 300 141 0062, 0819-1598-2414)
         if (/^\d+$/.test(s)) return true;
         if (/^\d+[smhdwy]$/i.test(s)) return true;
+        if (/^\+?\d[\d\s\-()]{6,22}$/.test(s)) return true;
         if (/^\d{1,2}[:.]\d{2}(\s*(?:am|pm|wib|wita|wit))?$/i.test(s)) return true;
         if (/^(today|yesterday|hari ini|kemarin|\w+,\s*\d+\s*\w+|\d+\s*\w+(\s*\d{4})?)[,\s]+(\d{1,2}[:.]\d{2}(\s*(?:am|pm|wib|wita|wit))?)$/i.test(s)) return true;
         if (/^(seen|delivered|sent|sending|dilihat|terkirim|mengirim)[\s.]*$/i.test(s)) return true;
         if (/^dilihat\s*(oleh|pukul|\d)/i.test(s)) return true;
         if (/^seen\s*(by|\d)/i.test(s)) return true;
+
+        // Notifikasi sistem Meta Business / Instagram (bukan pesan chat manusia)
+        const low = s.toLowerCase();
+        if (
+          low.includes('auto-detected outcome') ||
+          low.includes('identified a lead') ||
+          low.includes('labelled the chat') ||
+          low.includes('labeled the chat') ||
+          low.includes('mengidentifikasi prospek') ||
+          low.includes('melabeli obrolan') ||
+          low === 'learn more' ||
+          low === 'pelajari selengkapnya' ||
+          low.includes('you sent an attachment') ||
+          low.includes('anda mengirim lampiran') ||
+          low.includes('unsent a message') ||
+          low.includes('batal mengirim pesan') ||
+          low.includes('missed call') ||
+          low.includes('panggilan tak terjawab') ||
+          low.includes('call ended') ||
+          low.includes('panggilan berakhir') ||
+          low.includes('pesan whatsapp') ||
+          low.includes('panggilan whatsapp') ||
+          low.includes('whatsapp message') ||
+          low.includes('whatsapp call') ||
+          low === 'nomor telepon' ||
+          low === 'phone number'
+        ) {
+          return true;
+        }
         return false;
       }
 
@@ -1110,6 +1158,17 @@ async function syncActiveChat(activeTicket) {
         }
         if (isBlue) return 'out';
 
+        // Abaikan banner sistem terpusat (tanpa background bubble dan rata tengah, misal label Meta / divider)
+        const selfStyle = window.getComputedStyle(el);
+        const parentStyle = el.parentElement ? window.getComputedStyle(el.parentElement) : null;
+        if (
+          !isBlue &&
+          !isGray &&
+          (selfStyle.textAlign === 'center' || parentStyle?.textAlign === 'center')
+        ) {
+          return 'ignore';
+        }
+
         let isFlexEnd = false;
         let isFlexStart = false;
         let cp = el.parentElement;
@@ -1132,6 +1191,10 @@ async function syncActiveChat(activeTicket) {
           const r = el.getBoundingClientRect();
           const chatMid = chatBounds.left + (chatBounds.width / 2);
           const bubbleCenter = (r.left + r.right) / 2;
+          // Jika tidak ada background bubble dan berada di tengah-tengah kolom chat -> banner sistem, abaikan!
+          if (!isBlue && !isGray && Math.abs(bubbleCenter - chatMid) < 45) {
+            return 'ignore';
+          }
           if (bubbleCenter > chatMid && !isGray && !isFlexStart) {
             return 'out';
           }
@@ -1157,6 +1220,7 @@ async function syncActiveChat(activeTicket) {
         if (isTimestampOrMeta(text)) continue;
 
         const direction = detectDirection(n);
+        if (direction === 'ignore') continue;
         items.push({ text, direction });
       }
 
@@ -1264,9 +1328,53 @@ async function syncActiveChat(activeTicket) {
       const m = item.text?.trim();
       if (!m) continue;
 
+      const normM = m.replace(/\s+/g, ' ').trim();
+      const lowerPre = normM.toLowerCase();
+
+      // FILTER UNIVERSAL (BERLAKU UNTUK OUT MAUPUN IN): Buang sampah UI Meta & kartu nomor telepon!
+      if (ignoredChatKeywords.has(normM)) continue;
+      if (
+        lowerPre.includes('auto-detected') ||
+        lowerPre.includes('identified a lead') ||
+        lowerPre.includes('labelled the chat') ||
+        lowerPre.includes('labeled the chat') ||
+        lowerPre.includes('mengidentifikasi prospek') ||
+        lowerPre.includes('melabeli obrolan') ||
+        lowerPre.includes('pesan whatsapp') ||
+        lowerPre.includes('panggilan whatsapp') ||
+        lowerPre.includes('whatsapp message') ||
+        lowerPre.includes('whatsapp call') ||
+        lowerPre === 'nomor telepon' ||
+        lowerPre === 'phone number' ||
+        lowerPre === 'learn more' ||
+        lowerPre === 'pelajari selengkapnya'
+      ) {
+        continue;
+      }
+
+      // Buang bubble yang HANYA berisi nomor telepon internasional/lokal atau ID PLN / ID Pelanggan (kartu kontak IG)
+      if (/^\+?\d[\d\s\-()]{6,22}$/.test(normM)) {
+        continue;
+      }
+      const cleanDigitsOnly = normM.replace(/\D/g, '');
+      const isMostlyNumeric = cleanDigitsOnly.length >= 7 && normM.replace(/[\d\s\-+()]/g, '').length === 0;
+      if (isMostlyNumeric) {
+        const plnDigits = (activeTicket.pln_id || '').replace(/\D/g, '');
+        const custDigits = (activeTicket.customer_id || '').replace(/\D/g, '');
+        const ticketPhoneDigits = (activeTicket.phone || '').replace(/\D/g, '').slice(-8);
+        const altPhoneDigits = (activeTicket.alt_phone || '').replace(/\D/g, '').slice(-8);
+        if (
+          (plnDigits && (cleanDigitsOnly === plnDigits || plnDigits.includes(cleanDigitsOnly))) ||
+          (custDigits && (cleanDigitsOnly === custDigits || custDigits.includes(cleanDigitsOnly))) ||
+          (ticketPhoneDigits && cleanDigitsOnly.includes(ticketPhoneDigits)) ||
+          (altPhoneDigits && cleanDigitsOnly.includes(altPhoneDigits))
+        ) {
+          continue;
+        }
+      }
+
       // JIKA INI BUBBLE PESAN KELUAR (OUTGOING)
       if (item.direction === 'out') {
-        const normM = m.replace(/\s+/g, ' ').trim();
         // Cek apakah pesan keluar ini sudah tercatat di database
         if (!outBodies.has(normM)) {
           console.log(`\n💬 [SYNC IG MANUAL] Pesan manual admin dari Instagram terdeteksi: "${m}"`);
@@ -1283,9 +1391,7 @@ async function syncActiveChat(activeTicket) {
       }
 
       // JIKA INI BUBBLE PESAN MASUK (INCOMING / CS)
-      const normM = m.replace(/\s+/g, ' ').trim();
       if (outBodies.has(normM)) continue;
-      if (ignoredChatKeywords.has(m)) continue;
       // Abaikan jika ini adalah format laporan pembuka kita sendiri
       if (
         (m.includes('ID Pelanggan') && (m.includes('Keluhan:') || m.includes('Nama Pelanggan:'))) ||
@@ -1301,15 +1407,10 @@ async function syncActiveChat(activeTicket) {
       const ticketPhoneDigits = (activeTicket.phone || '').replace(/\D/g, '').slice(-8);
       const altPhoneDigits = (activeTicket.alt_phone || '').replace(/\D/g, '').slice(-8);
 
-      if (ticketPhoneDigits && cleanMDigits.length >= 7 && cleanMDigits.includes(ticketPhoneDigits)) {
+      if (ticketPhoneDigits && cleanMDigits.length >= 7 && cleanMDigits.includes(ticketPhoneDigits) && m.length < 30) {
         continue;
       }
-      if (altPhoneDigits && cleanMDigits.length >= 7 && cleanMDigits.includes(altPhoneDigits)) {
-        continue;
-      }
-
-      // Format nomor telepon standar tanpa teks lain (misal: 0853-3807-4588 atau +62 853-3807-4588 atau +6285338074588)
-      if (/^(\+?62|0)[\s-]?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{3,5}$/.test(m)) {
+      if (altPhoneDigits && cleanMDigits.length >= 7 && cleanMDigits.includes(altPhoneDigits) && m.length < 30) {
         continue;
       }
 
