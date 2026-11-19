@@ -1,24 +1,32 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 function extractTicketOutcome(text: string): { type: string; value: string } | null {
   if (!text) return null;
   const lower = text.toLowerCase();
 
-  // 1. Cek nomor tiket resmi alfanumerik (6 s/d 12 karakter, wajib ada angka)
-  const ticketRegex = /(?:id\s*tiket|nomor\s*tiket|no\.?\s*tiket|tiket|nomor\s*pelaporan|no\.?\s*pelaporan)\s*[:#]?\s*([A-Z0-9]{6,12})\b/i;
-  const match = text.match(ticketRegex);
-  if (match && match[1] && /\d/.test(match[1])) {
-    return { type: 'ticket', value: match[1].toUpperCase() };
+  const blacklist = new Set([
+    'ICONNET', 'WHATSAPP', 'INSTAGRAM', 'INTERNET', 'MODEMNYA',
+    'PELAPORAN', 'PELAPORANNYA', 'GANGGUAN', 'INFORMASI', 'PERANGKAT',
+    'PERBAIKAN', 'KENDALANYA', 'NOMORNYA', 'TERDAFTAR', 'PENGECEKAN',
+    'SEBELUMNYA', 'TERHUBUNG', 'TERPUTUS', 'MENUNGGU', 'BANTUAN'
+  ]);
+
+  // 1. Prioritas Utama: Cari nomor tiket yang didahului kata kunci penanda tiket
+  const prefixRegex = /(?:id\s*tiket|nomor\s*tiket|no\.?\s*tiket|tiket\s*(?:pelaporan)?|nomor\s*pelaporan|no\.?\s*pelaporan|id\s*pelaporan|nomor\s*laporan|no\.?\s*laporan|id\s*laporan)\s*[:#]?\s*(?:dengan\s*(?:nomor|no)\s*[:#]?)?\s*([A-Za-z0-9]{6,12})\b/gi;
+  for (const match of text.matchAll(prefixRegex)) {
+    const candidate = match[1].toUpperCase();
+    if (/\d/.test(candidate) && !blacklist.has(candidate)) {
+      return { type: 'ticket', value: candidate };
+    }
   }
 
-  // Standalone kode tiket (mis. A2000842, IN123456, R2J92BW3)
-  const standaloneMatch = text.match(/\b([A-Z][A-Z0-9]{6,10})\b/);
-  if (standaloneMatch && standaloneMatch[1] && /\d/.test(standaloneMatch[1])) {
-    const val = standaloneMatch[1].toUpperCase();
-    const blacklist = new Set(['ICONNET', 'WHATSAPP', 'INSTAGRAM', 'INTERNET', 'MODEMNYA', 'PELAPORAN']);
-    if (!blacklist.has(val)) {
-      return { type: 'ticket', value: val };
+  // 1b. Pola kedua: format alfanumerik khas tiket (6-10 karakter diawali huruf, wajib ada angka)
+  const standaloneRegex = /\b([A-Za-z][A-Za-z0-9]{6,9})\b/g;
+  for (const match of text.matchAll(standaloneRegex)) {
+    const candidate = match[1].toUpperCase();
+    if (/\d/.test(candidate) && !blacklist.has(candidate)) {
+      return { type: 'ticket', value: candidate };
     }
   }
 
@@ -26,7 +34,8 @@ function extractTicketOutcome(text: string): { type: string; value: string } | n
   if (
     /\b(?:terisolir|isolir)\b/i.test(text) ||
     /(?:belum\s*(?:melakukan\s*)?pembayaran|tagihan\s*(?:belum\s*dibayar|tertunggak|menunggak))/i.test(text) ||
-    /(?:ada\s*tagihan|menunggu\s*pembayaran)/i.test(text)
+    /(?:ada\s*tagihan|menunggu\s*pembayaran)/i.test(text) ||
+    /(?:melakukan\s*pembayaran|lakukan\s*pembayaran)/i.test(text)
   ) {
     return { type: 'billing', value: 'Belum Bayar / Tagihan Tertunggak' };
   }
@@ -66,16 +75,33 @@ function extractTicketOutcome(text: string): { type: string; value: string } | n
   return null;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // 1. Cari tiket aktif
-    const { data: activeTicket } = await supabase
-      .from('tickets')
-      .select('*')
-      .in('status', ['in_conversation', 'needs_admin'])
-      .maybeSingle();
+    let targetTicketId: string | null = null;
+    try {
+      const body = await request.json();
+      targetTicketId = body?.ticketId || null;
+    } catch {}
+
+    // 1. Cari tiket: gunakan targetTicketId jika diberikan, atau cari tiket aktif
+    let activeTicket = null;
+    if (targetTicketId) {
+      const { data: t } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('id', targetTicketId)
+        .maybeSingle();
+      activeTicket = t;
+    } else {
+      const { data: t } = await supabase
+        .from('tickets')
+        .select('*')
+        .in('status', ['in_conversation', 'needs_admin'])
+        .maybeSingle();
+      activeTicket = t;
+    }
 
     if (!activeTicket) {
       return NextResponse.json({
@@ -108,10 +134,8 @@ export async function POST() {
       };
 
       if (outcome.type === 'ticket') {
-        if (activeTicket.mode !== 'ai') {
-          updateData.status = 'ticket_issued';
-          updateData.ticket_issued_at = new Date().toISOString();
-        }
+        updateData.status = 'ticket_issued';
+        updateData.ticket_issued_at = new Date().toISOString();
       } else {
         // Jika outcome adalah restart sistem, gangguan massal, tagihan, atau CS mengakhiri chat
         updateData.status = 'closed';

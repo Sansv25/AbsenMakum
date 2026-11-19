@@ -374,12 +374,17 @@ function TicketDetailContent() {
 
   // Handle Sync Chat
   const handleSyncChat = async () => {
+    if (!ticket) return;
     setSyncingChat(true);
     setActionError(null);
     setActionSuccess(null);
 
     try {
-      const res = await fetch('/api/ticketing/sync-chat', { method: 'POST' });
+      const res = await fetch('/api/ticketing/sync-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId: ticket.id }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Gagal sinkronisasi chat');
 
