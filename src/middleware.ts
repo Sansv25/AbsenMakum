@@ -39,10 +39,11 @@ export async function middleware(request: NextRequest) {
     '/auth/approve',
     '/privacy',
     '/terms',
+    '/api/cron',
   ];
-  const isPublicPage = publicPaths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`)
-  );
+  const isPublicPage =
+    publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`)) ||
+    pathname.startsWith('/api/cron');
 
   // Jika belum login dan mengakses halaman yang dilindungi
   if (!user && !isPublicPage) {

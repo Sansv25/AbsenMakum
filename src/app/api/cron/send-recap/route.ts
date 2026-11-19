@@ -58,11 +58,20 @@ export async function GET(req: Request) {
     } else if (forceType === 'bulanan') {
       triggerMonthly = true;
     } else {
-      // 1. Cek Rekapan Harian (Jika jam >= jam kirim yang disetting dan aktif)
-      // JANGAN KIRIM jika hari ini adalah hari libur (dari setting libur) atau akhir pekan
-      if (settings.dailyIsActive) {
-        const [targetHour] = (settings.dailySendTime || '18:00').split(':').map(Number);
-        if (currentHour === targetHour) {
+      // 1. Cek Rekapan Harian Anak Magang
+      // Cek apakah rekapan harian hari ini sudah pernah berhasil dikirim sebelumnya (anti-dobel kirim)
+      const isAlreadySentToday = Boolean(
+        settings.dailyLastSentAt &&
+          new Date(settings.dailyLastSentAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Makassar' }) === todayWitaStr
+      );
+
+      if (settings.dailyIsActive && !isAlreadySentToday) {
+        const [targetHour, targetMin] = (settings.dailySendTime || '18:00').split(':').map(Number);
+        const targetMinutes = targetHour * 60 + (targetMin || 0);
+        const currentMinutes = currentHour * 60 + wita.getMinutes();
+
+        // Kirim jika waktu saat ini sudah mencapai atau melewati jam target (misal >= 18:00 WITA)
+        if (currentMinutes >= targetMinutes) {
           if (!isDayOff) {
             triggerDaily = true;
           } else {
