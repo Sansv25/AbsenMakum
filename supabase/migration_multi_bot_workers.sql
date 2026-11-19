@@ -40,7 +40,15 @@ ALTER TABLE public.tickets
 CREATE INDEX IF NOT EXISTS idx_tickets_status_runner_ig
   ON public.tickets (status, runner_ig_id);
 
--- 3. Aktifkan Realtime untuk tabel bot_workers
+-- 3. Hapus indeks unik lama yang membatasi hanya 1 tiket aktif di SELURUH sistem (legacy single-bot)
+DROP INDEX IF EXISTS public.one_active_ticket_idx;
+
+-- 4. Buat indeks baru Multi-Bot: setiap akun Instagram bot hanya boleh memproses 1 tiket aktif di saat bersamaan
+CREATE UNIQUE INDEX IF NOT EXISTS one_active_ticket_per_runner_ig_idx
+  ON public.tickets (runner_ig_id)
+  WHERE status IN ('in_conversation', 'needs_admin') AND runner_ig_id IS NOT NULL;
+
+-- 5. Aktifkan Realtime untuk tabel bot_workers
 DO $$
 BEGIN
   IF NOT EXISTS (
