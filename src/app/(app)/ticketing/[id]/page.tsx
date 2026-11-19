@@ -33,6 +33,7 @@ import {
   CheckCheck,
   Pencil,
   Trash2,
+  RotateCcw,
 } from 'lucide-react';
 
 interface DisplayImage {
@@ -68,6 +69,7 @@ function TicketDetailContent() {
   const [syncingChat, setSyncingChat] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
   const [releasingTicket, setReleasingTicket] = useState(false);
+  const [requeuingTicket, setRequeuingTicket] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [copiedTicketNo, setCopiedTicketNo] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -628,6 +630,35 @@ function TicketDetailContent() {
     ? `https://wa.me/${cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone}`
     : null;
 
+  const handleRequeueTicket = async () => {
+    if (!ticket || requeuingTicket) return;
+    const confirmRequeue = window.confirm(
+      `Apakah Anda yakin ingin MENGANTREKAN ULANG tiket "${ticket.name}"?\n\n` +
+      `Tiket akan dikembalikan ke status 'Antrean' dan seluruh riwayat chat akan direset agar bot mengirim ulang pesan pembuka ke Instagram.`
+    );
+    if (!confirmRequeue) return;
+
+    setRequeuingTicket(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/ticketing/${ticket.id}/requeue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearMessages: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal mengantrekan ulang tiket');
+      setPendingDraft(null);
+      setActionSuccess('✓ Tiket berhasil dimasukkan kembali ke antrean dan siap dikirim ulang oleh bot!');
+      setTimeout(() => setActionSuccess(null), 4000);
+      await loadTicketAndImages();
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Gagal mengantrekan ulang tiket');
+    } finally {
+      setRequeuingTicket(false);
+    }
+  };
+
   const handleReleaseTicket = async () => {
     if (!ticket || releasingTicket) return;
     setReleasingTicket(true);
@@ -691,15 +722,27 @@ function TicketDetailContent() {
 
         {/* Right Action Controls */}
         <div className="flex flex-wrap items-center gap-2.5">
+          {ticket.status !== 'queued' && (
+            <button
+              onClick={handleRequeueTicket}
+              disabled={requeuingTicket}
+              className="px-3.5 py-2 rounded-2xl text-xs font-bold border border-amber-400 dark:border-amber-700 bg-amber-500/10 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 transition flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+              title="Reset status tiket dan masukkan kembali ke antrean bot agar dikirim ulang ke Instagram"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${requeuingTicket ? 'animate-spin' : ''}`} />
+              <span>{requeuingTicket ? 'Mengantrekan...' : 'Antrekan Ulang Tiket'}</span>
+            </button>
+          )}
+
           {(ticket.status === 'in_conversation' || ticket.status === 'needs_admin') && (
             <button
               onClick={handleReleaseTicket}
               disabled={releasingTicket}
-              className="px-3.5 py-2 rounded-2xl text-xs font-bold border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+              className="px-3.5 py-2 rounded-2xl text-xs font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
               title="Lepas dari bot saat ini dan kembalikan tiket ke antrean agar bisa diproses bot lain"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${releasingTicket ? 'animate-spin' : ''}`} />
-              <span>{releasingTicket ? 'Melepas...' : 'Kembalikan ke Antrean'}</span>
+              <span>{releasingTicket ? 'Melepas...' : 'Lepas dari Bot'}</span>
             </button>
           )}
 

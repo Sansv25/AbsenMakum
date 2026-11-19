@@ -34,6 +34,7 @@ import {
   MessageSquare,
   Clock,
   ExternalLink,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function TicketingDashboardPage() {
@@ -57,6 +58,31 @@ export default function TicketingDashboardPage() {
   const [deletingTicket, setDeletingTicket] = useState<Ticket | null>(null);
   const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; name: string } | null>(null);
+  const [requeuingId, setRequeuingId] = useState<string | null>(null);
+
+  const handleRequeueTicket = async (ticket: Ticket) => {
+    const confirmRequeue = window.confirm(
+      `Apakah Anda yakin ingin MENGANTREKAN ULANG tiket "${ticket.name}"?\n\n` +
+      `Tiket akan dikembalikan ke status 'Antrean' dan riwayat chat akan direset agar bot mengirim ulang pesan pembuka ke Instagram.`
+    );
+    if (!confirmRequeue) return;
+
+    setRequeuingId(ticket.id);
+    try {
+      const res = await fetch(`/api/ticketing/${ticket.id}/requeue`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearMessages: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal mengantrekan ulang tiket');
+      await fetchTickets();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Gagal mengantrekan ulang tiket');
+    } finally {
+      setRequeuingId(null);
+    }
+  };
 
   // Toggles
   const [autoQueueEnabled, setAutoQueueEnabled] = useState(true);
@@ -747,6 +773,22 @@ export default function TicketingDashboardPage() {
 
                   {/* Quick Action: Edit, Delete, Detail Chat */}
                   <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                    {ticket.status !== 'queued' && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleRequeueTicket(ticket);
+                        }}
+                        disabled={requeuingId === ticket.id}
+                        className="p-2 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 transition shadow-2xs disabled:opacity-50"
+                        title="Antrekan Ulang (Kirim Ulang Tiket ke Bot)"
+                      >
+                        <RotateCcw className={`h-4 w-4 ${requeuingId === ticket.id ? 'animate-spin' : ''}`} />
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1065,6 +1107,18 @@ export default function TicketingDashboardPage() {
                     onClick={(e) => e.stopPropagation()}
                     className="flex items-center justify-end gap-1 w-full lg:col-span-1 self-end lg:self-center shrink-0"
                   >
+                    {ticket.status !== 'queued' && (
+                      <button
+                        type="button"
+                        onClick={() => handleRequeueTicket(ticket)}
+                        disabled={requeuingId === ticket.id}
+                        className="p-1 rounded-md text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 transition disabled:opacity-50"
+                        title="Antrekan Ulang (Kirim Ulang Tiket ke Bot)"
+                      >
+                        <RotateCcw className={`h-3.5 w-3.5 ${requeuingId === ticket.id ? 'animate-spin' : ''}`} />
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => setEditingTicket(ticket)}
