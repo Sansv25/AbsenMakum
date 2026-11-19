@@ -14,6 +14,12 @@ import {
   Shield,
   Layers,
   Lock,
+  Key,
+  Eye,
+  EyeOff,
+  Download,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 const DEFAULT_AI_PROMPT = `Kamu adalah PELAPOR / ADMIN PELANGGAN yang sedang berkomunikasi dengan CS ICONNET di Instagram Direct Message (DM).
@@ -54,6 +60,9 @@ export default function TicketingSettingsPage() {
   const [autoQueueEnabled, setAutoQueueEnabled] = useState(true);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [monitoringEnabled, setMonitoringEnabled] = useState(false);
+  const [nvidiaApiKey, setNvidiaApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [copiedEnv, setCopiedEnv] = useState(false);
 
   useEffect(() => {
     async function loadSettings() {
@@ -99,6 +108,9 @@ export default function TicketingSettingsPage() {
               setAiEnabled(Boolean(s.value));
             } else if (s.key === 'ai_monitoring_enabled') {
               setMonitoringEnabled(Boolean(s.value));
+            } else if (s.key === 'nvidia_nim_api_key') {
+              const val = typeof s.value === 'string' ? s.value : JSON.stringify(s.value).replace(/^"|"$/g, '');
+              setNvidiaApiKey(val);
             }
           });
           if (!foundPrompt) {
@@ -139,6 +151,7 @@ export default function TicketingSettingsPage() {
         { key: 'auto_queue_enabled', value: autoQueueEnabled, updated_at: new Date().toISOString() },
         { key: 'ai_auto_enabled', value: aiEnabled, updated_at: new Date().toISOString() },
         { key: 'ai_monitoring_enabled', value: monitoringEnabled, updated_at: new Date().toISOString() },
+        { key: 'nvidia_nim_api_key', value: nvidiaApiKey.trim(), updated_at: new Date().toISOString() },
       ];
 
       const { error } = await supabase.from('ticketing_settings').upsert(updates);
@@ -152,6 +165,35 @@ export default function TicketingSettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const getEnvFileContent = () => {
+    return [
+      '# Konfigurasi Koneksi Supabase & AI Nemotron (Auto-Generated)',
+      'NEXT_PUBLIC_SUPABASE_URL=https://osaliefiqfydqibwfafl.supabase.co',
+      'NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable__9cQZi4_08SGPlkjwxj2Kg_HPOkWMw-',
+      `NVIDIA_NIM_API_KEY=${nvidiaApiKey.trim()}`,
+    ].join('\n') + '\n';
+  };
+
+  const handleCopyEnv = async () => {
+    try {
+      await navigator.clipboard.writeText(getEnvFileContent());
+      setCopiedEnv(true);
+      setTimeout(() => setCopiedEnv(false), 3000);
+    } catch {}
+  };
+
+  const handleDownloadEnv = () => {
+    const blob = new Blob([getEnvFileContent()], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '.env';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -384,6 +426,91 @@ export default function TicketingSettingsPage() {
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                   Pesan yang diucapkan saat nomor tiket sudah resmi diterbitkan oleh ICONNET.
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Key & Multi-Device Bot Config */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Key className="w-4 h-4 text-amber-500" />
+                Kunci AI Nemotron & Sinkronisasi Bot Otomatis
+              </h2>
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto">
+                Auto-Sync Multi-Device Aktif
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                  NVIDIA NIM API Key
+                </label>
+                <div className="relative">
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
+                    disabled={!isOwner}
+                    value={nvidiaApiKey}
+                    onChange={(e) => setNvidiaApiKey(e.target.value)}
+                    placeholder="nvapi-..."
+                    className="w-full pl-4 pr-12 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                    title={showApiKey ? 'Sembunyikan' : 'Tampilkan'}
+                  >
+                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Kunci API dari NVIDIA NIM (model <code>nvidia/nemotron-3.5-lightning-30b-a3b</code>) untuk membalas chat CS secara cerdas.
+                </p>
+              </div>
+
+              {/* Info Box Multi-Device Auto Sync */}
+              <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                    💡 Instalasi Bot di Laptop / Device Baru (Zero-Manual Config)
+                  </span>
+                  <p className="text-[11px] text-blue-700 dark:text-blue-400 leading-relaxed max-w-xl">
+                    Petugas tidak perlu memindahkan file <code>.env</code> secara manual. Cukup jalankan <code>2_MULAI_PIKET.bat</code> dan login dengan akun piket mereka di terminal, bot akan langsung mengunduh konfigurasi dan kunci AI ini secara otomatis.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                  <button
+                    type="button"
+                    onClick={handleCopyEnv}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-[11px] font-semibold text-slate-700 dark:text-slate-300 transition shadow-2xs cursor-pointer"
+                    title="Salin isi file .env ke clipboard"
+                  >
+                    {copiedEnv ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-emerald-600 dark:text-emerald-400">Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Salin .env</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadEnv}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold transition shadow-2xs cursor-pointer"
+                    title="Download file .env langsung"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download .env</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
