@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 import { generateServerRecapPdf } from '@/lib/server-pdf';
 import { getDailyAttendanceRecap } from '@/lib/data/daily-attendance-recap';
@@ -27,28 +28,40 @@ export interface EmailRecapSettings {
   dailyLastStatus?: string | null;
 }
 
+const DEFAULT_FALLBACK_BREVO_KEY = process.env.BREVO_API_KEY || '';
+const DEFAULT_FALLBACK_SENDER_EMAIL =
+  process.env.BREVO_SENDER_EMAIL || 'madesanjaya255@gmail.com';
+const DEFAULT_FALLBACK_RECIPIENTS = [
+  'madesanjaya255@gmail.com',
+  'magangiconnetrbnt@gmail.com',
+];
+
 const DEFAULT_SETTINGS: EmailRecapSettings = {
   id: '00000000-0000-0000-0000-000000000001',
-  recipients: [],
+  recipients: DEFAULT_FALLBACK_RECIPIENTS,
   frequency: 'mingguan',
   isActive: true,
-  senderName: 'Magang ICONNET',
-  senderEmail: '',
-  brevoApiKey: '',
+  senderName: 'SANS AGEN',
+  senderEmail: DEFAULT_FALLBACK_SENDER_EMAIL,
+  brevoApiKey: DEFAULT_FALLBACK_BREVO_KEY,
   sendDayWeekly: 1,
   sendTime: '08:00',
   lastSentAt: null,
   lastStatus: null,
-  dailyRecipients: [],
+  dailyRecipients: DEFAULT_FALLBACK_RECIPIENTS,
   dailyIsActive: true,
   dailySendTime: '18:00',
   dailyLastSentAt: null,
   dailyLastStatus: null,
 };
 
-export async function getEmailRecapSettings(): Promise<EmailRecapSettings> {
+export async function getEmailRecapSettings(customClient?: SupabaseClient | null): Promise<EmailRecapSettings> {
+  const envDailyRecipients = process.env.DAILY_RECAP_EMAIL_RECIPIENTS
+    ? process.env.DAILY_RECAP_EMAIL_RECIPIENTS.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+
   try {
-    const supabase = await createClient();
+    const supabase = customClient || (await createClient());
     const { data, error } = await supabase
       .from('email_recap_settings')
       .select('*')
@@ -86,11 +99,18 @@ export async function getEmailRecapSettings(): Promise<EmailRecapSettings> {
     }
 
     if (error || !data) {
+      const fallbackRecipients =
+        Array.isArray(dailyBackup?.dailyRecipients) && dailyBackup.dailyRecipients.length > 0
+          ? dailyBackup.dailyRecipients
+          : envDailyRecipients.length > 0
+          ? envDailyRecipients
+          : DEFAULT_FALLBACK_RECIPIENTS;
+
       return {
         ...DEFAULT_SETTINGS,
-        brevoApiKey: process.env.BREVO_API_KEY || '',
-        senderEmail: process.env.BREVO_SENDER_EMAIL || '',
-        dailyRecipients: dailyBackup?.dailyRecipients || [],
+        brevoApiKey: DEFAULT_FALLBACK_BREVO_KEY,
+        senderEmail: DEFAULT_FALLBACK_SENDER_EMAIL,
+        dailyRecipients: fallbackRecipients,
         dailyIsActive: dailyBackup?.dailyIsActive ?? true,
         dailySendTime: dailyBackup?.dailySendTime || '18:00',
         dailyLastSentAt: dailyBackup?.dailyLastSentAt || null,
@@ -98,13 +118,17 @@ export async function getEmailRecapSettings(): Promise<EmailRecapSettings> {
       };
     }
 
-    // Prioritaskan kolom tabel jika ada data, fallback ke dailyBackup di ticketing_settings
+    // Prioritaskan kolom tabel jika ada data, fallback ke dailyBackup di ticketing_settings, lalu env/default
     const dailyRecipients =
       Array.isArray(data.daily_recipients) && data.daily_recipients.length > 0
         ? data.daily_recipients
-        : Array.isArray(dailyBackup?.dailyRecipients)
+        : Array.isArray(dailyBackup?.dailyRecipients) && dailyBackup.dailyRecipients.length > 0
         ? dailyBackup.dailyRecipients
-        : [];
+        : envDailyRecipients.length > 0
+        ? envDailyRecipients
+        : Array.isArray(data.recipients) && data.recipients.length > 0
+        ? data.recipients
+        : DEFAULT_FALLBACK_RECIPIENTS;
 
     const dailyIsActive =
       data.daily_is_active !== undefined
@@ -117,12 +141,12 @@ export async function getEmailRecapSettings(): Promise<EmailRecapSettings> {
 
     return {
       id: data.id,
-      recipients: Array.isArray(data.recipients) ? data.recipients : [],
+      recipients: Array.isArray(data.recipients) && data.recipients.length > 0 ? data.recipients : DEFAULT_FALLBACK_RECIPIENTS,
       frequency: data.frequency || 'mingguan',
       isActive: data.is_active ?? true,
-      senderName: data.sender_name || 'Magang ICONNET',
-      senderEmail: data.sender_email || process.env.BREVO_SENDER_EMAIL || '',
-      brevoApiKey: data.brevo_api_key || process.env.BREVO_API_KEY || '',
+      senderName: data.sender_name || 'SANS AGEN',
+      senderEmail: data.sender_email || DEFAULT_FALLBACK_SENDER_EMAIL,
+      brevoApiKey: data.brevo_api_key || DEFAULT_FALLBACK_BREVO_KEY,
       sendDayWeekly: data.send_day_weekly ?? 1,
       sendTime: data.send_time || '08:00',
       lastSentAt: data.last_sent_at,
@@ -139,8 +163,9 @@ export async function getEmailRecapSettings(): Promise<EmailRecapSettings> {
   } catch {
     return {
       ...DEFAULT_SETTINGS,
-      brevoApiKey: process.env.BREVO_API_KEY || '',
-      senderEmail: process.env.BREVO_SENDER_EMAIL || '',
+      brevoApiKey: DEFAULT_FALLBACK_BREVO_KEY,
+      senderEmail: DEFAULT_FALLBACK_SENDER_EMAIL,
+      dailyRecipients: DEFAULT_FALLBACK_RECIPIENTS,
     };
   }
 }
@@ -287,13 +312,17 @@ export function getDateRangeForRecap(periodType: 'mingguan' | 'bulanan'): {
 // Fungsi pengirim rekapan email via Brevo REST API
 export async function sendRecapEmailNow(
   periodType: 'mingguan' | 'bulanan',
-  overrideRecipients?: string[]
+  overrideRecipients?: string[],
+  customSupabaseClient?: SupabaseClient | null
 ): Promise<{ success: boolean; message?: string; error?: string }> {
-  const settings = await getEmailRecapSettings();
+  const supabase = customSupabaseClient || (await createClient());
+  const settings = await getEmailRecapSettings(supabase);
 
   const recipients = overrideRecipients && overrideRecipients.length > 0
     ? overrideRecipients
-    : settings.recipients;
+    : Array.isArray(settings.recipients) && settings.recipients.length > 0
+    ? settings.recipients
+    : DEFAULT_FALLBACK_RECIPIENTS;
 
   if (!recipients || recipients.length === 0) {
     return {
@@ -302,7 +331,7 @@ export async function sendRecapEmailNow(
     };
   }
 
-  const apiKey = (settings.brevoApiKey || process.env.BREVO_API_KEY || '').trim();
+  const apiKey = (settings.brevoApiKey || DEFAULT_FALLBACK_BREVO_KEY).trim();
   if (!apiKey) {
     return {
       success: false,
@@ -317,7 +346,7 @@ export async function sendRecapEmailNow(
     };
   }
 
-  const senderEmail = (settings.senderEmail || process.env.BREVO_SENDER_EMAIL || '').trim();
+  const senderEmail = (settings.senderEmail || DEFAULT_FALLBACK_SENDER_EMAIL).trim();
   if (!senderEmail) {
     return {
       success: false,
@@ -325,7 +354,6 @@ export async function sendRecapEmailNow(
     };
   }
 
-  const supabase = await createClient();
   const { startDate, endDate, title } = getDateRangeForRecap(periodType);
 
   // 1. Fetch data absensi dalam rentang tanggal
@@ -509,7 +537,8 @@ export async function sendDailyRecapEmailNow(
   targetDate?: string,
   overrideRecipients?: string[],
   forceSendOnHoliday = false,
-  skipAuthCheck = false
+  skipAuthCheck = false,
+  customSupabaseClient?: SupabaseClient | null
 ): Promise<{ success: boolean; message?: string; error?: string; isHolidaySkipped?: boolean }> {
   if (!skipAuthCheck) {
     const { isMaster } = await getCurrentUserProfile();
@@ -519,7 +548,7 @@ export async function sendDailyRecapEmailNow(
   }
 
   const workDate = targetDate || todayWITA();
-  const supabase = await createClient();
+  const supabase = customSupabaseClient || (await createClient());
 
   // Cek apakah workDate adalah hari libur (dari tabel setting holidays atau akhir pekan)
   const { data: holidayData } = await supabase
@@ -546,15 +575,17 @@ export async function sendDailyRecapEmailNow(
     };
   }
 
-  const settings = await getEmailRecapSettings();
+  const settings = await getEmailRecapSettings(supabase);
 
-  // Prioritaskan daftar email magang khusus. JANGAN PERNAH fallback ke email piket (settings.recipients)!
+  // Prioritaskan daftar email magang khusus, fallback ke settings.recipients, lalu DEFAULT_FALLBACK_RECIPIENTS
   const recipients =
     Array.isArray(overrideRecipients) && overrideRecipients.length > 0
       ? overrideRecipients
       : Array.isArray(settings.dailyRecipients) && settings.dailyRecipients.length > 0
       ? settings.dailyRecipients
-      : [];
+      : Array.isArray(settings.recipients) && settings.recipients.length > 0
+      ? settings.recipients
+      : DEFAULT_FALLBACK_RECIPIENTS;
 
   if (recipients.length === 0) {
     return {
@@ -563,7 +594,7 @@ export async function sendDailyRecapEmailNow(
     };
   }
 
-  const apiKey = (settings.brevoApiKey || process.env.BREVO_API_KEY || '').trim();
+  const apiKey = (settings.brevoApiKey || DEFAULT_FALLBACK_BREVO_KEY).trim();
   if (!apiKey) {
     return {
       success: false,
@@ -571,7 +602,7 @@ export async function sendDailyRecapEmailNow(
     };
   }
 
-  const senderEmail = (settings.senderEmail || process.env.BREVO_SENDER_EMAIL || '').trim();
+  const senderEmail = (settings.senderEmail || DEFAULT_FALLBACK_SENDER_EMAIL).trim();
   if (!senderEmail) {
     return {
       success: false,
@@ -579,7 +610,7 @@ export async function sendDailyRecapEmailNow(
     };
   }
 
-  const recap = await getDailyAttendanceRecap(workDate);
+  const recap = await getDailyAttendanceRecap(workDate, supabase);
 
   if (recap.error) {
     return { success: false, error: recap.error };
@@ -757,7 +788,6 @@ export async function sendDailyRecapEmailNow(
 
     // Update status ke database dan ticketing_settings backup
     try {
-      const supabase = await createClient();
       await supabase
         .from('email_recap_settings')
         .update({

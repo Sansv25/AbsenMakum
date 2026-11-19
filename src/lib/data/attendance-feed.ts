@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 import type { AttendanceFeedMessage, FeedType, GroupMemberInfo, FeedUser } from '@/lib/types/attendance-feed';
 
@@ -347,10 +348,11 @@ export async function createAttendanceFeedMessage(payload: {
  * - File media lampiran dari obrolan yang dihapus juga dibersihkan dari Supabase Storage.
  */
 export async function cleanupOldChatMessages(
-  hoursThreshold = 168
+  hoursThreshold = 168,
+  customClient?: SupabaseClient | null
 ): Promise<{ deletedCount: number; error?: string }> {
   try {
-    const supabase = await createClient();
+    const supabase = customClient || (await createClient());
 
     // Ambang batas waktu: 168 jam (7 hari) yang lalu
     const thresholdDate = new Date(Date.now() - hoursThreshold * 60 * 60 * 1000).toISOString();

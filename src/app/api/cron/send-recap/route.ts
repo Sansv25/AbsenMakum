@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createDirectClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getEmailRecapSettings, sendRecapEmailNow, sendDailyRecapEmailNow } from '@/lib/data/email-recap';
 import { cleanupOldChatMessages } from '@/lib/data/attendance-feed';
 
@@ -19,7 +20,43 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized cron request.' }, { status: 401 });
     }
 
-    const settings = await getEmailRecapSettings();
+    // Ekstraksi Bearer Token atau ?token= (jika dipanggil oleh Bot Runner / Admin)
+    const tokenParam = searchParams.get('token');
+    let bearerToken: string | null = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+    } else if (tokenParam) {
+      bearerToken = tokenParam.trim();
+    }
+
+    // Jika bearerToken sama dengan cronSecret, jangan gunakan sebagai token Supabase
+    if (bearerToken && cronSecret && bearerToken === cronSecret) {
+      bearerToken = null;
+    }
+
+    // Inisialisasi Supabase client:
+    // 1. SUPABASE_SERVICE_ROLE_KEY jika diset di server/Vercel (bypass RLS penuh)
+    // 2. bearerToken jika pemanggil menyertakan token autentikasi (misal Bot Runner akun Master)
+    // 3. Fallback ke createServerClient (cookies)
+    let supabase: SupabaseClient;
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      supabase = createDirectClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      );
+    } else if (bearerToken) {
+      supabase = createDirectClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          global: { headers: { Authorization: `Bearer ${bearerToken}` } },
+        }
+      );
+    } else {
+      supabase = await createServerClient();
+    }
+
+    const settings = await getEmailRecapSettings(supabase);
 
     // Waktu WITA (UTC+8)
     const now = new Date();
@@ -33,8 +70,6 @@ export async function GET(req: Request) {
     const mm = String(wita.getMonth() + 1).padStart(2, '0');
     const dd = String(wita.getDate()).padStart(2, '0');
     const todayWitaStr = `${yyyy}-${mm}-${dd}`;
-
-    const supabase = await createClient();
 
     // Cek apakah hari ini terdaftar di setting hari libur (tabel holidays)
     const { data: holidayData } = await supabase
@@ -104,7 +139,7 @@ export async function GET(req: Request) {
     const results = [];
 
     if (triggerDaily) {
-      const res = await sendDailyRecapEmailNow(todayWitaStr, undefined, forceType === 'harian', true);
+      const res = await sendDailyRecapEmailNow(todayWitaStr, undefined, forceType === 'harian', true, supabase);
       results.push({ type: 'harian', ...res });
     } else if (settings.dailyIsActive && isDayOff) {
       const [targetHour] = (settings.dailySendTime || '18:00').split(':').map(Number);
@@ -118,17 +153,17 @@ export async function GET(req: Request) {
     }
 
     if (triggerWeekly) {
-      const res = await sendRecapEmailNow('mingguan');
+      const res = await sendRecapEmailNow('mingguan', undefined, supabase);
       results.push({ type: 'mingguan', ...res });
     }
 
     if (triggerMonthly) {
-      const res = await sendRecapEmailNow('bulanan');
+      const res = await sendRecapEmailNow('bulanan', undefined, supabase);
       results.push({ type: 'bulanan', ...res });
     }
 
     // Pembersihan otomatis pesan obrolan (feed_type = 'chat') yang lebih lama dari 168 jam (7 hari)
-    const cleanupResult = await cleanupOldChatMessages(168);
+    const cleanupResult = await cleanupOldChatMessages(168, supabase);
     results.push({ type: 'cleanup_chat_168h', ...cleanupResult });
 
     if (!triggerDaily && !triggerWeekly && !triggerMonthly) {

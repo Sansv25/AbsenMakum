@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseManualAdminTag } from '@/lib/data/attendance-feed';
 import type { AppRole } from '@/lib/supabase/types';
 
@@ -38,10 +39,11 @@ export interface DailyAttendanceRecapResult {
  * Mengambil rekapan kehadiran absen harian (khusus anak magang & semua petugas) untuk tanggal tertentu
  */
 export async function getDailyAttendanceRecap(
-  workDate: string
+  workDate: string,
+  customClient?: SupabaseClient | null
 ): Promise<DailyAttendanceRecapResult> {
   try {
-    const supabase = await createClient();
+    const supabase = customClient || (await createClient());
 
     // 1. Ambil semua profil pengguna yang disetujui (aktif)
     const { data: rawProfiles, error: profErr } = await supabase
