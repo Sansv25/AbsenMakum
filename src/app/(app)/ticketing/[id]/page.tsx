@@ -11,6 +11,7 @@ import { buildFirstMessage } from '@/lib/ticketing/buildFirstMessage';
 import { TicketEditModal } from '@/components/ticketing/ticket-edit-modal';
 import { DeleteTicketModal } from '@/components/ticketing/delete-ticket-modal';
 import { broadcastTicketChange } from '@/lib/ticketing/realtime';
+import { showConfirm } from '@/lib/swal';
 import {
   ArrowLeft,
   Copy,
@@ -406,7 +407,13 @@ function TicketDetailContent() {
   // Handle Close Ticket
   const handleCloseTicket = async () => {
     if (!ticket) return;
-    if (!confirm('Apakah Anda yakin ingin menyelesaikan / menutup tiket ini?')) return;
+    const confirmed = await showConfirm(
+      'Selesaikan Tiket?',
+      'Apakah Anda yakin ingin menyelesaikan / menutup tiket ini?',
+      'Ya, Selesaikan',
+      false
+    );
+    if (!confirmed) return;
 
     setClosingTicket(true);
     setActionError(null);
@@ -639,9 +646,11 @@ function TicketDetailContent() {
 
   const handleRequeueTicket = async () => {
     if (!ticket || requeuingTicket) return;
-    const confirmRequeue = window.confirm(
-      `Apakah Anda yakin ingin MENGANTREKAN ULANG tiket "${ticket.name}"?\n\n` +
-      `Tiket akan dikembalikan ke status 'Antrean' dan seluruh riwayat chat akan direset agar bot mengirim ulang pesan pembuka ke Instagram.`
+    const confirmRequeue = await showConfirm(
+      'Antrekan Ulang Tiket?',
+      `Apakah Anda yakin ingin MENGANTREKAN ULANG tiket "${ticket.name}"?\n\nTiket akan dikembalikan ke status 'Antrean' dan seluruh riwayat chat akan direset agar bot mengirim ulang pesan pembuka ke Instagram.`,
+      'Ya, Antrekan Ulang',
+      false
     );
     if (!confirmRequeue) return;
 

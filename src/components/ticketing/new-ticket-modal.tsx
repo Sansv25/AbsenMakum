@@ -6,7 +6,7 @@ import { parseCustomerBlock } from '@/lib/ticketing/parseCustomerBlock';
 import { ticketInputSchema } from '@/lib/ticketing/validation';
 import { TicketImageUploader } from '@/components/ticketing/ticket-image-uploader';
 import type { CompressedImageResult } from '@/lib/ticketing/compressImage';
-import type { Ticket } from '@/lib/ticketing/types';
+import type { Ticket, TicketStatus } from '@/lib/ticketing/types';
 import {
   X,
   ClipboardPaste,
@@ -21,8 +21,9 @@ import {
   FileText,
   ImageIcon,
 } from 'lucide-react';
-import { showToast } from '@/lib/swal';
+import { customSwal, showToast } from '@/lib/swal';
 import { broadcastTicketChange } from '@/lib/ticketing/realtime';
+import { getStatusLabel, formatDateWITA } from '@/lib/ticketing/format';
 
 interface NewTicketModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export function NewTicketModal({
 
   const [pasteInput, setPasteInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [selectedImages, setSelectedImages] = useState<CompressedImageResult[]>([]);
@@ -157,7 +159,7 @@ Lampu indikator LOS berkedip merah sejak pagi hari, koneksi internet terputus.`;
     }
   };
 
-  const handleNextFromStep2 = () => {
+  const handleNextFromStep2 = async () => {
     setErrorMsg(null);
     setFormErrors({});
 
@@ -173,7 +175,89 @@ Lampu indikator LOS berkedip merah sejak pagi hari, koneksi internet terputus.`;
       return;
     }
 
-    setStep(3);
+    const cleanCustId = formData.customer_id.trim();
+    if (!cleanCustId) {
+      setStep(3);
+      return;
+    }
+
+    setCheckingDuplicate(true);
+    try {
+      const supabase = createClient();
+      const { data: existingTickets, error: checkError } = await supabase
+        .from('tickets')
+        .select('id, name, customer_id, status, ticket_number, created_at')
+        .eq('customer_id', cleanCustId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (checkError) {
+        console.error('Error checking duplicate customer_id:', checkError);
+      } else if (existingTickets && existingTickets.length > 0) {
+        const ticketsHtml = existingTickets
+          .map((t) => {
+            const stLabel = getStatusLabel(t.status as TicketStatus);
+            const dateFormatted = formatDateWITA(t.created_at);
+            const num = t.ticket_number
+              ? `<div style="margin-top: 4px; font-size: 11px; font-family: monospace; color: #10b981; font-weight: 700;">No. Tiket: ${t.ticket_number}</div>`
+              : '';
+            return `
+              <div style="background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 8px;">
+                  <span style="font-weight: 700; font-size: 12px;">${t.name}</span>
+                  <span style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: rgba(59, 130, 246, 0.15); color: #2563eb;">${stLabel}</span>
+                </div>
+                <div style="font-size: 11px; opacity: 0.8;">
+                  Dibuat: <b>${dateFormatted}</b>
+                </div>
+                ${num}
+              </div>
+            `;
+          })
+          .join('');
+
+        const confirmProceed = await customSwal.fire({
+          title: 'ID Pelanggan Sudah Pernah Dibuat!',
+          html: `
+            <div style="text-align: left; font-size: 12px; line-height: 1.5;">
+              <p style="margin-bottom: 10px;">
+                Pelanggan dengan ID <b style="color: #2563eb; font-family: monospace;">${cleanCustId}</b> ditemukan sudah memiliki riwayat tiket di sistem:
+              </p>
+              <div style="max-height: 180px; overflow-y: auto; margin-bottom: 12px;">
+                ${ticketsHtml}
+              </div>
+              <p style="font-weight: 600; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(148, 163, 184, 0.2);">
+                Apakah Anda yakin ingin tetap membuat tiket baru untuk ID Pelanggan ini?
+              </p>
+            </div>
+          `,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Ya, Tetap Lanjut Buat Tiket',
+          cancelButtonText: 'Batal / Periksa Dulu',
+          reverseButtons: true,
+          focusCancel: true,
+          buttonsStyling: false,
+          customClass: {
+            popup: 'rounded-2xl shadow-xl border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 font-sans p-6 text-left',
+            title: 'text-base font-bold text-gray-900 dark:text-slate-100 mb-2',
+            htmlContainer: 'text-xs text-gray-600 dark:text-slate-300 leading-relaxed',
+            confirmButton:
+              'px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 shadow-sm mx-1.5 transition-colors',
+            cancelButton:
+              'px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700 mx-1.5 transition-colors',
+          },
+        });
+
+        if (!confirmProceed.isConfirmed) {
+          return;
+        }
+      }
+
+      setStep(3);
+    } finally {
+      setCheckingDuplicate(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -387,11 +471,12 @@ Lampu indikator LOS berkedip merah sejak pagi hari, koneksi internet terputus.`;
           <button
             type="button"
             onClick={handleNextFromStep2}
+            disabled={checkingDuplicate}
             className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-bold transition text-left ${
               step === 3
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-gray-600 dark:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800'
-            }`}
+            } disabled:opacity-50`}
           >
             <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] shrink-0 ${
               step === 3 ? 'bg-white text-blue-600' : 'bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-slate-300'
@@ -768,10 +853,20 @@ Kendala: Lampu LOS merah kedip-kedip, internet tidak bisa connect."
               <button
                 type="button"
                 onClick={handleNextFromStep2}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                disabled={checkingDuplicate}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs disabled:opacity-50"
               >
-                <span>Lanjut ke Upload Foto</span>
-                <ArrowRight className="h-3.5 w-3.5" />
+                {checkingDuplicate ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Memeriksa Duplikat...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Lanjut ke Upload Foto</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </>
+                )}
               </button>
             )}
 

@@ -17,6 +17,7 @@ import {
   TICKETS_REALTIME_CHANNEL,
   type TicketBroadcastPayload,
 } from '@/lib/ticketing/realtime';
+import { showAlert, showConfirm } from '@/lib/swal';
 import {
   Search,
   ArrowUp,
@@ -66,9 +67,11 @@ export default function TicketingDashboardPage() {
   const [requeuingId, setRequeuingId] = useState<string | null>(null);
 
   const handleRequeueTicket = async (ticket: Ticket) => {
-    const confirmRequeue = window.confirm(
-      `Apakah Anda yakin ingin MENGANTREKAN ULANG tiket "${ticket.name}"?\n\n` +
-      `Tiket akan dikembalikan ke status 'Antrean' dan riwayat chat akan direset agar bot mengirim ulang pesan pembuka ke Instagram.`
+    const confirmRequeue = await showConfirm(
+      'Antrekan Ulang Tiket?',
+      `Apakah Anda yakin ingin MENGANTREKAN ULANG tiket "${ticket.name}"?\n\nTiket akan dikembalikan ke status 'Antrean' dan riwayat chat akan direset agar bot mengirim ulang pesan pembuka ke Instagram.`,
+      'Ya, Antrekan Ulang',
+      false
     );
     if (!confirmRequeue) return;
 
@@ -85,7 +88,11 @@ export default function TicketingDashboardPage() {
       await broadcastTicketChange(supabase, 'requeue', { ticketId: ticket.id });
       await fetchTickets();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Gagal mengantrekan ulang tiket');
+      await showAlert(
+        'Gagal Mengantrekan Ulang',
+        err instanceof Error ? err.message : 'Gagal mengantrekan ulang tiket',
+        'error'
+      );
     } finally {
       setRequeuingId(null);
     }
