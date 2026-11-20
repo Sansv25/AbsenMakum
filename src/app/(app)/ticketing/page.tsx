@@ -25,6 +25,7 @@ import {
   Copy,
   Check,
   Ticket as TicketIcon,
+  ChevronLeft,
   ChevronRight,
   User,
   AlertCircle,
@@ -53,6 +54,8 @@ export default function TicketingDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
   const [syncing, setSyncing] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -521,6 +524,14 @@ export default function TicketingDashboardPage() {
     return result;
   }, [tickets, statusFilter, searchQuery, queueOrder]);
 
+  // Pagination calculations
+  const totalItems = filteredTickets.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
+
   const statusTabs: { key: string; label: string }[] = [
     { key: 'all', label: 'Semua' },
     { key: 'queued', label: 'Antrean' },
@@ -634,7 +645,10 @@ export default function TicketingDashboardPage() {
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setStatusFilter(tab.key)}
+                onClick={() => {
+                  setStatusFilter(tab.key);
+                  setCurrentPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-xs'
@@ -663,7 +677,10 @@ export default function TicketingDashboardPage() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Cari nama, ID, tiket, pembuat..."
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -744,9 +761,10 @@ export default function TicketingDashboardPage() {
           /* ========================================================================= */
           /* TAMPILAN KARTU LENGKAP (VERSI LEBIH BESAR, LEGA, DAN MENAMPUNG DETAIL)     */
           /* ========================================================================= */
-          filteredTickets.map((ticket, index) => {
+          paginatedTickets.map((ticket, index) => {
             const isQueued = ticket.status === 'queued';
             const hasTicketNo = !!ticket.ticket_number;
+            const globalIndex = startIndex + index;
 
             return (
               <div
@@ -761,21 +779,21 @@ export default function TicketingDashboardPage() {
                       <div className="flex flex-col gap-1 items-center flex-shrink-0 pt-0.5 bg-gray-50 dark:bg-slate-800 p-1.5 rounded-xl border border-gray-200 dark:border-slate-700">
                         <button
                           type="button"
-                          disabled={index === 0}
+                          disabled={globalIndex === 0}
                           onClick={() => handleMoveQueue(ticket.id, 'up')}
-                          className="p-1 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-30 transition"
+                          className="p-1 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-30 transition cursor-pointer"
                           title="Naikkan urutan antrean"
                         >
                           <ArrowUp className="h-3.5 w-3.5" />
                         </button>
                         <span className="text-[10px] font-bold text-gray-500 font-mono">
-                          #{index + 1}
+                          #{globalIndex + 1}
                         </span>
                         <button
                           type="button"
-                          disabled={index === filteredTickets.length - 1}
+                          disabled={globalIndex === filteredTickets.length - 1}
                           onClick={() => handleMoveQueue(ticket.id, 'down')}
-                          className="p-1 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-30 transition"
+                          className="p-1 rounded-md text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-700 disabled:opacity-30 transition cursor-pointer"
                           title="Turunkan urutan antrean"
                         >
                           <ArrowDown className="h-3.5 w-3.5" />
@@ -1045,9 +1063,10 @@ export default function TicketingDashboardPage() {
             </div>
 
             {/* List Rows */}
-            {filteredTickets.map((ticket, index) => {
+            {paginatedTickets.map((ticket, index) => {
               const isQueued = ticket.status === 'queued';
               const hasTicketNo = !!ticket.ticket_number;
+              const globalIndex = startIndex + index;
 
               return (
                 <div
@@ -1073,7 +1092,7 @@ export default function TicketingDashboardPage() {
 
                     {isQueued && statusFilter === 'queued' && (
                       <span className="text-[10px] font-mono font-bold text-gray-500 bg-gray-100 dark:bg-slate-800 px-1 py-0.2 rounded">
-                        #{index + 1}
+                        #{globalIndex + 1}
                       </span>
                     )}
 
@@ -1208,6 +1227,99 @@ export default function TicketingDashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {totalItems > 0 && (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-4 border border-gray-200/90 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs transition-colors">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <p className="text-gray-500 dark:text-slate-400">
+              Menampilkan <strong className="text-gray-900 dark:text-slate-100">{startIndex + 1}</strong> &ndash;{' '}
+              <strong className="text-gray-900 dark:text-slate-100">{endIndex}</strong> dari{' '}
+              <strong className="text-gray-900 dark:text-slate-100">{totalItems}</strong> tiket
+            </p>
+
+            <div className="flex items-center gap-1.5 text-gray-500 dark:text-slate-400">
+              <span className="hidden sm:inline text-[11px]">Tampilkan:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-gray-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value={10}>10 / hal</option>
+                <option value={20}>20 / hal</option>
+                <option value={50}>50 / hal</option>
+                <option value={100}>100 / hal</option>
+              </select>
+            </div>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5 self-center sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage <= 1}
+                className="px-2.5 sm:px-3 py-1.5 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-750 disabled:opacity-30 disabled:cursor-not-allowed font-medium transition flex items-center gap-1 min-h-[34px] cursor-pointer"
+                title="Halaman Sebelumnya"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Sebelumnya</span>
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => {
+                    return (
+                      p === 1 ||
+                      p === totalPages ||
+                      Math.abs(p - safeCurrentPage) <= 1
+                    );
+                  })
+                  .map((p, idx, arr) => {
+                    const prev = arr[idx - 1];
+                    const showEllipsis = prev && p - prev > 1;
+                    const isActive = p === safeCurrentPage;
+
+                    return (
+                      <div key={p} className="flex items-center">
+                        {showEllipsis && (
+                          <span className="px-1 text-gray-400 dark:text-slate-500 font-bold select-none">
+                            ...
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage(p)}
+                          className={`w-8 h-8 rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer ${
+                            isActive
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 border border-gray-200/60 dark:border-slate-700/60'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage >= totalPages}
+                className="px-2.5 sm:px-3 py-1.5 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-750 disabled:opacity-30 disabled:cursor-not-allowed font-medium transition flex items-center gap-1 min-h-[34px] cursor-pointer"
+                title="Halaman Berikutnya"
+              >
+                <span className="hidden sm:inline">Berikutnya</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Modal Edit Tiket & Output */}
       <TicketEditModal
