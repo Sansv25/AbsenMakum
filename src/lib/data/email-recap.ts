@@ -655,7 +655,7 @@ export async function sendDailyRecapEmailNow(
           <td style="padding: 10px 12px; font-size: 12px; color: #166534; font-weight: bold; text-align: center;">
             <span style="background: #dcfce7; padding: 4px 10px; border-radius: 9999px;">✓ Hadir</span>
           </td>
-          <td style="padding: 10px 12px; font-size: 13px; color: #0f172a; font-weight: 700; text-align: center;">${r.attendanceTime ? r.attendanceTime + ' WITA' : '-'}</td>
+          <td style="padding: 10px 12px; font-size: 13px; color: #0f172a; font-weight: 700; text-align: center;">${r.attendanceTime ? (r.attendanceTime.includes('WITA') ? r.attendanceTime : r.attendanceTime + ' WITA') : '-'}</td>
         </tr>
       `
           )
