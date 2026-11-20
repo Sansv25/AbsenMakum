@@ -271,14 +271,36 @@ export function getDateRangeForRecap(periodType: 'mingguan' | 'bulanan'): {
   const witaDate = new Date(nowUtc + 8 * 3600000);
 
   if (periodType === 'mingguan') {
-    // 7 hari terakhir hingga hari ini
-    const end = new Date(witaDate);
-    const start = new Date(witaDate);
-    start.setDate(end.getDate() - 6);
+    // Rekapan mingguan: Periode 1 minggu penuh dari hari SENIN s/d MINGGU
+    const curDate = new Date(witaDate.getFullYear(), witaDate.getMonth(), witaDate.getDate());
+    const dayOfWeek = curDate.getDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
 
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const startStr = fmt(start);
-    const endStr = fmt(end);
+    let monDate: Date;
+    let sunDate: Date;
+
+    if (dayOfWeek === 1) {
+      // Jika hari ini Senin: rekap 1 minggu kemarin penuh (Senin s/d Minggu kemarin)
+      monDate = new Date(curDate);
+      monDate.setDate(curDate.getDate() - 7);
+      sunDate = new Date(curDate);
+      sunDate.setDate(curDate.getDate() - 1);
+    } else {
+      // Jika hari lain: rekap minggu ini (Senin s/d Minggu berjalan)
+      const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      monDate = new Date(curDate);
+      monDate.setDate(curDate.getDate() + diffToMon);
+      sunDate = new Date(monDate);
+      sunDate.setDate(monDate.getDate() + 6);
+    }
+
+    const fmt = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    const startStr = fmt(monDate);
+    const endStr = fmt(sunDate);
 
     return {
       startDate: startStr,

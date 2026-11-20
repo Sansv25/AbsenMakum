@@ -140,7 +140,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
       return;
     }
 
-    const periodLabel = periodType === 'mingguan' ? 'Mingguan (7 hari terakhir)' : 'Bulanan (1 bulan saat ini)';
+    const periodLabel = periodType === 'mingguan' ? 'Mingguan (Senin s/d Minggu)' : 'Bulanan (1 bulan saat ini)';
     const confirmed = await showConfirm(
       `Kirim Rekapan ${periodType === 'mingguan' ? 'Mingguan' : 'Bulanan'} Sekarang?`,
       `Sistem akan mengompilasi laporan rekapan ${periodLabel} menjadi dokumen PDF resmi dan langsung mengirimkannya ke ${settings.recipients.length} email penerima.`,

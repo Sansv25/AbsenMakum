@@ -78,6 +78,87 @@ export function RekapPiketSection({
   // Set Holiday Map & Set
   const holidaySet = useMemo(() => new Set(holidays.map((h) => h.holiday_date)), [holidays]);
 
+  // Reset selectedWeek jika user mengganti bulan atau tahun
+  useEffect(() => {
+    setSelectedWeek(0);
+  }, [selectedMonthIndex, selectedYear]);
+
+  // Generate daftar minggu kalender (Senin s/d Minggu) untuk bulan yang dipilih
+  const monthWeeks = useMemo(() => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const daysInSelectedMonth = new Date(Date.UTC(selectedYear, selectedMonthIndex + 1, 0)).getUTCDate();
+
+    // Cari hari Senin pertama yang bersinggungan dengan bulan terpilih
+    const d1 = new Date(Date.UTC(selectedYear, selectedMonthIndex, 1));
+    const dow1 = d1.getUTCDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
+    const diffToFirstMon = dow1 === 0 ? -6 : 1 - dow1;
+
+    const cursorMon = new Date(Date.UTC(selectedYear, selectedMonthIndex, 1 + diffToFirstMon));
+    const list: {
+      id: number;
+      startDate: string;
+      endDate: string;
+      label: string;
+      isCurrentWeek: boolean;
+    }[] = [];
+
+    // Hari ini (WITA)
+    const curToday = new Date(`${today}T00:00:00Z`);
+    const curDow = curToday.getUTCDay();
+    const curDiffToMon = curDow === 0 ? -6 : 1 - curDow;
+    const thisWeekMon = new Date(curToday);
+    thisWeekMon.setUTCDate(curToday.getUTCDate() + curDiffToMon);
+    const thisWeekMonStr = thisWeekMon.toISOString().slice(0, 10);
+
+    const monthStartStr = `${selectedYear}-${pad(selectedMonthIndex + 1)}-01`;
+    const monthEndStr = `${selectedYear}-${pad(selectedMonthIndex + 1)}-${pad(daysInSelectedMonth)}`;
+
+    let weekNum = 1;
+    while (true) {
+      const cursorSun = new Date(cursorMon);
+      cursorSun.setUTCDate(cursorMon.getUTCDate() + 6);
+
+      const sStr = cursorMon.toISOString().slice(0, 10);
+      const eStr = cursorSun.toISOString().slice(0, 10);
+
+      // Lewati jika sebelum bulan terpilih
+      if (eStr < monthStartStr) {
+        cursorMon.setUTCDate(cursorMon.getUTCDate() + 7);
+        continue;
+      }
+
+      // Hentikan jika sudah lewat akhir bulan
+      if (sStr > monthEndStr) {
+        break;
+      }
+
+      const isCurrent = sStr === thisWeekMonStr;
+
+      const sDay = cursorMon.getUTCDate();
+      const sMon = MONTH_NAMES[cursorMon.getUTCMonth()];
+      const eDay = cursorSun.getUTCDate();
+      const eMon = MONTH_NAMES[cursorSun.getUTCMonth()];
+
+      const dateRangeText =
+        sMon === eMon
+          ? `${sDay} - ${eDay} ${sMon} ${cursorSun.getUTCFullYear()}`
+          : `${sDay} ${sMon} - ${eDay} ${eMon} ${cursorSun.getUTCFullYear()}`;
+
+      list.push({
+        id: weekNum,
+        startDate: sStr,
+        endDate: eStr,
+        label: `Minggu ke-${weekNum} (${dateRangeText})${isCurrent ? ' • Minggu Ini' : ''}`,
+        isCurrentWeek: isCurrent,
+      });
+
+      weekNum++;
+      cursorMon.setUTCDate(cursorMon.getUTCDate() + 7);
+    }
+
+    return list;
+  }, [selectedYear, selectedMonthIndex, today]);
+
   // Hitung rentang tanggal (startDate & endDate) berdasarkan filter yang aktif
   const { startDate, endDate, periodLabel } = useMemo(() => {
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -101,8 +182,8 @@ export function RekapPiketSection({
           periodLabel: `Semua Minggu • ${MONTH_NAMES[selectedMonthIndex]} ${selectedYear}`,
         };
       }
-      if (selectedWeek === 6) {
-        // Minggu Ini (7 hari terakhir dari hari ini)
+      if (selectedWeek === -1 || selectedWeek === 6) {
+        // Minggu Ini (Senin s/d Minggu minggu berjalan)
         const curDate = new Date(`${today}T00:00:00Z`);
         const dayOfWeek = curDate.getUTCDay(); // 0 = Min, 1 = Sen
         const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -113,20 +194,33 @@ export function RekapPiketSection({
 
         const sStr = mon.toISOString().slice(0, 10);
         const eStr = sun.toISOString().slice(0, 10);
+        const sMon = MONTH_NAMES[mon.getUTCMonth()];
+        const eMon = MONTH_NAMES[sun.getUTCMonth()];
+        const dateRangeText =
+          sMon === eMon
+            ? `${mon.getUTCDate()} - ${sun.getUTCDate()} ${sMon} ${sun.getUTCFullYear()}`
+            : `${mon.getUTCDate()} ${sMon} - ${sun.getUTCDate()} ${eMon} ${sun.getUTCFullYear()}`;
+
         return {
           startDate: sStr,
           endDate: eStr,
-          periodLabel: `Minggu Ini (${mon.getUTCDate()} - ${sun.getUTCDate()} ${MONTH_NAMES[mon.getUTCMonth()]})`,
+          periodLabel: `Minggu Ini (${dateRangeText} • Senin - Minggu)`,
         };
       }
 
-      // Minggu 1..5
-      const startDay = (selectedWeek - 1) * 7 + 1;
-      const endDay = Math.min(selectedWeek * 7, daysInSelectedMonth);
+      const foundWeek = monthWeeks.find((w) => w.id === selectedWeek);
+      if (foundWeek) {
+        return {
+          startDate: foundWeek.startDate,
+          endDate: foundWeek.endDate,
+          periodLabel: `${foundWeek.label} (Senin - Minggu)`,
+        };
+      }
+
       return {
-        startDate: `${yearMonthStr}-${pad(startDay)}`,
-        endDate: `${yearMonthStr}-${pad(endDay)}`,
-        periodLabel: `Minggu ke-${selectedWeek} (${startDay} - ${endDay} ${MONTH_NAMES[selectedMonthIndex]} ${selectedYear})`,
+        startDate: `${yearMonthStr}-01`,
+        endDate: `${yearMonthStr}-${pad(daysInSelectedMonth)}`,
+        periodLabel: `Semua Minggu • ${MONTH_NAMES[selectedMonthIndex]} ${selectedYear}`,
       };
     }
 
@@ -146,6 +240,38 @@ export function RekapPiketSection({
         startDate: today,
         endDate: today,
         periodLabel: `Hari Ini (${today})`,
+      };
+    }
+    if (activePreset === 'minggu_ini') {
+      const curDate = new Date(`${today}T00:00:00Z`);
+      const dayOfWeek = curDate.getUTCDay(); // 0 = Min, 1 = Sen
+      const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const mon = new Date(curDate);
+      mon.setUTCDate(curDate.getUTCDate() + diffToMon);
+      const sun = new Date(mon);
+      sun.setUTCDate(mon.getUTCDate() + 6);
+      const sStr = mon.toISOString().slice(0, 10);
+      const eStr = sun.toISOString().slice(0, 10);
+      return {
+        startDate: sStr,
+        endDate: eStr,
+        periodLabel: `Minggu Ini (${sStr} s/d ${eStr} • Senin - Minggu)`,
+      };
+    }
+    if (activePreset === 'minggu_lalu') {
+      const curDate = new Date(`${today}T00:00:00Z`);
+      const dayOfWeek = curDate.getUTCDay(); // 0 = Min, 1 = Sen
+      const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const mon = new Date(curDate);
+      mon.setUTCDate(curDate.getUTCDate() + diffToMon - 7);
+      const sun = new Date(mon);
+      sun.setUTCDate(mon.getUTCDate() + 6);
+      const sStr = mon.toISOString().slice(0, 10);
+      const eStr = sun.toISOString().slice(0, 10);
+      return {
+        startDate: sStr,
+        endDate: eStr,
+        periodLabel: `Minggu Lalu (${sStr} s/d ${eStr} • Senin - Minggu)`,
       };
     }
     if (activePreset === '7_hari') {
@@ -193,6 +319,7 @@ export function RekapPiketSection({
     selectedMonthIndex,
     selectedYear,
     selectedWeek,
+    monthWeeks,
     customStartDate,
     customEndDate,
     activePreset,
@@ -503,15 +630,15 @@ export function RekapPiketSection({
               <select
                 value={selectedWeek}
                 onChange={(e) => setSelectedWeek(Number(e.target.value))}
-                className="py-1.5 px-3 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="py-1.5 px-3 text-xs font-semibold rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-blue-600 dark:text-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
               >
                 <option value={0}>Semua Minggu (1 Bulan Penuh)</option>
-                <option value={1}>Minggu ke-1 (Tgl 1 - 7)</option>
-                <option value={2}>Minggu ke-2 (Tgl 8 - 14)</option>
-                <option value={3}>Minggu ke-3 (Tgl 15 - 21)</option>
-                <option value={4}>Minggu ke-4 (Tgl 22 - 28)</option>
-                <option value={5}>Minggu ke-5 (Tgl 29 - Akhir)</option>
-                <option value={6}>Minggu Ini (7 Hari Berjalan)</option>
+                <option value={-1}>Minggu Ini (Senin - Minggu Berjalan)</option>
+                {monthWeeks.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -544,6 +671,8 @@ export function RekapPiketSection({
           <div className="flex items-center gap-2 flex-wrap pt-1">
             {[
               { id: 'hari_ini', label: 'Hari Ini' },
+              { id: 'minggu_ini', label: 'Minggu Ini (Senin-Minggu)' },
+              { id: 'minggu_lalu', label: 'Minggu Lalu (Senin-Minggu)' },
               { id: '7_hari', label: '7 Hari Terakhir' },
               { id: '30_hari', label: '30 Hari Terakhir' },
               { id: 'bulan_ini', label: 'Bulan Ini' },
