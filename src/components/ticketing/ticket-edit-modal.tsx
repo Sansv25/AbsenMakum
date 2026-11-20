@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { broadcastTicketChange } from '@/lib/ticketing/realtime';
 import type { Ticket, TicketStatus, TicketMode } from '@/lib/ticketing/types';
 import { X, Save, Loader2, Edit3, Hash, ShieldAlert } from 'lucide-react';
 
@@ -101,6 +103,12 @@ export function TicketEditModal({
       if (!res.ok) {
         throw new Error(data.error || 'Gagal menyimpan pembaruan tiket.');
       }
+
+      const supabase = createClient();
+      await broadcastTicketChange(supabase, 'update', {
+        ticketId: ticket.id,
+        ticket: data.ticket || ticket,
+      });
 
       onSuccess(data.ticket);
       onClose();

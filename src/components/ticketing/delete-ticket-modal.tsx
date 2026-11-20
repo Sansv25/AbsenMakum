@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { broadcastTicketChange } from '@/lib/ticketing/realtime';
 import type { Ticket } from '@/lib/ticketing/types';
 import { Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 
@@ -35,6 +37,9 @@ export function DeleteTicketModal({
       if (!res.ok) {
         throw new Error(data.error || 'Gagal menghapus tiket.');
       }
+
+      const supabase = createClient();
+      await broadcastTicketChange(supabase, 'delete', { ticketId: ticket.id });
 
       onSuccess(ticket.id);
       onClose();

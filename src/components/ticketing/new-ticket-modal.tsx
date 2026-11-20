@@ -22,6 +22,7 @@ import {
   ImageIcon,
 } from 'lucide-react';
 import { showToast } from '@/lib/swal';
+import { broadcastTicketChange } from '@/lib/ticketing/realtime';
 
 interface NewTicketModalProps {
   isOpen: boolean;
@@ -280,6 +281,12 @@ Lampu indikator LOS berkedip merah sejak pagi hari, koneksi internet terputus.`;
       } catch (queueErr) {
         console.warn('Could not update queue order:', queueErr);
       }
+
+      // Siarkan penambahan tiket baru ke seluruh perangkat lain secara real-time
+      await broadcastTicketChange(supabase, 'create', {
+        ticketId: ticket.id,
+        ticket,
+      });
 
       showToast(`Tiket pelanggan ${ticket.name} berhasil dibuat!`, 'success');
       onSuccess(ticket as Ticket);

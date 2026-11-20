@@ -13,6 +13,11 @@ import { TicketEditModal } from '@/components/ticketing/ticket-edit-modal';
 import { DeleteTicketModal } from '@/components/ticketing/delete-ticket-modal';
 import { NewTicketModal } from '@/components/ticketing/new-ticket-modal';
 import {
+  broadcastTicketChange,
+  TICKETS_REALTIME_CHANNEL,
+  type TicketBroadcastPayload,
+} from '@/lib/ticketing/realtime';
+import {
   Search,
   ArrowUp,
   ArrowDown,
@@ -76,6 +81,8 @@ export default function TicketingDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Gagal mengantrekan ulang tiket');
+      const supabase = createClient();
+      await broadcastTicketChange(supabase, 'requeue', { ticketId: ticket.id });
       await fetchTickets();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Gagal mengantrekan ulang tiket');
@@ -232,10 +239,32 @@ export default function TicketingDashboardPage() {
   useEffect(() => {
     fetchTickets();
 
-    // Supabase Realtime subscription
+    // Supabase Realtime WebSocket subscription (Broadcast + Postgres changes)
     const supabase = createClient();
-    const channel = supabase
-      .channel('tickets-realtime-feed')
+    const channel = supabase.channel(TICKETS_REALTIME_CHANNEL, {
+      config: {
+        broadcast: { self: false },
+      },
+    });
+
+    channel
+      .on('broadcast', { event: 'ticket_changed' }, (payload) => {
+        const p = (payload as Record<string, unknown>)?.payload as TicketBroadcastPayload | undefined;
+        // Jika ada tiket baru yang dibuat di perangkat lain, masukkan langsung secara instan
+        if (p?.action === 'create' && p?.ticket) {
+          const newT = p.ticket as Ticket;
+          setTickets((prev) => {
+            if (prev.some((t) => t.id === newT.id)) return prev;
+            return [newT, ...prev];
+          });
+        } else if (p?.action === 'delete' && p?.ticketId) {
+          setTickets((prev) => prev.filter((t) => t.id !== p.ticketId));
+        } else if (p?.action === 'reorder' && Array.isArray(p?.queueOrder)) {
+          setQueueOrder(p.queueOrder);
+        }
+        // Sinkronkan data lengkap dari server
+        fetchTickets();
+      })
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tickets' },
@@ -245,7 +274,24 @@ export default function TicketingDashboardPage() {
       )
       .subscribe();
 
+    // Background polling setiap 3.5 detik sebagai backup jika koneksi WebSocket terputus/idle
+    const pollInterval = setInterval(() => {
+      fetchTickets();
+    }, 3500);
+
+    // Segera perbarui saat tab/jendela kembali aktif (misal switch tab atau buka layar HP)
+    const handleSyncOnFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchTickets();
+      }
+    };
+    window.addEventListener('focus', handleSyncOnFocus);
+    document.addEventListener('visibilitychange', handleSyncOnFocus);
+
     return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleSyncOnFocus);
+      document.removeEventListener('visibilitychange', handleSyncOnFocus);
       supabase.removeChannel(channel);
     };
   }, [fetchTickets]);
@@ -340,6 +386,8 @@ export default function TicketingDashboardPage() {
     try {
       await fetch('/api/ticketing/sync-chat', { method: 'POST' });
       await fetchTickets();
+      const supabase = createClient();
+      await broadcastTicketChange(supabase, 'sync');
     } finally {
       setSyncing(false);
     }
@@ -407,6 +455,8 @@ export default function TicketingDashboardPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticketIds: newOrder }),
     });
+    const supabase = createClient();
+    await broadcastTicketChange(supabase, 'reorder', { queueOrder: newOrder });
   };
 
   const handleMoveQueue = async (id: string, direction: 'up' | 'down') => {

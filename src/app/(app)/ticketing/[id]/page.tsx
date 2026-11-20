@@ -10,6 +10,7 @@ import { compressImage, formatFileSize } from '@/lib/ticketing/compressImage';
 import { buildFirstMessage } from '@/lib/ticketing/buildFirstMessage';
 import { TicketEditModal } from '@/components/ticketing/ticket-edit-modal';
 import { DeleteTicketModal } from '@/components/ticketing/delete-ticket-modal';
+import { broadcastTicketChange } from '@/lib/ticketing/realtime';
 import {
   ArrowLeft,
   Copy,
@@ -433,6 +434,7 @@ function TicketDetailContent() {
     try {
       const supabase = createClient();
       await supabase.from('tickets').update({ mode: nextMode }).eq('id', ticket.id);
+      await broadcastTicketChange(supabase, 'update', { ticketId: ticket.id });
       setTicket({ ...ticket, mode: nextMode });
       setActionSuccess(`Mode tiket diubah menjadi: ${nextMode === 'ai' ? 'AI Otomatis' : 'Manual (AI Mati)'}`);
       setTimeout(() => setActionSuccess(null), 3000);
