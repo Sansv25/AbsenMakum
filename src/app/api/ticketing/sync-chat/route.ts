@@ -41,17 +41,29 @@ function extractTicketOutcome(text: string): { type: string; value: string } | n
   }
 
   // 3. Cek hasil restart sistem / refresh port oleh CS ICONNET
+  // Hati-hati: JANGAN cocokkan pertanyaan diagnostik CS ("Apakah sudah dibantu restart perangkat modem...")
+  const isModemRestartQuestion =
+    lower.includes('apakah sudah dibantu restart') ||
+    lower.includes('apakah sudah dicoba restart') ||
+    lower.includes('apakah sudah di restart') ||
+    lower.includes('restart perangkat modem') ||
+    lower.includes('melepas pasang adaptor') ||
+    lower.includes('adaptor listrik');
+
   if (
-    lower.includes('perbaikan melalui sistem') ||
-    lower.includes('perbaikan sistem') ||
-    lower.includes('restart dari sistem') ||
-    lower.includes('dibantu restart') ||
-    lower.includes('restart sistem') ||
-    lower.includes('refresh sistem') ||
-    lower.includes('5-10 menit') ||
-    lower.includes('5 hingga 10 menit') ||
-    lower.includes('menunggu 5') ||
-    lower.includes('10 menit setelah itu bisa mencoba')
+    !isModemRestartQuestion &&
+    (lower.includes('perbaikan melalui sistem') ||
+      lower.includes('perbaikan sistem') ||
+      lower.includes('restart dari sistem') ||
+      lower.includes('kami bantu restart') ||
+      lower.includes('restart sistem') ||
+      lower.includes('refresh sistem') ||
+      lower.includes('refresh jaringan') ||
+      lower.includes('refresh port') ||
+      lower.includes('5-10 menit') ||
+      lower.includes('5 hingga 10 menit') ||
+      lower.includes('menunggu 5') ||
+      lower.includes('10 menit setelah itu bisa mencoba'))
   ) {
     return { type: 'restart', value: 'Perbaikan Sistem (Tunggu 5-10 Menit)' };
   }
