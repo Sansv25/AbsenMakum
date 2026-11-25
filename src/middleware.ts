@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getSafeRedirectPath } from '@/lib/url';
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -47,15 +48,23 @@ export async function middleware(request: NextRequest) {
 
   // Jika belum login dan mengakses halaman yang dilindungi
   if (!user && !isPublicPage) {
+    const originalTarget = pathname + (request.nextUrl.search || '');
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    url.search = '';
+    if (pathname !== '/') {
+      url.searchParams.set('redirect_to', originalTarget);
+    }
     return NextResponse.redirect(url);
   }
 
   // Jika sudah login dan mencoba mengakses halaman login/register
   if (user && (pathname === '/login' || pathname === '/register')) {
+    const redirectTo = getSafeRedirectPath(request.nextUrl.searchParams.get('redirect_to'), '/');
+    const targetUrl = new URL(redirectTo, request.url);
     const url = request.nextUrl.clone();
-    url.pathname = '/';
+    url.pathname = targetUrl.pathname;
+    url.search = targetUrl.search;
     return NextResponse.redirect(url);
   }
 

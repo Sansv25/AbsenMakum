@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { login } from './actions';
 import { createClient } from '@/lib/supabase/client';
 import { GoogleIcon } from '@/components/ui/google-icon';
+import { getSafeRedirectPath } from '@/lib/url';
 import { Loader2, Mail, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 interface GoogleIdInstance {
@@ -29,6 +30,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const errorParam = searchParams.get('error');
+  const redirectToParam = getSafeRedirectPath(searchParams.get('redirect_to'), '/');
 
   const [error, setError] = useState<string | null>(errorParam || null);
   const [loading, setLoading] = useState(false);
@@ -50,7 +52,11 @@ function LoginContent() {
     setGoogleLoading(true);
     try {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      const callbackUrl = new URL('/auth/callback', window.location.origin);
+      if (redirectToParam && redirectToParam !== '/') {
+        callbackUrl.searchParams.set('next', redirectToParam);
+      }
+      const redirectTo = callbackUrl.toString();
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -70,7 +76,7 @@ function LoginContent() {
       setError(message);
       setGoogleLoading(false);
     }
-  }, []);
+  }, [redirectToParam]);
 
   const handleGoogleCredentialResponse = useCallback(
     async (response: { credential?: string }) => {
@@ -109,7 +115,7 @@ function LoginContent() {
           } else if (!isMaster && (profile?.is_approved === false || !profile)) {
             window.location.href = '/pending-approval';
           } else {
-            window.location.href = '/';
+            window.location.href = redirectToParam;
           }
         }
       } catch (err: unknown) {
@@ -117,7 +123,7 @@ function LoginContent() {
         await handleGoogleLogin();
       }
     },
-    [handleGoogleLogin]
+    [handleGoogleLogin, redirectToParam]
   );
 
   const initGoogle = useCallback(async () => {
@@ -203,7 +209,14 @@ function LoginContent() {
       setLoading(false);
     } else if (result?.needsOtp && result.email) {
       // 2FA: Kredensial valid & kode OTP terkirim, arahkan langsung ke halaman verifikasi OTP
-      router.push(`/verify-otp?email=${encodeURIComponent(result.email)}&type=email`);
+      const verifyParams = new URLSearchParams({
+        email: result.email,
+        type: 'email',
+      });
+      if (redirectToParam && redirectToParam !== '/') {
+        verifyParams.set('redirect_to', redirectToParam);
+      }
+      router.push(`/verify-otp?${verifyParams.toString()}`);
     } else {
       setLoading(false);
     }
@@ -244,6 +257,12 @@ function LoginContent() {
         strategy="afterInteractive"
         onLoad={initGoogle}
       />
+
+      {redirectToParam.startsWith('/absen/join') && (
+        <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-300 text-center font-medium">
+          Masuk ke akun Anda untuk menyelesaikan verifikasi <strong>Absen Bersama (QR Code)</strong>.
+        </div>
+      )}
 
       {/* Login Google */}
       <div className="space-y-4 mb-6">

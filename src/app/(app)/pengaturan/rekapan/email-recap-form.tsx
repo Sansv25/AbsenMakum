@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { EmailRecapSettings } from '@/lib/data/email-recap';
 import { saveRecapSettingsAction, sendRecapNowAction, sendDailyRecapNowAction } from './actions';
-import { showAlert, showConfirm } from '@/lib/swal';
+import { showAlert, showConfirm, showToast } from '@/lib/swal';
 import {
   Mail,
   Plus,
@@ -37,8 +37,28 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
   const [showApiKey, setShowApiKey] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Simpan perubahan pengaturan ke database secara langsung
+  async function persistSettingsImmediately(
+    nextSettings: EmailRecapSettings,
+    successToastMsg?: string
+  ) {
+    setSaving(true);
+    try {
+      const res = await saveRecapSettingsAction(nextSettings);
+      if (!res.success) {
+        showAlert('Gagal Menyimpan', res.error || 'Terjadi kesalahan saat menyimpan pengaturan.', 'error');
+      } else if (successToastMsg) {
+        showToast(successToastMsg, 'success');
+      }
+    } catch {
+      showAlert('Error', 'Gagal menyimpan pengaturan ke server.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   // Tambah email penerima piket
-  function handleAddEmail() {
+  async function handleAddEmail() {
     const email = newEmail.trim().toLowerCase();
     if (!email) return;
 
@@ -57,21 +77,19 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
     const newSettings = { ...settings, recipients: updated };
     setSettings(newSettings);
     setNewEmail('');
-    // Simpan otomatis ke database agar tidak hilang saat di-refresh
-    saveRecapSettingsAction(newSettings).catch(() => {});
+    await persistSettingsImmediately(newSettings, 'Email penerima piket tersimpan!');
   }
 
   // Hapus email penerima piket
-  function handleRemoveEmail(emailToRemove: string) {
+  async function handleRemoveEmail(emailToRemove: string) {
     const updated = settings.recipients.filter((e) => e !== emailToRemove);
     const newSettings = { ...settings, recipients: updated };
     setSettings(newSettings);
-    // Simpan otomatis ke database agar tidak hilang saat di-refresh
-    saveRecapSettingsAction(newSettings).catch(() => {});
+    await persistSettingsImmediately(newSettings, 'Email penerima piket dihapus.');
   }
 
   // Tambah email penerima rekapan harian (anak magang)
-  function handleAddDailyEmail() {
+  async function handleAddDailyEmail() {
     const email = newDailyEmail.trim().toLowerCase();
     if (!email) return;
 
@@ -91,17 +109,33 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
     const newSettings = { ...settings, dailyRecipients: updated };
     setSettings(newSettings);
     setNewDailyEmail('');
-    // Simpan otomatis ke database agar tidak hilang saat di-refresh
-    saveRecapSettingsAction(newSettings).catch(() => {});
+    await persistSettingsImmediately(newSettings, 'Email penerima magang tersimpan!');
   }
 
   // Hapus email penerima rekapan harian
-  function handleRemoveDailyEmail(emailToRemove: string) {
+  async function handleRemoveDailyEmail(emailToRemove: string) {
     const updated = (settings.dailyRecipients || []).filter((e) => e !== emailToRemove);
     const newSettings = { ...settings, dailyRecipients: updated };
     setSettings(newSettings);
-    // Simpan otomatis ke database agar tidak hilang saat di-refresh
-    saveRecapSettingsAction(newSettings).catch(() => {});
+    await persistSettingsImmediately(newSettings, 'Email penerima magang dihapus.');
+  }
+
+  // Toggle aktif/nonaktif rekapan harian magang dan langsung simpan
+  async function handleToggleDailyActive(checked: boolean) {
+    const newSettings = { ...settings, dailyIsActive: checked };
+    setSettings(newSettings);
+    await persistSettingsImmediately(
+      newSettings,
+      checked ? 'Pengiriman otomatis rekapan magang diaktifkan!' : 'Pengiriman otomatis rekapan magang dinonaktifkan.'
+    );
+  }
+
+  // Simpan jadwal jam kirim rekapan harian magang secara langsung
+  async function handleSaveDailySchedule() {
+    await persistSettingsImmediately(
+      settings,
+      `Jadwal pengiriman harian disimpan (${settings.dailySendTime || '18:00'} WITA)!`
+    );
   }
 
   // Simpan pengaturan
@@ -213,7 +247,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
 
     try {
       await saveRecapSettingsAction(settings);
-      const res = await sendDailyRecapNowAction(undefined, dailyList);
+      const res = await sendDailyRecapNowAction(undefined, dailyList, false, true);
       if (res.success) {
         showAlert(
           'Rekapan Magang Berhasil Dikirim! 🚀',
@@ -315,7 +349,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
               <input
                 type="checkbox"
                 checked={settings.dailyIsActive}
-                onChange={(e) => setSettings({ ...settings, dailyIsActive: e.target.checked })}
+                onChange={(e) => handleToggleDailyActive(e.target.checked)}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
@@ -399,16 +433,24 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
             <label className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
               Jadwal Kirim Otomatis Rekapan Magang (WITA)
             </label>
-            <div className="relative">
+            <div className="flex items-center gap-2">
               <input
                 type="time"
                 value={settings.dailySendTime || '18:00'}
                 onChange={(e) => setSettings({ ...settings, dailySendTime: e.target.value })}
-                className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none"
+                className="flex-1 px-3 py-2 text-xs rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleSaveDailySchedule}
+                className="px-3 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl transition shrink-0"
+              >
+                {saving ? 'Menyimpan...' : 'Simpan Jadwal'}
+              </button>
             </div>
             <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
-              Laporan dikirim otomatis pada jam ini setiap hari kerja.
+              Laporan dikirim otomatis pada jam ini setiap hari kerja (pastikan klik Simpan Jadwal jika mengubah jam).
             </p>
           </div>
 

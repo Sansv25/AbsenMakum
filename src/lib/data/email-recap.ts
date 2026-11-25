@@ -26,6 +26,8 @@ export interface EmailRecapSettings {
   dailySendTime: string; // "18:00"
   dailyLastSentAt?: string | null;
   dailyLastStatus?: string | null;
+  dailyAutoLastSentDate?: string | null;
+  dailyLastAttemptAt?: string | null;
 }
 
 const DEFAULT_FALLBACK_BREVO_KEY = process.env.BREVO_API_KEY || '';
@@ -53,6 +55,8 @@ const DEFAULT_SETTINGS: EmailRecapSettings = {
   dailySendTime: '18:00',
   dailyLastSentAt: null,
   dailyLastStatus: null,
+  dailyAutoLastSentDate: null,
+  dailyLastAttemptAt: null,
 };
 
 export async function getEmailRecapSettings(customClient?: SupabaseClient | null): Promise<EmailRecapSettings> {
@@ -75,6 +79,8 @@ export async function getEmailRecapSettings(customClient?: SupabaseClient | null
       dailySendTime?: string;
       dailyLastSentAt?: string | null;
       dailyLastStatus?: string | null;
+      dailyAutoLastSentDate?: string | null;
+      dailyLastAttemptAt?: string | null;
     } | null = null;
 
     try {
@@ -92,6 +98,10 @@ export async function getEmailRecapSettings(customClient?: SupabaseClient | null
           dailySendTime: typeof val.dailySendTime === 'string' ? val.dailySendTime : undefined,
           dailyLastSentAt: typeof val.dailyLastSentAt === 'string' ? val.dailyLastSentAt : null,
           dailyLastStatus: typeof val.dailyLastStatus === 'string' ? val.dailyLastStatus : null,
+          dailyAutoLastSentDate:
+            typeof val.dailyAutoLastSentDate === 'string' ? val.dailyAutoLastSentDate : null,
+          dailyLastAttemptAt:
+            typeof val.dailyLastAttemptAt === 'string' ? val.dailyLastAttemptAt : null,
         };
       }
     } catch {
@@ -115,10 +125,12 @@ export async function getEmailRecapSettings(customClient?: SupabaseClient | null
         dailySendTime: dailyBackup?.dailySendTime || '18:00',
         dailyLastSentAt: dailyBackup?.dailyLastSentAt || null,
         dailyLastStatus: dailyBackup?.dailyLastStatus || null,
+        dailyAutoLastSentDate: dailyBackup?.dailyAutoLastSentDate || null,
+        dailyLastAttemptAt: dailyBackup?.dailyLastAttemptAt || null,
       };
     }
 
-    // Prioritaskan kolom tabel jika ada data, fallback ke dailyBackup di ticketing_settings, lalu env/default
+    // Prioritaskan sumber data paling lengkap / terbaru antara tabel dan ticketing_settings
     const dailyRecipients =
       Array.isArray(data.daily_recipients) && data.daily_recipients.length > 0
         ? data.daily_recipients
@@ -138,6 +150,10 @@ export async function getEmailRecapSettings(customClient?: SupabaseClient | null
     const dailySendTime = data.daily_send_time || dailyBackup?.dailySendTime || '18:00';
     const dailyLastSentAt = data.daily_last_sent_at || dailyBackup?.dailyLastSentAt || null;
     const dailyLastStatus = data.daily_last_status || dailyBackup?.dailyLastStatus || null;
+    const dailyAutoLastSentDate =
+      data.daily_auto_last_sent_date || dailyBackup?.dailyAutoLastSentDate || null;
+    const dailyLastAttemptAt =
+      data.daily_last_attempt_at || dailyBackup?.dailyLastAttemptAt || null;
 
     return {
       id: data.id,
@@ -159,6 +175,8 @@ export async function getEmailRecapSettings(customClient?: SupabaseClient | null
       dailySendTime,
       dailyLastSentAt,
       dailyLastStatus,
+      dailyAutoLastSentDate,
+      dailyLastAttemptAt,
     };
   } catch {
     return {
@@ -202,8 +220,9 @@ export async function saveEmailRecapSettings(
     const finalDailySendTime = settings.dailySendTime ?? current.dailySendTime;
 
     // 1. Simpan selalu ke ticketing_settings agar persisten dan tidak pernah hilang saat refresh
+    let backupErrorMsg: string | null = null;
     try {
-      await supabase
+      const { error: backupErr } = await supabase
         .from('ticketing_settings')
         .upsert({
           key: 'daily_recap_email_settings',
@@ -211,12 +230,19 @@ export async function saveEmailRecapSettings(
             dailyRecipients: finalDailyRecipients,
             dailyIsActive: finalDailyIsActive,
             dailySendTime: finalDailySendTime,
-            dailyLastSentAt: current.dailyLastSentAt,
-            dailyLastStatus: current.dailyLastStatus,
+            dailyLastSentAt: current.dailyLastSentAt || null,
+            dailyLastStatus: current.dailyLastStatus || null,
+            dailyAutoLastSentDate: current.dailyAutoLastSentDate || null,
+            dailyLastAttemptAt: current.dailyLastAttemptAt || null,
           },
           updated_at: new Date().toISOString(),
         });
+      if (backupErr) {
+        backupErrorMsg = backupErr.message;
+        console.warn('Backup daily settings error:', backupErr.message);
+      }
     } catch (e) {
+      backupErrorMsg = e instanceof Error ? e.message : 'Gagal menyimpan pengaturan harian';
       console.warn('Backup daily settings error:', e);
     }
 
@@ -235,7 +261,7 @@ export async function saveEmailRecapSettings(
         ...updatedWithDaily,
       });
 
-    if (!fullErr) {
+    if (!fullErr && !backupErrorMsg) {
       return { success: true };
     }
 
@@ -248,6 +274,9 @@ export async function saveEmailRecapSettings(
         ...updatedBase,
       });
 
+    if (fallbackErr && backupErrorMsg) {
+      return { success: false, error: `${fallbackErr.message} / ${backupErrorMsg}` };
+    }
     if (fallbackErr) {
       return { success: false, error: fallbackErr.message };
     }
@@ -560,8 +589,15 @@ export async function sendDailyRecapEmailNow(
   overrideRecipients?: string[],
   forceSendOnHoliday = false,
   skipAuthCheck = false,
-  customSupabaseClient?: SupabaseClient | null
-): Promise<{ success: boolean; message?: string; error?: string; isHolidaySkipped?: boolean }> {
+  customSupabaseClient?: SupabaseClient | null,
+  options?: { isTest?: boolean; isScheduledAuto?: boolean }
+): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  isHolidaySkipped?: boolean;
+  alreadySent?: boolean;
+}> {
   if (!skipAuthCheck) {
     const { isMaster } = await getCurrentUserProfile();
     if (!isMaster) {
@@ -569,6 +605,8 @@ export async function sendDailyRecapEmailNow(
     }
   }
 
+  const isTest = Boolean(options?.isTest);
+  const isScheduledAuto = Boolean(options?.isScheduledAuto);
   const workDate = targetDate || todayWITA();
   const supabase = customSupabaseClient || (await createClient());
 
@@ -598,6 +636,49 @@ export async function sendDailyRecapEmailNow(
   }
 
   const settings = await getEmailRecapSettings(supabase);
+
+  // Deduplikasi & anti-race-condition lock khusus pengiriman terjadwal otomatis
+  if (isScheduledAuto && !isTest) {
+    if (settings.dailyAutoLastSentDate === workDate) {
+      return {
+        success: true,
+        alreadySent: true,
+        message: `Rekapan absen harian tanggal ${workDate} sudah pernah terkirim otomatis hari ini.`,
+      };
+    }
+
+    if (settings.dailyLastAttemptAt) {
+      const elapsedMs = Date.now() - new Date(settings.dailyLastAttemptAt).getTime();
+      if (!Number.isNaN(elapsedMs) && elapsedMs >= 0 && elapsedMs < 90000) {
+        return {
+          success: true,
+          alreadySent: true,
+          message: 'Pengiriman rekapan harian sedang diproses oleh proses terjadwal lain.',
+        };
+      }
+    }
+
+    // Ambil kunci sementara 90 detik sebelum memanggil Brevo
+    try {
+      const { data: bData } = await supabase
+        .from('ticketing_settings')
+        .select('value')
+        .eq('key', 'daily_recap_email_settings')
+        .maybeSingle();
+
+      const curVal = (bData?.value && typeof bData.value === 'object' ? bData.value : {}) as Record<string, unknown>;
+      await supabase.from('ticketing_settings').upsert({
+        key: 'daily_recap_email_settings',
+        value: {
+          ...curVal,
+          dailyLastAttemptAt: new Date().toISOString(),
+        },
+        updated_at: new Date().toISOString(),
+      });
+    } catch {
+      // Abaikan jika gagal update lock sementara
+    }
+  }
 
   // Prioritaskan daftar email magang khusus, fallback ke settings.recipients, lalu DEFAULT_FALLBACK_RECIPIENTS
   const recipients =
@@ -807,18 +888,25 @@ export async function sendDailyRecapEmailNow(
     }
 
     const successMsg = `Rekap harian berhasil dikirim ke ${recipients.length} email (${recipients.join(', ')})`;
+    const sentAtIso = new Date().toISOString();
+    // Hanya catat dailyAutoLastSentDate jika ini pengiriman nyata/terjadwal (bukan tombol Uji Coba/Tes)
+    const nextAutoSentDate = isTest ? (settings.dailyAutoLastSentDate || null) : workDate;
 
     // Update status ke database dan ticketing_settings backup
     try {
       await supabase
         .from('email_recap_settings')
         .update({
-          daily_last_sent_at: new Date().toISOString(),
+          daily_last_sent_at: sentAtIso,
           daily_last_status: successMsg,
+          daily_auto_last_sent_date: nextAutoSentDate,
         })
         .eq('id', settings.id);
+    } catch {
+      // Abaikan jika kolom daily_* belum dimigrasi di email_recap_settings
+    }
 
-      // Update backup juga
+    try {
       const { data: bData } = await supabase
         .from('ticketing_settings')
         .select('value')
@@ -832,13 +920,15 @@ export async function sendDailyRecapEmailNow(
           key: 'daily_recap_email_settings',
           value: {
             ...curVal,
-            dailyLastSentAt: new Date().toISOString(),
+            dailyLastSentAt: sentAtIso,
             dailyLastStatus: successMsg,
+            dailyAutoLastSentDate: nextAutoSentDate,
+            dailyLastAttemptAt: sentAtIso,
           },
-          updated_at: new Date().toISOString(),
+          updated_at: sentAtIso,
         });
     } catch {
-      // Abaikan jika kolom database belum dimigrasi
+      // Abaikan jika gagal update ticketing_settings
     }
 
     return {

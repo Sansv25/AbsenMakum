@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Search,
   Check,
+  Copy,
   Image as ImageIcon,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -20,6 +21,7 @@ import { createClient } from '@/lib/supabase/client';
 import { compressImage, isImageFile } from '@/lib/image';
 import { showAlert, showToast } from '@/lib/swal';
 import { todayWITA, formatIndonesia } from '@/lib/dates';
+import { getCanonicalAppOrigin } from '@/lib/url';
 import { CameraModal } from '@/components/upload/camera-modal';
 import type { GroupAttendanceSession, GroupMemberInfo } from '@/lib/types/attendance-feed';
 
@@ -66,6 +68,7 @@ export function GroupAttendanceModal({
   const [timeLeft, setTimeLeft] = useState<number>(180);
   const [isCreatingSession, setIsCreatingSession] = useState<boolean>(false);
   const [isFinalizing, setIsFinalizing] = useState<boolean>(false);
+  const [copiedQrLink, setCopiedQrLink] = useState<boolean>(false);
 
   // Ambil user profil & rekan terdaftar saat modal dibuka
   useEffect(() => {
@@ -343,8 +346,8 @@ export function GroupAttendanceModal({
     return name.includes(q) || email.includes(q);
   });
 
-  // URL yang akan dibuka oleh rekan ketika scan lewat Google Lens / Kamera HP
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  // URL resmi aplikasi yang akan dibuka oleh rekan ketika scan lewat Google Lens / Kamera HP
+  const origin = getCanonicalAppOrigin();
   const qrUrl = session ? `${origin}/absen/join?token=${session.qr_token}` : '';
 
   // Format menit:detik
@@ -580,6 +583,38 @@ export function GroupAttendanceModal({
               <div className="p-4 bg-white rounded-3xl shadow-lg border border-slate-200">
                 {qrUrl && <QRCodeSVG value={qrUrl} size={220} level="H" includeMargin />}
               </div>
+
+              {/* Informasi Domain Resmi & Tombol Salin Link Alternatif */}
+              {qrUrl && (
+                <div className="w-full max-w-xs flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-[11px]">
+                  <span className="font-mono text-slate-600 dark:text-slate-300 truncate" title={qrUrl}>
+                    {qrUrl}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(qrUrl);
+                      setCopiedQrLink(true);
+                      showToast('Link Absen berhasil disalin!', 'success');
+                      setTimeout(() => setCopiedQrLink(false), 2500);
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-blue-600 dark:text-blue-400 font-semibold border border-slate-200 dark:border-slate-600 shrink-0 transition"
+                    title="Salin link absen jika rekan kesulitan scan QR"
+                  >
+                    {copiedQrLink ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-500" />
+                        <span className="text-emerald-600 dark:text-emerald-400">Disalin</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Salin Link</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
 
               {/* Timer Kedaluwarsa */}
               <div className="flex items-center gap-2 text-xs">

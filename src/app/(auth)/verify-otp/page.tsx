@@ -4,12 +4,14 @@ import { Suspense, useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { getSafeRedirectPath } from '@/lib/url';
 import { Loader2, MailCheck, AlertCircle, ArrowLeft, RotateCw } from 'lucide-react';
 
 function VerifyOtpContent() {
   const searchParams = useSearchParams();
   const emailParam = searchParams.get('email') || '';
   const typeParam = searchParams.get('type') || '';
+  const redirectToParam = getSafeRedirectPath(searchParams.get('redirect_to'), '/');
 
   const [email, setEmail] = useState(emailParam);
   const [token, setToken] = useState('');
@@ -136,7 +138,7 @@ function VerifyOtpContent() {
         }
       }
 
-      window.location.href = '/';
+      window.location.href = redirectToParam;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.';
       setError(message);

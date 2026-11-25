@@ -1,0 +1,24 @@
+name: Scheduled Email Recap Trigger
+
+on:
+  schedule:
+    # Setiap 15 menit pada jam kerja (08:00 - 23:45 WITA = 00:00 - 15:45 UTC) hari Senin - Jumat
+    - cron: '*/15 0-15 * * 1-5'
+    # Pengiriman pagi tiap tanggal 1 / hari libur untuk rekapan mingguan & bulanan PDF (08:05 WITA = 00:05 UTC)
+    - cron: '5 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger-recap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Vercel Recap Cron Endpoint
+        run: |
+          BODY=$(curl -sS -w "\nHTTP_CODE:%{http_code}" "https://www.magang-iconnet.online/api/cron/send-recap" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "$BODY"
+          HTTP_CODE=$(echo "$BODY" | sed -n 's/^HTTP_CODE://p')
+          if [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" -ge 500 ]; then
+            echo "Cron endpoint returned server error $HTTP_CODE"
+            exit 1
+          fi

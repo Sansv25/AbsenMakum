@@ -94,18 +94,18 @@ export async function GET(req: Request) {
       triggerMonthly = true;
     } else {
       // 1. Cek Rekapan Harian Anak Magang
-      // Cek apakah rekapan harian hari ini sudah pernah berhasil dikirim sebelumnya (anti-dobel kirim)
-      const isAlreadySentToday = Boolean(
-        settings.dailyLastSentAt &&
-          new Date(settings.dailyLastSentAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Makassar' }) === todayWitaStr
+      // Gunakan dailyAutoLastSentDate agar uji coba ("Kirim Tes") tidak membatalkan pengiriman terjadwal sebenarnya
+      const isDailyAlreadySentToday = Boolean(
+        settings.dailyAutoLastSentDate && settings.dailyAutoLastSentDate === todayWitaStr
       );
 
-      if (settings.dailyIsActive && !isAlreadySentToday) {
+      const currentMinutes = currentHour * 60 + wita.getMinutes();
+
+      if (settings.dailyIsActive && !isDailyAlreadySentToday) {
         const [targetHour, targetMin] = (settings.dailySendTime || '18:00').split(':').map(Number);
         const targetMinutes = targetHour * 60 + (targetMin || 0);
-        const currentMinutes = currentHour * 60 + wita.getMinutes();
 
-        // Kirim jika waktu saat ini sudah mencapai atau melewati jam target (misal >= 18:00 WITA)
+        // Kirim jika waktu saat ini sudah mencapai atau melewati jam target (WITA)
         if (currentMinutes >= targetMinutes) {
           if (!isDayOff) {
             triggerDaily = true;
@@ -117,9 +117,18 @@ export async function GET(req: Request) {
         }
       }
 
-      // 2. Cek jadwal mingguan
+      // 2. Cek jadwal mingguan & bulanan Piket (hanya kirim 1x sehari setelah mencapai jam target)
+      const isPiketAlreadySentToday = Boolean(
+        settings.lastSentAt &&
+          new Date(settings.lastSentAt).toLocaleDateString('en-CA', { timeZone: 'Asia/Makassar' }) === todayWitaStr
+      );
+      const [piketTargetHour, piketTargetMin] = (settings.sendTime || '08:00').split(':').map(Number);
+      const isPiketTimeReached = currentMinutes >= piketTargetHour * 60 + (piketTargetMin || 0);
+
       if (
         settings.isActive &&
+        !isPiketAlreadySentToday &&
+        isPiketTimeReached &&
         (settings.frequency === 'mingguan' || settings.frequency === 'keduanya') &&
         dayOfWeek === settings.sendDayWeekly
       ) {
@@ -129,6 +138,8 @@ export async function GET(req: Request) {
       // 3. Cek jadwal bulanan (setiap tanggal 1)
       if (
         settings.isActive &&
+        !isPiketAlreadySentToday &&
+        isPiketTimeReached &&
         (settings.frequency === 'bulanan' || settings.frequency === 'keduanya') &&
         dayOfMonth === 1
       ) {
@@ -136,10 +147,12 @@ export async function GET(req: Request) {
       }
     }
 
-    const results = [];
+    const results: Array<Record<string, unknown>> = [];
 
     if (triggerDaily) {
-      const res = await sendDailyRecapEmailNow(todayWitaStr, undefined, forceType === 'harian', true, supabase);
+      const res = await sendDailyRecapEmailNow(todayWitaStr, undefined, forceType === 'harian', true, supabase, {
+        isScheduledAuto: forceType !== 'harian',
+      });
       results.push({ type: 'harian', ...res });
     } else if (settings.dailyIsActive && isDayOff) {
       const [targetHour] = (settings.dailySendTime || '18:00').split(':').map(Number);
@@ -179,10 +192,30 @@ export async function GET(req: Request) {
         settings: {
           dailyIsActive: settings.dailyIsActive,
           dailySendTime: settings.dailySendTime,
+          dailyAutoLastSentDate: settings.dailyAutoLastSentDate || null,
           piketIsActive: settings.isActive,
           frequency: settings.frequency,
         },
       });
+    }
+
+    const emailErrors = results
+      .filter(
+        (r) =>
+          (r.type === 'harian' || r.type === 'mingguan' || r.type === 'bulanan') &&
+          r.success === false
+      )
+      .map((r) => `${r.type}: ${r.error || 'Unknown error'}`);
+
+    if (emailErrors.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: emailErrors.join('; '),
+          results,
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true, results });

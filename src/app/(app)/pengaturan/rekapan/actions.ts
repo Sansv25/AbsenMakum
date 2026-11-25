@@ -30,9 +30,17 @@ export async function sendRecapNowAction(
 export async function sendDailyRecapNowAction(
   date?: string,
   overrideRecipients?: string[],
-  forceSendOnHoliday = false
+  forceSendOnHoliday = false,
+  isTest = false
 ): Promise<{ success: boolean; message?: string; error?: string; isHolidaySkipped?: boolean }> {
-  const res = await sendDailyRecapEmailNow(date, overrideRecipients, forceSendOnHoliday);
+  const res = await sendDailyRecapEmailNow(
+    date,
+    overrideRecipients,
+    forceSendOnHoliday,
+    false,
+    null,
+    { isTest }
+  );
   revalidatePath('/pengaturan/rekapan');
   revalidatePath('/rekap-harian');
   return res;

@@ -26,6 +26,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { formatIndonesia, todayWITA } from '@/lib/dates';
+import { CANONICAL_APP_URL } from '@/lib/url';
 import { showAlert, showConfirm } from '@/lib/swal';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { sendDailyRecapNowAction } from '@/app/(app)/pengaturan/rekapan/actions';
@@ -796,7 +797,7 @@ export function RekapHarianClient({
                             href={`https://wa.me/${waPhone}?text=${encodeURIComponent(
                               `Halo ${rec.user.full_name}, kami melihat Anda belum melakukan absensi harian ICONNET pada hari ini (${formatIndonesia(
                                 currentDate
-                              )}). Mohon segera melakukan absensi melalui aplikasi: https://www.magang-iconnet.online/absen-chat`
+                              )}). Mohon segera melakukan absensi melalui aplikasi: ${CANONICAL_APP_URL}/absen-chat`
                             )}`}
                             target="_blank"
                             rel="noopener noreferrer"

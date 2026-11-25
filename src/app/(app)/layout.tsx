@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUserProfile } from '@/lib/data/profile';
 import { AppNavigation } from '@/components/ui/nav';
 import { NavigationProgress } from '@/components/ui/navigation-progress';
+import { AutoRecapWatcher } from '@/components/recap/auto-recap-watcher';
 
 export default async function AppLayout({
   children,
@@ -23,6 +24,7 @@ export default async function AppLayout({
   return (
     <>
       <NavigationProgress />
+      <AutoRecapWatcher enabled={canManageSettings} />
       <AppNavigation
         isMaster={canManageSettings}
         canAccessTicketing={canCreateTicket}
