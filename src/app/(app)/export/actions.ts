@@ -85,6 +85,26 @@ export async function fetchExportData(
     attachByAttendance.get(att.attendance_id)!.push(att);
   }
 
+  // Fetch officer profiles for attendances and attachment uploaders
+  const userIds = Array.from(
+    new Set([
+      ...attendances.map((a) => a.user_id).filter((id): id is string => !!id),
+      ...(attachments ?? []).map((a) => a.user_id).filter((id): id is string => !!id),
+    ])
+  );
+
+  const profileMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+
+    for (const p of profiles ?? []) {
+      profileMap.set(p.id, p.full_name?.trim() || p.email || 'Petugas');
+    }
+  }
+
   // Sort attendances by date ascending, then 'pagi' before 'malam'
   const sorted = [...attendances].sort((a, b) => {
     if (a.work_date !== b.work_date) {
@@ -121,11 +141,31 @@ export async function fetchExportData(
       if (!hasAnyPhoto) continue;
     }
 
+    // Prioritize actual attachment uploaders, then fall back to attendance.user_id
+    const uploaderUserIds = Array.from(
+      new Set(list.map((a) => a.user_id).filter((id): id is string => !!id))
+    );
+    const officerIds =
+      uploaderUserIds.length > 0
+        ? uploaderUserIds
+        : att.user_id
+          ? [att.user_id]
+          : [];
+    const officerNames = Array.from(
+      new Set(
+        officerIds
+          .map((id) => profileMap.get(id))
+          .filter((name): name is string => !!name)
+      )
+    );
+    const authorName = officerNames.length > 0 ? officerNames.join(', ') : undefined;
+
     result.push({
       work_date: att.work_date,
       shift_type: att.shift_type as ShiftType,
       job_type: att.job_type,
       note: att.note,
+      author_name: authorName,
       mulaiUrl,
       selesaiUrl,
       aktivitasUrls,

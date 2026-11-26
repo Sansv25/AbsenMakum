@@ -170,7 +170,24 @@ function drawFullHeader(doc: jsPDF, item: PdfAttendanceItem): number {
   doc.text(formatIndonesia(item.work_date), MARGIN + c1W + 3, tblY + 5.5);
   doc.text(item.job_type ? jobLabel(item.job_type) : 'Operasional', MARGIN + c1W + 3, tblY + 14);
   doc.text(`Shift ${shiftNum} (${shiftName})`, MARGIN + c1W + c2W + c3W + 3, tblY + 5.5);
-  doc.text(item.author_name?.trim() || 'Petugas Piket', MARGIN + c1W + c2W + c3W + 3, tblY + 14);
+
+  const authorTextRaw = item.author_name?.trim() || 'Petugas Piket';
+  const maxAuthorW = doc.internal.pageSize.getWidth() - MARGIN * 2 - c1W - c2W - c3W - 5.5;
+  let authorFontSize = 8;
+  doc.setFontSize(authorFontSize);
+  while (authorFontSize > 6 && doc.getTextWidth(authorTextRaw) > maxAuthorW) {
+    authorFontSize -= 0.5;
+    doc.setFontSize(authorFontSize);
+  }
+  let authorText = authorTextRaw;
+  if (doc.getTextWidth(authorText) > maxAuthorW) {
+    while (authorText.length > 1 && doc.getTextWidth(`${authorText}...`) > maxAuthorW) {
+      authorText = authorText.slice(0, -1).trimEnd();
+    }
+    authorText = `${authorText}...`;
+  }
+  doc.text(authorText, MARGIN + c1W + c2W + c3W + 3, tblY + 14);
+  doc.setFontSize(8);
 
   return tblY + tblH + 6.5;
 }
