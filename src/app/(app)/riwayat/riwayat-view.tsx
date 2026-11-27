@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { formatIndonesia } from '@/lib/dates';
+import { formatIndonesia, formatShort } from '@/lib/dates';
 import { shiftLabel, jobLabel, JOB_TYPES, type JobType } from '@/lib/shifts';
 import type { ShiftType, ShiftStatus } from '@/lib/supabase/types';
 import {
@@ -18,6 +18,7 @@ import {
   User,
   ZoomIn,
   Eye,
+  Calendar,
 } from 'lucide-react';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
@@ -57,6 +58,27 @@ interface RiwayatViewProps {
   today: string;
 }
 
+type PageSizeOption = 'weekly' | number;
+
+interface WeekPageGroup {
+  monStr: string;
+  sunStr: string;
+  items: RiwayatShiftGroup[];
+}
+
+/** Hitung rentang Senin - Minggu (UTC) untuk tanggal kerja YYYY-MM-DD. */
+function getWeekRangeMonSun(workDate: string): { monStr: string; sunStr: string } {
+  const d = new Date(`${workDate}T00:00:00Z`);
+  const dow = d.getUTCDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
+  const diffToMon = dow === 0 ? -6 : 1 - dow;
+  const mon = new Date(d.getTime() + diffToMon * 86400000);
+  const sun = new Date(mon.getTime() + 6 * 86400000);
+  return {
+    monStr: mon.toISOString().slice(0, 10),
+    sunStr: sun.toISOString().slice(0, 10),
+  };
+}
+
 export function RiwayatView({
   items,
   currentMonth,
@@ -69,7 +91,7 @@ export function RiwayatView({
   const [shiftFilter, setShiftFilter] = useState<'all' | ShiftType>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ShiftStatus>('all');
   const [searchName, setSearchName] = useState('');
-  const [pageSize, setPageSize] = useState<number>(5);
+  const [pageSize, setPageSize] = useState<PageSizeOption>('weekly');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [drawerShift, setDrawerShift] = useState<RiwayatShiftGroup | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -136,11 +158,36 @@ export function RiwayatView({
 
   // Pagination calculation
   const totalItems = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const weekGroups: WeekPageGroup[] = [];
+  if (pageSize === 'weekly') {
+    const groupByMon = new Map<string, WeekPageGroup>();
+    for (const item of filtered) {
+      const { monStr, sunStr } = getWeekRangeMonSun(item.work_date);
+      let group = groupByMon.get(monStr);
+      if (!group) {
+        group = { monStr, sunStr, items: [] };
+        groupByMon.set(monStr, group);
+        weekGroups.push(group);
+      }
+      group.items.push(item);
+    }
+  }
+
+  const totalPages =
+    pageSize === 'weekly'
+      ? Math.max(1, weekGroups.length)
+      : Math.max(1, Math.ceil(totalItems / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const startIndex = (safeCurrentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalItems);
-  const paginatedItems = filtered.slice(startIndex, endIndex);
+  const activeWeek = pageSize === 'weekly' ? (weekGroups[safeCurrentPage - 1] ?? null) : null;
+  const startIndex =
+    pageSize === 'weekly'
+      ? weekGroups.slice(0, safeCurrentPage - 1).reduce((sum, w) => sum + w.items.length, 0)
+      : (safeCurrentPage - 1) * pageSize;
+  const paginatedItems =
+    pageSize === 'weekly'
+      ? (activeWeek?.items ?? [])
+      : filtered.slice(startIndex, startIndex + pageSize);
+  const endIndex = startIndex + paginatedItems.length;
 
   function handleFilterShift(val: 'all' | ShiftType) {
     setShiftFilter(val);
@@ -152,8 +199,8 @@ export function RiwayatView({
     setCurrentPage(1);
   }
 
-  function handlePageSizeChange(val: number) {
-    setPageSize(val);
+  function handlePageSizeChange(val: string) {
+    setPageSize(val === 'weekly' ? 'weekly' : Number(val));
     setCurrentPage(1);
   }
 
@@ -163,6 +210,7 @@ export function RiwayatView({
       <div className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
         <Link
           href={`/riwayat?month=${prevMonth}`}
+          onClick={() => setCurrentPage(1)}
           className="p-2 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Bulan sebelumnya"
         >
@@ -178,6 +226,7 @@ export function RiwayatView({
         </div>
         <Link
           href={`/riwayat?month=${nextMonth}`}
+          onClick={() => setCurrentPage(1)}
           className="p-2 text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Bulan berikutnya"
         >
@@ -304,13 +353,15 @@ export function RiwayatView({
           <div>
             <label className="block text-[11px] font-medium text-gray-600 dark:text-slate-300 mb-1">Per Halaman</label>
             <select
-              value={pageSize}
-              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              value={String(pageSize)}
+              onChange={(e) => handlePageSizeChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[42px]"
             >
-              <option value={5}>5 per halaman</option>
-              <option value={10}>10 per halaman</option>
-              <option value={20}>20 per halaman</option>
+              <option value="weekly">7 Hari (Senin - Minggu)</option>
+              <option value="7">7 shift per halaman</option>
+              <option value="5">5 shift per halaman</option>
+              <option value="10">10 shift per halaman</option>
+              <option value="20">20 shift per halaman</option>
             </select>
           </div>
         </div>
@@ -318,6 +369,19 @@ export function RiwayatView({
 
       {/* 3. List Shift (Grouped per Date & Shift) */}
       <div className="space-y-3">
+        {pageSize === 'weekly' && activeWeek && paginatedItems.length > 0 && (
+          <div className="bg-blue-50/80 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/60 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 font-semibold text-blue-800 dark:text-blue-300">
+              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <span>
+                Senin, {formatShort(activeWeek.monStr)} &ndash; Minggu, {formatShort(activeWeek.sunStr)}
+              </span>
+            </div>
+            <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+              Halaman {safeCurrentPage}/{totalPages} &bull; {paginatedItems.length} shift
+            </span>
+          </div>
+        )}
         {paginatedItems.length === 0 ? (
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-10 border border-gray-100 dark:border-slate-800 text-center text-gray-400 dark:text-slate-500">
             <FileText className="h-10 w-10 mx-auto mb-2 text-gray-300 dark:text-slate-600" />
@@ -452,10 +516,18 @@ export function RiwayatView({
       {/* 4. Pagination Controls */}
       {totalPages > 1 && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs transition-colors">
-          <p className="text-gray-500 dark:text-slate-400">
-            Menampilkan <strong>{totalItems === 0 ? 0 : startIndex + 1}</strong> &ndash;{' '}
-            <strong>{endIndex}</strong> dari <strong>{totalItems}</strong> shift
-          </p>
+          {pageSize === 'weekly' && activeWeek ? (
+            <p className="text-gray-500 dark:text-slate-400">
+              Menampilkan <strong>Senin, {formatShort(activeWeek.monStr)}</strong> &ndash;{' '}
+              <strong>Minggu, {formatShort(activeWeek.sunStr)}</strong> (<strong>{paginatedItems.length}</strong> dari{' '}
+              <strong>{totalItems}</strong> shift)
+            </p>
+          ) : (
+            <p className="text-gray-500 dark:text-slate-400">
+              Menampilkan <strong>{totalItems === 0 ? 0 : startIndex + 1}</strong> &ndash;{' '}
+              <strong>{endIndex}</strong> dari <strong>{totalItems}</strong> shift
+            </p>
+          )}
 
           <div className="flex items-center gap-2">
             <button

@@ -59,7 +59,7 @@ export function RekapPiketSection({
   const [initYear, initMonthNum] = currentMonth.split('-').map(Number);
   const [selectedYear, setSelectedYear] = useState<number>(initYear || 2026);
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>((initMonthNum || 11) - 1); // 0-indexed
-  const [selectedWeek, setSelectedWeek] = useState<number>(0); // 0 = Semua Minggu, 1..5 = Minggu 1..5
+  const [selectedWeek, setSelectedWeek] = useState<number>(-1); // -1 = Minggu Ini, 0 = Semua Minggu, 1..5 = Minggu 1..5
 
   const [customStartDate, setCustomStartDate] = useState<string>(`${currentMonth}-01`);
   const [customEndDate, setCustomEndDate] = useState<string>(today);
@@ -78,10 +78,15 @@ export function RekapPiketSection({
   // Set Holiday Map & Set
   const holidaySet = useMemo(() => new Set(holidays.map((h) => h.holiday_date)), [holidays]);
 
-  // Reset selectedWeek jika user mengganti bulan atau tahun
+  // Saat bulan/tahun berubah: default ke 'Minggu Ini' (-1) untuk bulan berjalan, atau 'Semua Minggu' (0) untuk bulan lain
   useEffect(() => {
-    setSelectedWeek(0);
-  }, [selectedMonthIndex, selectedYear]);
+    const currentMonthIdx = (initMonthNum || 11) - 1;
+    if (selectedYear === (initYear || 2026) && selectedMonthIndex === currentMonthIdx) {
+      setSelectedWeek(-1);
+    } else {
+      setSelectedWeek(0);
+    }
+  }, [selectedMonthIndex, selectedYear, initMonthNum, initYear]);
 
   // Generate daftar minggu kalender (Senin s/d Minggu) untuk bulan yang dipilih
   const monthWeeks = useMemo(() => {
