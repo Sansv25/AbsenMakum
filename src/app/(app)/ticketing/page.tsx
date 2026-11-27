@@ -42,6 +42,7 @@ import {
   Clock,
   ExternalLink,
   RotateCcw,
+  Download,
 } from 'lucide-react';
 
 export default function TicketingDashboardPage() {
@@ -571,6 +572,18 @@ export default function TicketingDashboardPage() {
               <span>+ Buat Tiket Baru</span>
             </button>
           )}
+
+          <a
+            href="https://github.com/Sansv25/Auto-ticketing/archive/refs/heads/main.zip"
+            target="_blank"
+            rel="noopener noreferrer"
+            download="Auto-ticketing-main.zip"
+            title="Unduh paket Bot Piket Auto-Ticketing (ekstrak lalu jalankan 1_LOGIN_INSTAGRAM.bat dan 2_MULAI_PIKET.bat)"
+            className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-950/80 transition shadow-2xs"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Download Bot Tiket</span>
+          </a>
 
           <Link
             href="/ticketing/settings"
