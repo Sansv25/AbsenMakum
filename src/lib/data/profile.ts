@@ -20,6 +20,7 @@ export interface UserProfileInfo {
   canManageAdvanced: boolean; // isOwner only (monitoring, email recap, reset data)
   canCreateTicket: boolean; // isOwner || isTiket
   canAccessPiket: boolean; // isOwner || isAdmin || isSenior || isPiket || isFreelance
+  canAccessRekapHarian: boolean; // isOwner || isAdmin || isSenior
   fullName: string | null;
   phone: string | null;
   description: string | null;
@@ -53,6 +54,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       canManageAdvanced: false,
       canCreateTicket: false,
       canAccessPiket: false,
+      canAccessRekapHarian: false,
       fullName: null,
       phone: null,
       description: null,
@@ -101,6 +103,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
     const canManageAdvanced = isOwner;
     const canCreateTicket = isOwner || isTiket;
     const canAccessPiket = isOwner || isAdmin || isSenior || isPiket || isFreelance;
+    const canAccessRekapHarian = isOwner || isAdmin || isSenior || isMaster;
     const isApproved = isMaster || isSenior ? true : (profile.is_approved ?? false);
 
     // Sinkronisasi self-healing jika master_email belum tercatat sebagai master/owner di db
@@ -137,6 +140,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       canManageAdvanced,
       canCreateTicket,
       canAccessPiket,
+      canAccessRekapHarian,
       fullName: profile.full_name ?? null,
       phone: profile.phone ?? null,
       description: profile.description ?? null,
@@ -185,6 +189,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
   const isTiket = defaultRoles.includes('tiket');
   const canCreateTicket = isOwner || isTiket;
   const canAccessPiket = isOwner || isAdmin || isSenior || isPiket || isFreelance;
+  const canAccessRekapHarian = isOwner || isAdmin || isSenior || isMasterEmail;
 
   return {
     userId: user.id,
@@ -203,6 +208,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
     canManageAdvanced: isMasterEmail,
     canCreateTicket,
     canAccessPiket,
+    canAccessRekapHarian,
     fullName: metaFullName || null,
     phone: metaPhone || null,
     description: null,

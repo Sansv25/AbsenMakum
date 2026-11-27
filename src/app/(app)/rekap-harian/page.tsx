@@ -24,11 +24,13 @@ export default async function RekapHarianPage({ searchParams }: RekapHarianPageP
 
   const profile = await getCurrentUserProfile();
 
-  // Akun yang tidak memiliki role magang, senior, atau owner tidak bisa mengakses rekap absen harian
-  const canAccessRekapHarian = profile.isMagang || profile.isSenior || profile.isOwner;
-  if (!canAccessRekapHarian) {
+  // Hanya role Admin Piket, Senior, dan Owner yang dapat mengakses Rekap Absen Harian (Magang tidak diizinkan)
+  if (!profile.canAccessRekapHarian) {
     if (profile.canAccessPiket) {
       redirect('/');
+    }
+    if (profile.isMagang) {
+      redirect('/absen-chat');
     }
     if (profile.canCreateTicket) {
       redirect('/ticketing');

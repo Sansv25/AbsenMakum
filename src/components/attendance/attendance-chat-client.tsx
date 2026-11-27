@@ -59,6 +59,7 @@ interface AttendanceChatClientProps {
   availableProfiles?: MentionProfile[];
   internProfiles?: MentionProfile[];
   isAdmin?: boolean;
+  canViewRecap?: boolean;
 }
 
 export function AttendanceChatClient({
@@ -69,6 +70,7 @@ export function AttendanceChatClient({
   availableProfiles = [],
   internProfiles = [],
   isAdmin = false,
+  canViewRecap = false,
 }: AttendanceChatClientProps) {
   const [workDate] = useState<string>(initialDate);
   const [messages, setMessages] = useState<AttendanceFeedMessage[]>(initialMessages);
@@ -746,14 +748,16 @@ export function AttendanceChatClient({
             </button>
           )}
 
-          <Link
-            href={`/rekap-harian?date=${workDate}`}
-            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xs transition"
-            title="Lihat Rekap Absen Harian & Kehadiran Anak Magang"
-          >
-            <ClipboardCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="hidden sm:inline">Rekap Harian</span>
-          </Link>
+          {canViewRecap && (
+            <Link
+              href={`/rekap-harian?date=${workDate}`}
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg shadow-2xs transition"
+              title="Lihat Rekap Absen Harian & Kehadiran Anak Magang"
+            >
+              <ClipboardCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span className="hidden sm:inline">Rekap Harian</span>
+            </Link>
+          )}
 
           <button
             onClick={() => setGroupModalOpen(true)}

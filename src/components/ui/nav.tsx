@@ -49,6 +49,7 @@ export interface AppNavProps {
   isMaster?: boolean;
   canAccessTicketing?: boolean;
   canAccessPiket?: boolean;
+  canAccessRekapHarian?: boolean;
   isMagang?: boolean;
   isSenior?: boolean;
   userName?: string | null;
@@ -141,7 +142,8 @@ function getNavigationSections(
   canAccessTicketing: boolean,
   isMaster: boolean,
   canAccessPiket: boolean,
-  canAccessHarian: boolean
+  canAccessHarian: boolean,
+  canAccessRekapHarian: boolean
 ): NavSection[] {
   const absensiItems: NavItem[] = [];
 
@@ -154,7 +156,7 @@ function getNavigationSections(
     });
   }
 
-  // Presensi Harian & Rekapitulasi Harian untuk akun yang memiliki role magang atau senior
+  // Presensi Harian untuk akun yang memiliki role magang, senior, atau owner
   if (canAccessHarian) {
     absensiItems.push({
       href: '/absen-chat',
@@ -163,7 +165,10 @@ function getNavigationSections(
       badge: 'Baru',
       badgeColor: 'bg-blue-500 text-white',
     });
+  }
 
+  // Rekap Absen Harian khusus Admin Piket, Senior, dan Owner (Magang tidak memiliki akses)
+  if (canAccessRekapHarian) {
     absensiItems.push({
       href: '/rekap-harian',
       label: 'Rekap Absen Harian',
@@ -250,6 +255,7 @@ export function AppNavigation({
   isMaster = false,
   canAccessTicketing = false,
   canAccessPiket = false,
+  canAccessRekapHarian = false,
   isMagang,
   isSenior,
   userName,
@@ -281,7 +287,20 @@ export function AppNavigation({
     userIsSenior ||
     Boolean(roles?.includes('owner'));
 
-  const sections = getNavigationSections(hasTicketAccess, isMaster, userCanAccessPiket, userCanAccessHarian);
+  const userCanAccessRekapHarian =
+    canAccessRekapHarian ||
+    isMaster ||
+    Boolean(roles?.includes('owner')) ||
+    Boolean(roles?.includes('admin')) ||
+    Boolean(roles?.includes('senior'));
+
+  const sections = getNavigationSections(
+    hasTicketAccess,
+    isMaster,
+    userCanAccessPiket,
+    userCanAccessHarian,
+    userCanAccessRekapHarian
+  );
   const allNavItems = useMemo(() => sections.flatMap((sec) => sec.items), [sections]);
   const displayName = userName || userEmail || 'Pengguna';
   const initial = displayName.trim().charAt(0).toUpperCase() || 'U';
@@ -710,7 +729,7 @@ export function AppNavigation({
                 <History className="h-4 w-4 mb-0.5" />
                 <span>Riwayat</span>
               </Link>
-            ) : userCanAccessHarian ? (
+            ) : userCanAccessRekapHarian ? (
               <Link
                 href="/rekap-harian"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
@@ -751,7 +770,7 @@ export function AppNavigation({
                 <Ticket className="h-4 w-4 mb-0.5" />
                 <span>Tiket</span>
               </Link>
-            ) : userCanAccessPiket && userCanAccessHarian ? (
+            ) : userCanAccessPiket && userCanAccessHarian && userCanAccessRekapHarian ? (
               <Link
                 href="/rekap-harian"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
@@ -763,7 +782,7 @@ export function AppNavigation({
                 <ClipboardCheck className="h-4 w-4 mb-0.5" />
                 <span>Rekap</span>
               </Link>
-            ) : userCanAccessPiket && !userCanAccessHarian ? (
+            ) : userCanAccessPiket ? (
               <Link
                 href="/export"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
@@ -775,7 +794,7 @@ export function AppNavigation({
                 <FileDown className="h-4 w-4 mb-0.5" />
                 <span>Export</span>
               </Link>
-            ) : userCanAccessHarian && !userCanAccessPiket ? (
+            ) : userCanAccessHarian && !userCanAccessPiket && userCanAccessRekapHarian ? (
               <Link
                 href="/more-app"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${

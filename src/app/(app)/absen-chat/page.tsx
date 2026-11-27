@@ -87,6 +87,7 @@ export default async function AbsenChatPage({ searchParams }: AbsenChatPageProps
       availableProfiles={availableProfiles}
       internProfiles={internProfiles}
       isAdmin={isAdmin}
+      canViewRecap={myProfile.canAccessRekapHarian}
     />
   );
 }
