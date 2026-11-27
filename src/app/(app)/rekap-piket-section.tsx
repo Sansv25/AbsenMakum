@@ -13,9 +13,16 @@ import {
   TrendingUp,
   Loader2,
   X,
+  List,
+  Sun,
+  Moon,
+  ExternalLink,
 } from 'lucide-react';
+import Link from 'next/link';
 import { fetchAttendancesForRangeAction } from './rekap-actions';
-import type { Attendance, Attachment, Holiday } from '@/lib/supabase/types';
+import { formatIndonesia } from '@/lib/dates';
+import { jobLabel, shiftLabel, type JobType } from '@/lib/shifts';
+import type { Attendance, Attachment, Holiday, ShiftType } from '@/lib/supabase/types';
 
 export interface ProfileRecapSummary {
   id: string;
@@ -25,6 +32,15 @@ export interface ProfileRecapSummary {
   roles?: string[];
   is_approved?: boolean;
   exclude_from_recap?: boolean;
+}
+
+interface OfficerShiftEntry {
+  key: string;
+  workDate: string;
+  shiftType: ShiftType;
+  jobTypes: JobType[];
+  isHoliday: boolean;
+  holidayName?: string;
 }
 
 interface RekapPiketSectionProps {
@@ -73,10 +89,25 @@ export function RekapPiketSection({
   // Data State
   const [attendances, setAttendances] = useState<Attendance[]>(initialAttendances);
   const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments);
+  const [detailOfficerId, setDetailOfficerId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Set Holiday Map & Set
   const holidaySet = useMemo(() => new Set(holidays.map((h) => h.holiday_date)), [holidays]);
+  const holidayNameMap = useMemo(
+    () => new Map(holidays.map((h) => [h.holiday_date, h.name])),
+    [holidays]
+  );
+
+  // Tutup popup daftar hari piket dengan ESC
+  useEffect(() => {
+    if (!detailOfficerId) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDetailOfficerId(null);
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [detailOfficerId]);
 
   // Saat bulan/tahun berubah: default ke 'Minggu Ini' (-1) untuk bulan berjalan, atau 'Semua Minggu' (0) untuk bulan lain
   useEffect(() => {
@@ -399,6 +430,7 @@ export function RekapPiketSection({
     const items = activeProfiles.map((p) => {
       const weekdayShifts = new Set<string>();
       const holidayShifts = new Set<string>();
+      const shiftMap = new Map<string, OfficerShiftEntry>();
 
       for (const a of inRangeAttendances) {
         const list = attachByAttendance.get(a.id) ?? [];
@@ -411,7 +443,8 @@ export function RekapPiketSection({
 
         const [y, m, d] = a.work_date.split('-').map(Number);
         const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-        const isOff = dow === 0 || dow === 6 || holidaySet.has(a.work_date);
+        const isNationalHoliday = holidaySet.has(a.work_date);
+        const isOff = dow === 0 || dow === 6 || isNationalHoliday;
 
         const shiftKey = `${a.work_date}#${a.shift_type}`;
         if (isOff) {
@@ -419,7 +452,35 @@ export function RekapPiketSection({
         } else {
           weekdayShifts.add(shiftKey);
         }
+
+        const existing = shiftMap.get(shiftKey);
+        const job = (a.job_type || 'marketer') as JobType;
+        if (existing) {
+          if (!existing.jobTypes.includes(job)) {
+            existing.jobTypes.push(job);
+          }
+        } else {
+          shiftMap.set(shiftKey, {
+            key: shiftKey,
+            workDate: a.work_date,
+            shiftType: a.shift_type,
+            jobTypes: [job],
+            isHoliday: isOff,
+            holidayName: isNationalHoliday
+              ? holidayNameMap.get(a.work_date)
+              : dow === 0
+              ? 'Hari Minggu'
+              : dow === 6
+              ? 'Hari Sabtu'
+              : undefined,
+          });
+        }
       }
+
+      const shiftDetails = Array.from(shiftMap.values()).sort((a, b) => {
+        if (a.workDate !== b.workDate) return a.workDate.localeCompare(b.workDate);
+        return a.shiftType === 'pagi' ? -1 : 1;
+      });
 
       const name = p.full_name?.trim() || p.email?.split('@')[0] || 'Petugas';
       return {
@@ -430,6 +491,7 @@ export function RekapPiketSection({
         weekdayShiftsCount: weekdayShifts.size,
         holidayShiftsCount: holidayShifts.size,
         totalShiftsCount: weekdayShifts.size + holidayShifts.size,
+        shiftDetails,
       };
     });
 
@@ -452,7 +514,12 @@ export function RekapPiketSection({
     }
 
     return items;
-  }, [activeProfiles, attendances, attachByAttendance, startDate, endDate, holidaySet, searchQuery, isAttendanceDone]);
+  }, [activeProfiles, attendances, attachByAttendance, startDate, endDate, holidaySet, holidayNameMap, searchQuery, isAttendanceDone]);
+
+  const detailOfficer = useMemo(
+    () => recapItems.find((item) => item.id === detailOfficerId) ?? null,
+    [recapItems, detailOfficerId]
+  );
 
   // Total shift akumulasi
   const totalAllWeekdayShifts = useMemo(
@@ -466,6 +533,7 @@ export function RekapPiketSection({
   const totalAllShifts = totalAllWeekdayShifts + totalAllHolidayShifts;
 
   return (
+    <>
     <section className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-800 p-3.5 sm:p-5 space-y-5 w-full min-w-0 overflow-hidden">
       {/* 1. Header (Teks lama sudah dihilangkan) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 dark:border-slate-800 pb-4">
@@ -787,15 +855,15 @@ export function RekapPiketSection({
           {viewMode === 'tabel' && (
             <>
               {/* Tampilan Desktop & Tablet: Tabel */}
-              <div className="hidden sm:block overflow-hidden rounded-xl border border-gray-100 dark:border-slate-800">
+              <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-100 dark:border-slate-800">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-gray-50/80 dark:bg-slate-800/60 text-gray-600 dark:text-slate-300 border-b border-gray-100 dark:border-slate-800">
                     <tr>
                       <th className="py-2.5 px-3 font-semibold w-12 text-center">No</th>
                       <th className="py-2.5 px-3 font-semibold">Nama Petugas</th>
-                      <th className="py-2.5 px-3 font-semibold text-center">Piket Hari Biasa</th>
-                      <th className="py-2.5 px-3 font-semibold text-center">Piket Hari Libur</th>
-                      <th className="py-2.5 px-3 font-semibold text-center">Total Piket</th>
+                      <th className="py-2.5 px-3 font-semibold text-center whitespace-nowrap">Piket Hari Biasa</th>
+                      <th className="py-2.5 px-3 font-semibold text-center whitespace-nowrap">Piket Hari Libur</th>
+                      <th className="py-2.5 px-3 font-semibold text-center whitespace-nowrap">Total Piket</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
@@ -831,20 +899,36 @@ export function RekapPiketSection({
                             </div>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-center">
-                          <span className="inline-block px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800">
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          <span className="inline-block px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800 whitespace-nowrap">
                             {item.weekdayShiftsCount} Shift
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-center">
-                          <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800">
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          <span className="inline-block px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800 whitespace-nowrap">
                             {item.holidayShiftsCount} Shift
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-center">
-                          <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 text-xs">
-                            {item.totalShiftsCount} Shift
-                          </span>
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          <div className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                            <span className="inline-block px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800 text-xs whitespace-nowrap">
+                              {item.totalShiftsCount} Shift
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setDetailOfficerId(item.id)}
+                              disabled={item.totalShiftsCount === 0}
+                              title={
+                                item.totalShiftsCount > 0
+                                  ? `Lihat daftar hari piket ${item.name}`
+                                  : 'Belum ada catatan piket pada periode ini'
+                              }
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:border-blue-400 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                            >
+                              <List className="h-3 w-3" />
+                              <span>List</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -875,9 +959,21 @@ export function RekapPiketSection({
                           )}
                         </div>
                       </div>
-                      <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
-                        {item.totalShiftsCount} Shift
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                          {item.totalShiftsCount} Shift
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setDetailOfficerId(item.id)}
+                          disabled={item.totalShiftsCount === 0}
+                          title={`Lihat daftar hari piket ${item.name}`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                        >
+                          <List className="h-3 w-3" />
+                          <span>List</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200/60 dark:border-slate-700/60 text-center">
@@ -1320,5 +1416,129 @@ export function RekapPiketSection({
         </>
       )}
     </section>
+
+    {/* Popup Modal Daftar Hari Piket Petugas */}
+    {detailOfficer && (
+      <div
+        className="fixed inset-0 !mt-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+        onClick={() => setDetailOfficerId(null)}
+      >
+        <div
+          className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header Modal */}
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-800 flex items-start justify-between gap-3 bg-gray-50/70 dark:bg-slate-800/40">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <List className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                <h4 className="font-bold text-gray-900 dark:text-slate-100 text-sm sm:text-base truncate">
+                  Jadwal Piket: {detailOfficer.name}
+                </h4>
+              </div>
+              <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1">
+                Periode: <strong className="text-gray-700 dark:text-slate-200">{periodLabel}</strong>
+              </p>
+              <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  Total {detailOfficer.totalShiftsCount} Shift
+                </span>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  {detailOfficer.weekdayShiftsCount} Hari Biasa
+                </span>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                  {detailOfficer.holidayShiftsCount} Hari Libur
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDetailOfficerId(null)}
+              className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-slate-200 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors flex-shrink-0"
+              aria-label="Tutup daftar hari piket"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* List Hari Piket */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+            {detailOfficer.shiftDetails.length === 0 ? (
+              <p className="text-xs text-center text-gray-400 dark:text-slate-500 py-8">
+                Belum ada daftar hari piket pada periode ini.
+              </p>
+            ) : (
+              <ul className="divide-y divide-gray-100 dark:divide-slate-800 border border-gray-100 dark:border-slate-800 rounded-xl overflow-hidden bg-gray-50/30 dark:bg-slate-900">
+                {detailOfficer.shiftDetails.map((entry, idx) => {
+                  const isPagi = entry.shiftType === 'pagi';
+                  return (
+                    <li
+                      key={entry.key}
+                      className="px-3.5 py-3 flex items-center justify-between gap-3 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <span className="w-6 h-6 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-bold text-gray-900 dark:text-slate-100 truncate">
+                            {formatIndonesia(entry.workDate)}
+                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 border ${
+                                isPagi
+                                  ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                                  : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                              }`}
+                            >
+                              {isPagi ? <Sun className="h-2.5 w-2.5" /> : <Moon className="h-2.5 w-2.5" />}
+                              {shiftLabel(entry.shiftType)}
+                            </span>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 border border-gray-200 dark:border-slate-700">
+                              {entry.jobTypes.map((jt) => jobLabel(jt)).join(', ')}
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                entry.isHoliday
+                                  ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                                  : 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                              }`}
+                            >
+                              {entry.isHoliday ? `Libur (${entry.holidayName})` : 'Hari Biasa'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Link
+                        href={`/absen/${entry.workDate}/${entry.shiftType}`}
+                        className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 flex-shrink-0"
+                        title="Buka dokumentasi shift ini"
+                      >
+                        <span className="hidden sm:inline">Buka</span>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Footer Modal */}
+          <div className="px-5 py-3 border-t border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setDetailOfficerId(null)}
+              className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-800 dark:text-slate-200 text-xs font-semibold transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
