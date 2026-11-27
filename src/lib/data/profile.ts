@@ -17,7 +17,7 @@ export interface UserProfileInfo {
   isMaster: boolean; // true if isOwner || isAdmin || isSenior (general admin rights)
   canManageSettings: boolean; // isOwner || isAdmin (senior tidak memiliki akses)
   canManageAdvanced: boolean; // isOwner only (monitoring, email recap, reset data)
-  canCreateTicket: boolean; // isOwner || isAdmin || isTiket
+  canCreateTicket: boolean; // isOwner || isTiket
   canAccessPiket: boolean; // isOwner || isAdmin || isSenior || isPiket
   fullName: string | null;
   phone: string | null;
@@ -96,7 +96,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
     const isMaster = isOwner || isAdmin || (profile.role === 'master' && !isSenior);
     const canManageSettings = isOwner || isAdmin || (profile.role === 'master' && !isSenior);
     const canManageAdvanced = isOwner;
-    const canCreateTicket = isOwner || isAdmin || isTiket;
+    const canCreateTicket = isOwner || isTiket;
     const canAccessPiket = isOwner || isAdmin || isSenior || isPiket;
     const isApproved = isMaster || isSenior ? true : (profile.is_approved ?? false);
 
@@ -178,7 +178,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
   const isPiket = defaultRoles.includes('piket');
   const isMagang = defaultRoles.includes('magang');
   const isTiket = defaultRoles.includes('tiket');
-  const canCreateTicket = isOwner || isAdmin || isTiket;
+  const canCreateTicket = isOwner || isTiket;
   const canAccessPiket = isOwner || isAdmin || isSenior || isPiket;
 
   return {

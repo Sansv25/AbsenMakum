@@ -160,9 +160,8 @@ export default function TicketingDashboardPage() {
             const isMasterEmail = data.user.email?.toLowerCase() === 'madesanjaya255@gmail.com';
             const roles: string[] = Array.isArray(profile?.roles) ? profile.roles : [];
             const isOwner = roles.includes('owner') || isMasterEmail;
-            const isAdmin = roles.includes('admin') || profile?.role === 'master';
             const isTiket = roles.includes('tiket');
-            const allowed = isOwner || isAdmin || isTiket;
+            const allowed = isOwner || isTiket;
             setIsOwner(isOwner);
             setCanCreateTicket(allowed);
 

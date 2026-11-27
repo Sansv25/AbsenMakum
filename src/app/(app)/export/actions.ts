@@ -26,10 +26,10 @@ export async function fetchExportData(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { data: [], error: 'Tidak terautentikasi' };
 
-  // Security check: Hanya pengguna dengan akses piket (Owner, Admin, Senior, Petugas Piket) yang diizinkan mengekspor dokumen piket
+  // Security check: Hanya pengguna dengan akses piket (Owner, Admin Piket, Senior, Petugas Piket) yang diizinkan mengekspor dokumen piket
   const { isMaster, canAccessPiket } = await getCurrentUserProfile();
   if (!isMaster && !canAccessPiket) {
-    return { data: [], error: 'Hanya Petugas Piket, Senior, atau Admin yang diizinkan mengekspor dokumen dokumentasi piket.' };
+    return { data: [], error: 'Hanya Petugas Piket, Senior, Admin Piket, atau Owner yang diizinkan mengekspor dokumen dokumentasi piket.' };
   }
 
   // Fetch attendances in range
@@ -174,14 +174,4 @@ export async function fetchExportData(
   }
 
   return { data: result };
-}
-
-export async function getDailyExportData(date: string) {
-  const profile = await getCurrentUserProfile();
-  const canAccessHarian = profile.isMagang || profile.isSenior || profile.isOwner || profile.isAdmin;
-  if (!canAccessHarian) {
-    throw new Error('Hanya akun dengan role magang atau senior yang dapat mengakses rekapitulasi presensi harian magang.');
-  }
-  const { getDailyAttendanceRecap } = await import('@/lib/data/daily-attendance-recap');
-  return await getDailyAttendanceRecap(date);
 }

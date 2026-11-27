@@ -52,7 +52,7 @@ export default function TermsOfServicePage() {
               <li>Akun hanya diberikan kepada petugas dan administrator resmi operasional piket ICONNET.</li>
               <li>Pengguna bertanggung jawab penuh untuk menjaga kerahasiaan kata sandi dan kredensial akun masing-masing.</li>
               <li>Dilarang membagikan atau meminjamkan akun kepada pihak lain yang tidak berwenang.</li>
-              <li>Penggunaan fitur pembuatan tiket hanya dapat dilakukan oleh akun yang telah diberikan hak akses (Role Tiket / Admin / Owner).</li>
+              <li>Penggunaan fitur pembuatan tiket hanya dapat dilakukan oleh akun yang telah diberikan hak akses (Role Tiket / Owner).</li>
             </ul>
           </section>
 

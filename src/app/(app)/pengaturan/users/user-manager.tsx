@@ -62,14 +62,14 @@ export const ROLE_INFO: Record<
     description: 'Pemilik tertinggi sistem (1 orang). Akses penuh Shift, Akun, Monitoring Supabase, Rekapan Email, & Reset Data.',
   },
   admin: {
-    label: 'Admin',
-    badgeLabel: 'Admin',
+    label: 'Admin Piket',
+    badgeLabel: 'Admin Piket',
     icon: ShieldCheck,
     bg: 'bg-blue-100 dark:bg-blue-950/80',
     text: 'text-blue-800 dark:text-blue-300',
     border: 'border-blue-300 dark:border-blue-800',
     badgeBg: 'bg-blue-500/15 text-blue-900 dark:text-blue-200 border-blue-300 dark:border-blue-700',
-    description: 'Pengelola operasional. Di menu Pengaturan hanya dapat mengakses Manajemen Shift dan Manajemen Akun.',
+    description: 'Pengelola operasional piket. Akses Dashboard Piket, Riwayat, Export Rekapan Piket, Hari Libur Nasional, serta Manajemen Shift & Akun. (Tanpa menu Tiket & Absen Harian kecuali role ditumpuk).',
   },
   senior: {
     label: 'Senior',
@@ -109,7 +109,7 @@ export const ROLE_INFO: Record<
     text: 'text-cyan-800 dark:text-cyan-300',
     border: 'border-cyan-300 dark:border-cyan-800',
     badgeBg: 'bg-cyan-500/15 text-cyan-900 dark:text-cyan-200 border-cyan-300 dark:border-cyan-700',
-    description: 'Hak akses pembuatan tiket & antrean gangguan ICONNET. Hanya pengguna dengan role ini (atau Owner/Admin) yang diizinkan membuat tiket baru.',
+    description: 'Hak akses pembuatan tiket & antrean gangguan ICONNET. Hanya pengguna dengan role ini (atau Owner) yang diizinkan membuat tiket baru.',
   },
 };
 
@@ -445,7 +445,7 @@ export function UserManager({
             Manajemen Akun &amp; Role Bertumpuk
           </h2>
           <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-            Role dapat ditumpuk (misal: Owner + Magang, Admin + Magang). Total {initialUsers.length} akun.
+            Role dapat ditumpuk (misal: Owner + Magang, Admin Piket + Magang). Total {initialUsers.length} akun.
           </p>
         </div>
         <button

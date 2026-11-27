@@ -236,9 +236,9 @@ export async function createAttendanceFeedMessage(payload: {
   }
 
   const profile = await getCurrentUserProfile();
-  const canSend = profile.isMagang || profile.isSenior || profile.isOwner || profile.isAdmin;
+  const canSend = profile.isMagang || profile.isSenior || profile.isOwner;
   if (!canSend) {
-    return { message: null, error: 'Hanya akun dengan role magang atau senior yang dapat mengirim pesan di absensi harian.' };
+    return { message: null, error: 'Hanya akun dengan role magang, senior, atau owner yang dapat mengirim pesan di absensi harian.' };
   }
 
   const isAdminOrOwner = profile.canManageSettings || profile.isOwner || profile.isAdmin || profile.isMaster;

@@ -78,7 +78,7 @@ export function RoleBadgeGroup({ roles, isMaster }: { roles?: AppRole[]; isMaste
               key={role}
               className="text-[10px] bg-blue-100 dark:bg-blue-950/80 border border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-300 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
             >
-              <ShieldCheck className="h-2.5 w-2.5" /> Admin
+              <ShieldCheck className="h-2.5 w-2.5" /> Admin Piket
             </span>
           );
         }
@@ -193,10 +193,10 @@ function getNavigationSections(
       items: [
         { href: '/libur', label: 'Hari Libur Nasional', icon: CalendarOff, masterOnly: true },
         { href: '/pengaturan', label: 'Pengaturan & User', icon: Settings, masterOnly: true },
-        { href: '/export', label: 'Export Rekapan', icon: FileDown },
+        ...(canAccessPiket ? [{ href: '/export', label: 'Export Rekapan', icon: FileDown }] : []),
       ],
     });
-  } else {
+  } else if (canAccessPiket) {
     sections.push({
       title: 'Laporan',
       items: [{ href: '/export', label: 'Export Rekapan', icon: FileDown }],
@@ -246,8 +246,7 @@ export function AppNavigation({
   const hasTicketAccess =
     canAccessTicketing ||
     Boolean(roles?.includes('tiket')) ||
-    Boolean(roles?.includes('owner')) ||
-    Boolean(roles?.includes('admin'));
+    Boolean(roles?.includes('owner'));
 
   const userCanAccessPiket =
     canAccessPiket ||
@@ -262,8 +261,7 @@ export function AppNavigation({
   const userCanAccessHarian =
     userIsMagang ||
     userIsSenior ||
-    Boolean(roles?.includes('owner')) ||
-    Boolean(roles?.includes('admin'));
+    Boolean(roles?.includes('owner'));
 
   const sections = getNavigationSections(hasTicketAccess, isMaster, userCanAccessPiket, userCanAccessHarian);
   const allNavItems = useMemo(() => sections.flatMap((sec) => sec.items), [sections]);

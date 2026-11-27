@@ -10,8 +10,8 @@ export default async function TicketingModuleLayout({
 }) {
   const profile = await getCurrentUserProfile();
 
-  // Hanya pengguna dengan role 'tiket', 'admin', atau 'owner' yang diizinkan mengakses modul ticketing
-  const canAccessTicketing = profile.isOwner || profile.isAdmin || profile.isTiket;
+  // Hanya pengguna dengan role 'tiket' atau 'owner' yang diizinkan mengakses modul ticketing
+  const canAccessTicketing = profile.isOwner || profile.isTiket;
 
   if (!canAccessTicketing) {
     redirect('/');
