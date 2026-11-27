@@ -145,20 +145,27 @@ function getNavigationSections(
   canAccessHarian: boolean,
   canAccessRekapHarian: boolean
 ): NavSection[] {
-  const absensiItems: NavItem[] = [];
-
-  // Halaman Piket HANYA untuk pengguna yang memiliki akses piket (Petugas Piket, Senior, Admin, Owner)
+  const piketItems: NavItem[] = [];
+  // Halaman Piket HANYA untuk pengguna yang memiliki akses piket (Petugas Piket, Freelance, Senior, Admin, Owner)
   if (canAccessPiket) {
-    absensiItems.push({
-      href: '/',
-      label: 'Dashboard Absen Piket',
-      icon: LayoutDashboard,
-    });
+    piketItems.push(
+      {
+        href: '/',
+        label: 'Dashboard Absen Piket',
+        icon: LayoutDashboard,
+      },
+      {
+        href: '/riwayat',
+        label: 'Riwayat Absen Piket',
+        icon: History,
+      }
+    );
   }
 
+  const harianItems: NavItem[] = [];
   // Presensi Harian untuk akun yang memiliki role magang, senior, atau owner
   if (canAccessHarian) {
-    absensiItems.push({
+    harianItems.push({
       href: '/absen-chat',
       label: 'Absen Harian',
       icon: MessagesSquare,
@@ -169,27 +176,25 @@ function getNavigationSections(
 
   // Rekap Absen Harian khusus Admin Piket, Senior, dan Owner (Magang tidak memiliki akses)
   if (canAccessRekapHarian) {
-    absensiItems.push({
+    harianItems.push({
       href: '/rekap-harian',
       label: 'Rekap Absen Harian',
       icon: ClipboardCheck,
     });
   }
 
-  // Riwayat Piket HANYA untuk pengguna yang memiliki akses piket
-  if (canAccessPiket) {
-    absensiItems.push({
-      href: '/riwayat',
-      label: 'Riwayat Absen Piket',
-      icon: History,
+  const sections: NavSection[] = [];
+  if (piketItems.length > 0) {
+    sections.push({
+      title: 'Absen Piket',
+      items: piketItems,
     });
   }
 
-  const sections: NavSection[] = [];
-  if (absensiItems.length > 0) {
+  if (harianItems.length > 0) {
     sections.push({
-      title: canAccessPiket ? 'Absensi & Piket' : 'Absensi Harian Magang',
-      items: absensiItems,
+      title: 'Absensi Harian',
+      items: harianItems,
     });
   }
 
