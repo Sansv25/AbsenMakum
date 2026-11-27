@@ -67,3 +67,14 @@ export interface Attachment {
 export interface AttendanceWithAttachments extends Attendance {
   attachments: Attachment[];
 }
+
+export interface MoreAppItem {
+  id: string;
+  name: string;
+  url: string;
+  icon_url: string | null;
+  sort_order: number;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}

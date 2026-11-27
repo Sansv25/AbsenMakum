@@ -25,6 +25,7 @@ import {
   ClipboardCheck,
   Clock,
   Briefcase,
+  LayoutGrid,
 } from 'lucide-react';
 import { logout } from '@/app/(auth)/login/actions';
 import type { AppRole } from '@/lib/supabase/types';
@@ -213,6 +214,11 @@ function getNavigationSections(
       items: [{ href: '/export', label: 'Export Rekapan', icon: FileDown }],
     });
   }
+
+  sections.push({
+    title: 'Aplikasi & Utilitas',
+    items: [{ href: '/more-app', label: 'More App', icon: LayoutGrid }],
+  });
 
   sections.push({
     title: 'Akun & Preferensi',
@@ -718,22 +724,22 @@ export function AppNavigation({
               </Link>
             ) : (
               <Link
-                href="/profil"
+                href="/more-app"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
-                  pathname.startsWith('/profil')
+                  pathname.startsWith('/more-app')
                     ? 'text-blue-600 dark:text-blue-400 font-bold'
                     : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
                 }`}
               >
-                <User className="h-4 w-4 mb-0.5" />
-                <span>Profil</span>
+                <LayoutGrid className="h-4 w-4 mb-0.5" />
+                <span>More App</span>
               </Link>
             )}
           </li>
 
-          {/* 3. Tombol Ketiga (Tiket jika punya akses, atau Rekap untuk Magang/Senior, atau Export/Profil) */}
+          {/* 3. Tombol Ketiga (Tiket jika punya akses & bukan slot 1, Rekap, Export, atau More App) */}
           <li className="flex-1">
-            {hasTicketAccess ? (
+            {hasTicketAccess && (userCanAccessPiket || userCanAccessHarian) ? (
               <Link
                 href="/ticketing"
                 className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
@@ -768,6 +774,18 @@ export function AppNavigation({
               >
                 <FileDown className="h-4 w-4 mb-0.5" />
                 <span>Export</span>
+              </Link>
+            ) : userCanAccessHarian && !userCanAccessPiket ? (
+              <Link
+                href="/more-app"
+                className={`flex flex-col items-center justify-center py-1.5 text-[10px] transition-colors ${
+                  pathname.startsWith('/more-app')
+                    ? 'text-blue-600 dark:text-blue-400 font-bold'
+                    : 'text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <LayoutGrid className="h-4 w-4 mb-0.5" />
+                <span>More App</span>
               </Link>
             ) : (
               <Link
