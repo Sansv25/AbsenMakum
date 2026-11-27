@@ -19,6 +19,10 @@ import {
   ZoomIn,
   Eye,
   Calendar,
+  Sun,
+  Moon,
+  Clock,
+  CircleDashed,
 } from 'lucide-react';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
@@ -77,6 +81,59 @@ function getWeekRangeMonSun(workDate: string): { monStr: string; sunStr: string 
     monStr: mon.toISOString().slice(0, 10),
     sunStr: sun.toISOString().slice(0, 10),
   };
+}
+
+/** Ekstrak angka tanggal dan nama bulan singkat untuk badge kalender mini. */
+function getDateParts(workDate: string): { dayNum: string; monthShort: string } {
+  const [y, m, d] = workDate.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const monthShort = new Intl.DateTimeFormat('id-ID', {
+    month: 'short',
+    timeZone: 'UTC',
+  })
+    .format(date)
+    .replace('.', '')
+    .toUpperCase();
+  return {
+    dayNum: String(d).padStart(2, '0'),
+    monthShort,
+  };
+}
+
+function getLengkapJobsCount(item: RiwayatShiftGroup): number {
+  return JOB_TYPES.filter((jt) => item.jobs[jt]?.status === 'lengkap').length;
+}
+
+function ShiftBadge({ shiftType }: { shiftType: ShiftType }) {
+  const isPagi = shiftType === 'pagi';
+  return (
+    <span
+      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 border ${
+        isPagi
+          ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+          : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+      }`}
+    >
+      {isPagi ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
+      {shiftLabel(shiftType)}
+    </span>
+  );
+}
+
+function StatusBadge({ status, lengkapCount }: { status: ShiftStatus; lengkapCount: number }) {
+  return (
+    <span
+      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize border ${
+        status === 'lengkap'
+          ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800'
+          : status === 'sebagian'
+          ? 'bg-yellow-100 dark:bg-yellow-950/60 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800'
+          : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border-gray-200 dark:border-slate-700'
+      }`}
+    >
+      {status} &bull; {lengkapCount}/{JOB_TYPES.length}
+    </span>
+  );
 }
 
 export function RiwayatView({
@@ -410,6 +467,9 @@ export function RiwayatView({
         ) : (
           paginatedItems.map((item) => {
             const dateShiftKey = `${item.work_date}-${item.shift_type}`;
+            const { dayNum, monthShort } = getDateParts(item.work_date);
+            const lengkapCount = getLengkapJobsCount(item);
+            const isToday = item.work_date === today;
 
             return (
               <div
@@ -418,88 +478,59 @@ export function RiwayatView({
                 className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-gray-100 dark:border-slate-800 shadow-sm hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-bold text-gray-900 dark:text-slate-100 text-sm sm:text-base">
-                        {shiftLabel(item.shift_type)}
-                      </span>
+                  <div className="flex items-start gap-3 sm:gap-3.5 flex-1 min-w-0">
+                    {/* Mini Calendar Date Badge */}
+                    <div
+                      className={`w-12 h-12 rounded-xl border flex flex-col items-center justify-center flex-shrink-0 transition-colors ${
+                        isToday
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                          : item.isHoliday
+                          ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300'
+                          : 'bg-gray-50 dark:bg-slate-800 border-gray-200/80 dark:border-slate-700 text-gray-800 dark:text-slate-100 group-hover:border-blue-300 dark:group-hover:border-blue-700'
+                      }`}
+                    >
+                      <span className="text-base font-extrabold leading-none tracking-tight">{dayNum}</span>
                       <span
-                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize ${
-                          item.overallStatus === 'lengkap'
-                            ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
-                            : item.overallStatus === 'sebagian'
-                            ? 'bg-yellow-100 dark:bg-yellow-950/60 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
-                            : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
+                        className={`text-[9px] font-bold uppercase tracking-wider mt-0.5 ${
+                          isToday
+                            ? 'text-blue-100'
+                            : item.isHoliday
+                            ? 'text-red-500 dark:text-red-400'
+                            : 'text-gray-400 dark:text-slate-400'
                         }`}
                       >
-                        {item.overallStatus}
+                        {monthShort}
                       </span>
-                      {item.isHoliday && (
-                        <span className="text-[10px] bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/60 px-2 py-0.5 rounded-full font-medium">
-                          Libur: {item.holidayName}
-                        </span>
-                      )}
                     </div>
 
-                    <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
-                      {formatIndonesia(item.work_date)}
-                    </p>
-
-                    {/* Petugas Piket */}
-                    {item.userNames && item.userNames.length > 0 ? (
-                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-700 dark:text-slate-300">
-                        <User className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
-                        <span className="truncate">
-                          Petugas: <strong className="text-gray-900 dark:text-slate-100 font-semibold">{item.userNames.join(', ')}</strong>
-                        </span>
+                    <div className="flex-1 min-w-0">
+                      {/* Primary Heading: Hari & Tanggal */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-gray-900 dark:text-slate-100 text-sm sm:text-base leading-snug group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {formatIndonesia(item.work_date)}
+                        </h3>
+                        {isToday && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                            Hari Ini
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-gray-400 dark:text-slate-500">
-                        <User className="h-3.5 w-3.5 text-gray-300 dark:text-slate-600 flex-shrink-0" />
-                        <span className="italic">Belum ada yang mengisi</span>
-                      </div>
-                    )}
 
-                    {/* 3 Positions Status Pills */}
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      {JOB_TYPES.map((jt) => {
-                        const job = item.jobs[jt];
-                        const status = job?.status ?? 'kosong';
-                        return (
-                          <div
-                            key={jt}
-                            className="bg-gray-50/80 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700/60 rounded-xl p-2 flex flex-col items-center text-center group-hover:bg-blue-50/40 dark:group-hover:bg-blue-950/30 transition-colors"
-                          >
-                            <span className="text-[11px] font-semibold text-gray-800 dark:text-slate-200">
-                              {jobLabel(jt)}
-                            </span>
-                            <span
-                              className={`text-[10px] font-medium capitalize mt-0.5 ${
-                                status === 'lengkap'
-                                  ? 'text-green-600 dark:text-green-400'
-                                  : status === 'sebagian'
-                                  ? 'text-yellow-600 dark:text-yellow-400'
-                                  : 'text-gray-400 dark:text-slate-500'
-                              }`}
-                            >
-                              {status}
-                            </span>
-                            {status !== 'kosong' && job?.userName && (
-                              <span
-                                className="text-[9px] text-gray-600 dark:text-slate-300 font-medium truncate max-w-full mt-1 px-1 bg-white dark:bg-slate-800 rounded border border-gray-200/60 dark:border-slate-700"
-                                title={job.userName}
-                              >
-                                {job.userName}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                      {/* Secondary Metadata: Shift + Kelengkapan + Libur */}
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                        <ShiftBadge shiftType={item.shift_type} />
+                        <StatusBadge status={item.overallStatus} lengkapCount={lengkapCount} />
+                        {item.isHoliday && (
+                          <span className="text-[10px] bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/60 px-2 py-0.5 rounded-full font-medium">
+                            Libur: {item.holidayName}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {/* Icon drawer indicator */}
-                  <div className="flex flex-col items-center justify-center pl-2 pt-1">
+                  <div className="flex flex-col items-center justify-center pl-1 flex-shrink-0">
                     <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                       <Layers className="h-4 w-4" />
                     </div>
@@ -507,6 +538,70 @@ export function RiwayatView({
                       Detail
                     </span>
                   </div>
+                </div>
+
+                {/* 3 Positions Status Cards */}
+                <div className="mt-3.5 grid grid-cols-3 gap-2">
+                  {JOB_TYPES.map((jt) => {
+                    const job = item.jobs[jt];
+                    const status = job?.status ?? 'kosong';
+                    return (
+                      <div
+                        key={jt}
+                        className={`rounded-xl p-2.5 flex flex-col items-center text-center transition-colors border ${
+                          status === 'lengkap'
+                            ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/60 group-hover:border-emerald-300 dark:group-hover:border-emerald-700'
+                            : status === 'sebagian'
+                            ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-800/60'
+                            : 'bg-gray-50/60 dark:bg-slate-800/35 border-dashed border-gray-200 dark:border-slate-700/80'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          {status === 'lengkap' ? (
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                          ) : status === 'sebagian' ? (
+                            <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                          ) : (
+                            <CircleDashed className="h-3 w-3 text-gray-400 dark:text-slate-500 flex-shrink-0" />
+                          )}
+                          <span
+                            className={`text-[11px] font-semibold ${
+                              status === 'kosong'
+                                ? 'text-gray-500 dark:text-slate-400'
+                                : 'text-gray-800 dark:text-slate-200'
+                            }`}
+                          >
+                            {jobLabel(jt)}
+                          </span>
+                        </div>
+
+                        {status !== 'kosong' && job?.userName ? (
+                          <span
+                            className="text-[11px] text-gray-900 dark:text-slate-100 font-bold truncate max-w-full mt-1"
+                            title={job.userName}
+                          >
+                            {job.userName}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-gray-400 dark:text-slate-500 italic mt-1">
+                            Belum diisi
+                          </span>
+                        )}
+
+                        <span
+                          className={`text-[9px] font-semibold capitalize mt-0.5 ${
+                            status === 'lengkap'
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : status === 'sebagian'
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-gray-400 dark:text-slate-500'
+                          }`}
+                        >
+                          {status}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -568,30 +663,30 @@ export function RiwayatView({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drawer Header */}
-            <div className="p-5 border-b border-gray-100 dark:border-slate-800 flex items-start justify-between bg-gray-50/50 dark:bg-slate-800/40">
+            <div className="p-5 border-b border-gray-100 dark:border-slate-800 flex items-start justify-between gap-3 bg-gray-50/50 dark:bg-slate-800/40">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-900 dark:text-slate-100 text-lg">
-                    {shiftLabel(drawerShift.shift_type)}
-                  </span>
-                  <span
-                    className={`text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize ${
-                      drawerShift.overallStatus === 'lengkap'
-                        ? 'bg-green-100 dark:bg-green-950/60 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
-                        : drawerShift.overallStatus === 'sebagian'
-                        ? 'bg-yellow-100 dark:bg-yellow-950/60 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800'
-                        : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700'
-                    }`}
-                  >
-                    {drawerShift.overallStatus}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-                  {formatIndonesia(drawerShift.work_date)}
-                  {drawerShift.isHoliday && (
-                    <span className="text-red-600 dark:text-red-400 font-semibold"> • {drawerShift.holidayName}</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="font-bold text-gray-900 dark:text-slate-100 text-base sm:text-lg leading-snug">
+                    {formatIndonesia(drawerShift.work_date)}
+                  </h2>
+                  {drawerShift.work_date === today && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      Hari Ini
+                    </span>
                   )}
-                </p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                  <ShiftBadge shiftType={drawerShift.shift_type} />
+                  <StatusBadge
+                    status={drawerShift.overallStatus}
+                    lengkapCount={getLengkapJobsCount(drawerShift)}
+                  />
+                  {drawerShift.isHoliday && (
+                    <span className="text-[10px] bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/60 px-2 py-0.5 rounded-full font-medium">
+                      Libur: {drawerShift.holidayName}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <button
