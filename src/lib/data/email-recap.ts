@@ -724,132 +724,153 @@ export async function sendDailyRecapEmailNow(
   const hadirList = recap.records.filter((r) => r.isHadir);
   const tidakHadirList = recap.records.filter((r) => !r.isHadir);
 
+  const escapeHtml = (value: string) =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
   // Baris tabel Hadir (Hanya: No, Nama, Status, Jam)
   const hadirRows =
     hadirList.length > 0
       ? hadirList
           .map(
             (r, idx) => `
-        <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
-          <td style="padding: 10px 12px; font-size: 13px; text-align: center; color: #64748b;">${idx + 1}</td>
-          <td style="padding: 10px 12px; font-size: 13px; font-weight: bold; color: #0f172a;">${r.user.full_name}</td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #166534; font-weight: bold; text-align: center;">
-            <span style="background: #dcfce7; padding: 4px 10px; border-radius: 9999px;">✓ Hadir</span>
+        <tr style="background: #ffffff;">
+          <td class="cell-pad" style="padding: 9px 6px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: center; color: #64748b; white-space: nowrap; width: 1%; vertical-align: middle;">${idx + 1}</td>
+          <td class="cell-pad" style="padding: 9px 6px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; color: #0f172a; text-align: left; word-break: break-word; vertical-align: middle;">${escapeHtml(r.user.full_name || '-')}</td>
+          <td class="cell-pad" style="padding: 9px 6px; border-bottom: 1px solid #e2e8f0; text-align: center; white-space: nowrap; width: 1%; vertical-align: middle;">
+            <span class="badge-pill" style="display: inline-block; white-space: nowrap; background: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 9999px; font-size: 11px; font-weight: 700; line-height: 1.2;">&#10003; Hadir</span>
           </td>
-          <td style="padding: 10px 12px; font-size: 13px; color: #0f172a; font-weight: 700; text-align: center;">${r.attendanceTime ? (r.attendanceTime.includes('WITA') ? r.attendanceTime : r.attendanceTime + ' WITA') : '-'}</td>
+          <td class="cell-pad time-cell" style="padding: 9px 6px; border-bottom: 1px solid #e2e8f0; font-size: 12px; color: #0f172a; font-weight: 700; text-align: center; white-space: nowrap; width: 1%; vertical-align: middle;">${escapeHtml(r.attendanceTime ? (r.attendanceTime.includes('WITA') ? r.attendanceTime : r.attendanceTime + ' WITA') : '-')}</td>
         </tr>
       `
           )
           .join('')
       : `<tr><td colspan="4" style="padding: 16px; text-align: center; color: #94a3b8; font-size: 13px;">Belum ada anak magang yang hadir pada tanggal ini.</td></tr>`;
 
-  // Baris tabel Tidak Hadir (No, Nama, Status, WhatsApp)
+  // Baris tabel Tidak Hadir (No, Nama, Status - tanpa nomor WhatsApp)
   const tidakHadirRows =
     tidakHadirList.length > 0
       ? tidakHadirList
           .map(
             (r, idx) => `
-        <tr style="border-bottom: 1px solid #fee2e2; background: #fff5f5;">
-          <td style="padding: 10px 12px; font-size: 13px; text-align: center; color: #991b1b;">${idx + 1}</td>
-          <td style="padding: 10px 12px; font-size: 13px; font-weight: bold; color: #991b1b;">${r.user.full_name}</td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #dc2626; font-weight: bold; text-align: center;">
-            <span style="background: #fee2e2; padding: 4px 10px; border-radius: 9999px;">✕ Tidak Hadir</span>
+        <tr style="background: #fff5f5;">
+          <td class="cell-pad" style="padding: 9px 6px; border-bottom: 1px solid #fee2e2; font-size: 12px; text-align: center; color: #991b1b; white-space: nowrap; width: 1%; vertical-align: middle;">${idx + 1}</td>
+          <td class="cell-pad" style="padding: 9px 6px; border-bottom: 1px solid #fee2e2; font-size: 13px; font-weight: 700; color: #991b1b; text-align: left; word-break: break-word; vertical-align: middle;">${escapeHtml(r.user.full_name || '-')}</td>
+          <td class="cell-pad" style="padding: 9px 6px; border-bottom: 1px solid #fee2e2; text-align: center; white-space: nowrap; width: 1%; vertical-align: middle;">
+            <span class="badge-pill" style="display: inline-block; white-space: nowrap; background: #fee2e2; color: #dc2626; padding: 3px 9px; border-radius: 9999px; font-size: 11px; font-weight: 700; line-height: 1.2;">&#10005; Tidak Hadir</span>
           </td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #7f1d1d; text-align: center;">${r.user.phone ? `<a href="https://wa.me/${r.user.phone.replace(/[^0-9]/g, '')}" style="color: #059669; font-weight: 600; text-decoration: none;">${r.user.phone}</a>` : '-'}</td>
         </tr>
       `
           )
           .join('')
-      : `<tr><td colspan="4" style="padding: 16px; text-align: center; color: #16a34a; font-size: 13px; font-weight: bold;">🎉 Luar biasa! Seluruh anak magang hadir lengkap hari ini (100%).</td></tr>`;
+      : `<tr><td colspan="3" style="padding: 16px; text-align: center; color: #16a34a; font-size: 13px; font-weight: bold;">🎉 Luar biasa! Seluruh anak magang hadir lengkap hari ini (100%).</td></tr>`;
 
   const htmlContent = `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1e293b; line-height: 1.5; margin: 0; padding: 0; background-color: #f8fafc; }
-          .container { max-width: 680px; margin: 24px auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-          .header { background: #003B70; color: #ffffff; padding: 24px 20px; text-align: center; }
-          .header h1 { margin: 0; font-size: 18px; font-weight: bold; letter-spacing: 0.5px; }
-          .header p { margin: 4px 0 0; font-size: 12px; color: #bae6fd; }
-          .body { padding: 24px 20px; }
-          .stats-grid { display: flex; gap: 10px; margin: 16px 0 24px; }
-          .stat-card { flex: 1; background: #f8fafc; padding: 12px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; }
-          .stat-val { font-size: 22px; font-weight: bold; }
-          .stat-lbl { font-size: 11px; color: #64748b; margin-top: 2px; }
-          .section-title { font-size: 14px; font-weight: bold; margin: 20px 0 8px; color: #0f172a; display: flex; align-items: center; justify-content: space-between; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 16px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-          th { background: #f1f5f9; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #475569; text-align: left; }
-          .footer { background: #f8fafc; padding: 16px 20px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #1e293b; line-height: 1.5; margin: 0; padding: 0; background-color: #f8fafc; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+          table { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+          .email-wrapper { width: 100%; background-color: #f8fafc; padding: 16px 8px; box-sizing: border-box; }
+          .container { width: 100%; max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+          .header { background: #003B70; color: #ffffff; padding: 22px 16px; text-align: center; }
+          .header h1 { margin: 0; font-size: 17px; font-weight: bold; letter-spacing: 0.4px; line-height: 1.3; }
+          .header p { margin: 5px 0 0; font-size: 12px; color: #bae6fd; line-height: 1.4; }
+          .body { padding: 20px 16px; }
+          .section-title { font-size: 14px; font-weight: bold; margin: 20px 0 8px; color: #0f172a; }
+          .data-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; border: 1px solid #e2e8f0; }
+          .data-table th { background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #475569; border-bottom: 1px solid #e2e8f0; }
+          .footer { background: #f8fafc; padding: 14px 16px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+          @media only screen and (max-width: 600px) {
+            .email-wrapper { padding: 8px 4px !important; }
+            .container { border-radius: 10px !important; }
+            .header { padding: 18px 12px !important; }
+            .header h1 { font-size: 15px !important; }
+            .body { padding: 14px 10px !important; }
+            .stat-cell { padding: 10px 4px !important; }
+            .stat-val { font-size: 18px !important; }
+            .stat-lbl { font-size: 10px !important; }
+            .data-table th { padding: 7px 5px !important; font-size: 10px !important; }
+            .cell-pad { padding: 8px 5px !important; font-size: 12px !important; }
+            .badge-pill { padding: 3px 7px !important; font-size: 10.5px !important; }
+            .time-cell { font-size: 11.5px !important; }
+          }
         </style>
       </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>LAPORAN REKAPITULASI ABSENSI HARIAN</h1>
-            <p>PT Indonesia Comnets Plus (PLN Icon Plus) • SBU Regional Bali & Nusra</p>
-          </div>
-          <div class="body">
-            <p style="margin: 0 0 4px; font-size: 14px;"><strong>Laporan Kehadiran:</strong> ${dateFormatted}</p>
-            <p style="margin: 0; font-size: 12px; color: #64748b;">Khusus pemantauan absensi pagi anak magang ICONNET.</p>
-
-            <table style="margin-top: 16px; border: none;">
-              <tr>
-                <td style="background: #eff6ff; padding: 12px; border-radius: 10px; text-align: center; border: 1px solid #dbeafe;">
-                  <div style="font-size: 20px; font-weight: bold; color: #1d4ed8;">${recap.totalInterns}</div>
-                  <div style="font-size: 11px; color: #1e40af; margin-top: 2px;">Total Anak Magang</div>
-                </td>
-                <td style="width: 8px;"></td>
-                <td style="background: #f0fdf4; padding: 12px; border-radius: 10px; text-align: center; border: 1px solid #bbf7d0;">
-                  <div style="font-size: 20px; font-weight: bold; color: #15803d;">${recap.totalHadir}</div>
-                  <div style="font-size: 11px; color: #166534; margin-top: 2px;">Hadir (${recap.persentaseHadir}%)</div>
-                </td>
-                <td style="width: 8px;"></td>
-                <td style="background: #fff1f2; padding: 12px; border-radius: 10px; text-align: center; border: 1px solid #fecdd3;">
-                  <div style="font-size: 20px; font-weight: bold; color: #be123c;">${recap.totalTidakHadir}</div>
-                  <div style="font-size: 11px; color: #9f1239; margin-top: 2px;">Tidak Hadir</div>
-                </td>
-              </tr>
-            </table>
-
-            <div class="section-title">
-              <span>1. Daftar Anak Magang Hadir (${recap.totalHadir})</span>
+      <body style="margin: 0; padding: 0; background-color: #f8fafc;">
+        <div class="email-wrapper" style="width: 100%; background-color: #f8fafc; padding: 16px 8px; box-sizing: border-box;">
+          <div class="container" style="width: 100%; max-width: 680px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; border: 1px solid #e2e8f0;">
+            <div class="header" style="background: #003B70; color: #ffffff; padding: 22px 16px; text-align: center;">
+              <h1 style="margin: 0; font-size: 17px; font-weight: bold; letter-spacing: 0.4px; line-height: 1.3; color: #ffffff;">LAPORAN REKAPITULASI ABSENSI HARIAN</h1>
+              <p style="margin: 5px 0 0; font-size: 12px; color: #bae6fd; line-height: 1.4;">PT Indonesia Comnets Plus (PLN Icon Plus) • SBU Regional Bali &amp; Nusra</p>
             </div>
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 35px; text-align: center;">No</th>
-                  <th>Nama Anak Magang</th>
-                  <th style="width: 100px; text-align: center;">Status</th>
-                  <th style="width: 110px; text-align: center;">Jam</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${hadirRows}
-              </tbody>
-            </table>
+            <div class="body" style="padding: 20px 16px;">
+              <p style="margin: 0 0 4px; font-size: 14px; color: #0f172a;"><strong>Laporan Kehadiran:</strong> ${escapeHtml(dateFormatted)}</p>
+              <p style="margin: 0; font-size: 12px; color: #64748b;">Khusus pemantauan absensi pagi anak magang ICONNET.</p>
 
-            <div class="section-title" style="color: #be123c;">
-              <span>2. Daftar Anak Magang Tidak Hadir / Belum Absen (${recap.totalTidakHadir})</span>
-            </div>
-            <table>
-              <thead>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin: 16px 0 6px; border: none; border-collapse: collapse;">
                 <tr>
-                  <th style="width: 35px; text-align: center;">No</th>
-                  <th>Nama Anak Magang</th>
-                  <th style="width: 110px; text-align: center;">Status</th>
-                  <th style="width: 140px; text-align: center;">No. WhatsApp</th>
+                  <td class="stat-cell" width="32%" style="width: 32%; background: #eff6ff; padding: 10px 6px; border-radius: 10px; text-align: center; border: 1px solid #dbeafe; vertical-align: middle;">
+                    <div class="stat-val" style="font-size: 20px; font-weight: bold; color: #1d4ed8; line-height: 1.2;">${recap.totalInterns}</div>
+                    <div class="stat-lbl" style="font-size: 11px; color: #1e40af; margin-top: 2px; line-height: 1.2;">Total Anak Magang</div>
+                  </td>
+                  <td width="2%" style="width: 2%; font-size: 0; line-height: 0;">&nbsp;</td>
+                  <td class="stat-cell" width="32%" style="width: 32%; background: #f0fdf4; padding: 10px 6px; border-radius: 10px; text-align: center; border: 1px solid #bbf7d0; vertical-align: middle;">
+                    <div class="stat-val" style="font-size: 20px; font-weight: bold; color: #15803d; line-height: 1.2;">${recap.totalHadir}</div>
+                    <div class="stat-lbl" style="font-size: 11px; color: #166534; margin-top: 2px; line-height: 1.2;">Hadir (${recap.persentaseHadir}%)</div>
+                  </td>
+                  <td width="2%" style="width: 2%; font-size: 0; line-height: 0;">&nbsp;</td>
+                  <td class="stat-cell" width="32%" style="width: 32%; background: #fff1f2; padding: 10px 6px; border-radius: 10px; text-align: center; border: 1px solid #fecdd3; vertical-align: middle;">
+                    <div class="stat-val" style="font-size: 20px; font-weight: bold; color: #be123c; line-height: 1.2;">${recap.totalTidakHadir}</div>
+                    <div class="stat-lbl" style="font-size: 11px; color: #9f1239; margin-top: 2px; line-height: 1.2;">Tidak Hadir</div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                ${tidakHadirRows}
-              </tbody>
-            </table>
-          </div>
-          <div class="footer">
-            Email ini dikirim secara otomatis oleh Sistem Magang ICONNET.<br/>
-            Waktu Pengiriman: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Makassar' })} WITA
+              </table>
+
+              <div class="section-title" style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; color: #0f172a;">
+                <span>1. Daftar Anak Magang Hadir (${recap.totalHadir})</span>
+              </div>
+              <table class="data-table" width="100%" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin-bottom: 16px; border: 1px solid #e2e8f0;">
+                <thead>
+                  <tr>
+                    <th style="background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #475569; border-bottom: 1px solid #e2e8f0; width: 1%; white-space: nowrap; text-align: center;">No</th>
+                    <th style="background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #475569; border-bottom: 1px solid #e2e8f0; text-align: left;">Nama Anak Magang</th>
+                    <th style="background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #475569; border-bottom: 1px solid #e2e8f0; width: 1%; white-space: nowrap; text-align: center;">Status</th>
+                    <th style="background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #475569; border-bottom: 1px solid #e2e8f0; width: 1%; white-space: nowrap; text-align: center;">Jam</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${hadirRows}
+                </tbody>
+              </table>
+
+              <div class="section-title" style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; color: #be123c;">
+                <span>2. Daftar Anak Magang Tidak Hadir / Belum Absen (${recap.totalTidakHadir})</span>
+              </div>
+              <table class="data-table" width="100%" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin-bottom: 16px; border: 1px solid #e2e8f0;">
+                <thead>
+                  <tr>
+                    <th style="background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #475569; border-bottom: 1px solid #e2e8f0; width: 1%; white-space: nowrap; text-align: center;">No</th>
+                    <th style="background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #475569; border-bottom: 1px solid #e2e8f0; text-align: left;">Nama Anak Magang</th>
+                    <th style="background: #f1f5f9; padding: 8px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #475569; border-bottom: 1px solid #e2e8f0; width: 1%; white-space: nowrap; text-align: center;">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tidakHadirRows}
+                </tbody>
+              </table>
+            </div>
+            <div class="footer" style="background: #f8fafc; padding: 14px 16px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+              Email ini dikirim secara otomatis oleh Sistem Magang ICONNET.<br/>
+              Waktu Pengiriman: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Makassar' })} WITA
+            </div>
           </div>
         </div>
       </body>
