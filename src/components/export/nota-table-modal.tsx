@@ -14,7 +14,6 @@ import {
   Briefcase,
   GraduationCap,
   FileText,
-  Image as ImageIcon,
 } from 'lucide-react';
 import {
   generateAttendancePdf,
@@ -211,6 +210,11 @@ export function NotaTableModal({
   const [progressMsg, setProgressMsg] = useState<string | null>(null);
   const [progressPercent, setProgressPercent] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+  const [draggingBukti, setDraggingBukti] = useState<{
+    group: 'magang' | 'freelance';
+    rowId: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -333,6 +337,89 @@ export function NotaTableModal({
     }
   }
 
+  async function handleDropOnRow(
+    e: React.DragEvent,
+    targetGroup: 'magang' | 'freelance',
+    targetRow: NotaTableRow
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverRowId(null);
+    if (generating) return;
+
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const imageFile =
+        Array.from(files).find((f) => f.type.startsWith('image/')) || files[0];
+      setDraggingBukti(null);
+      await handleUploadBuktiImage(targetGroup, targetRow, imageFile);
+      return;
+    }
+
+    if (draggingBukti && draggingBukti.rowId !== targetRow.id) {
+      const sourceList = draggingBukti.group === 'magang' ? magangRows : freelanceRows;
+      const sourceRow = sourceList.find((r) => r.id === draggingBukti.rowId);
+      if (sourceRow?.buktiTfImageUrl) {
+        const srcImg = sourceRow.buktiTfImageUrl;
+        const dstImg = targetRow.buktiTfImageUrl || null;
+
+        if (draggingBukti.group === targetGroup) {
+          const setter = targetGroup === 'magang' ? setMagangRows : setFreelanceRows;
+          setter((prev) =>
+            prev.map((r) => {
+              if (r.id === targetRow.id) {
+                return {
+                  ...r,
+                  buktiTfImageUrl: srcImg,
+                  buktiTf: r.buktiTf.trim() ? r.buktiTf : 'v',
+                };
+              }
+              if (r.id === sourceRow.id) {
+                return {
+                  ...r,
+                  buktiTfImageUrl: dstImg,
+                  buktiTf: dstImg ? (r.buktiTf.trim() ? r.buktiTf : 'v') : (r.buktiTf.trim() === 'v' ? '' : r.buktiTf),
+                };
+              }
+              return r;
+            })
+          );
+        } else {
+          updateRow(targetGroup, targetRow.id, {
+            buktiTfImageUrl: srcImg,
+            buktiTf: targetRow.buktiTf.trim() ? targetRow.buktiTf : 'v',
+          });
+          updateRow(draggingBukti.group, sourceRow.id, {
+            buktiTfImageUrl: dstImg,
+            buktiTf: dstImg
+              ? (sourceRow.buktiTf.trim() ? sourceRow.buktiTf : 'v')
+              : (sourceRow.buktiTf.trim() === 'v' ? '' : sourceRow.buktiTf),
+          });
+        }
+      }
+    }
+    setDraggingBukti(null);
+  }
+
+  async function handlePasteBuktiImage(
+    e: React.ClipboardEvent,
+    group: 'magang' | 'freelance',
+    row: NotaTableRow
+  ) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          await handleUploadBuktiImage(group, row, file);
+          return;
+        }
+      }
+    }
+  }
+
   async function handleGeneratePdf() {
     setErrorMsg(null);
     setGenerating(true);
@@ -443,8 +530,8 @@ export function NotaTableModal({
                 <th className="border-b border-r border-amber-400 dark:border-amber-600 px-2 py-2 min-w-[125px] text-left">
                   Nama Bank / E-Wallet
                 </th>
-                <th className="border-b border-r border-amber-400 dark:border-amber-600 px-2 py-2 min-w-[130px] text-center">
-                  Bukti TF
+                <th className="border-b border-r border-amber-400 dark:border-amber-600 px-2 py-2 min-w-[175px] text-center">
+                  Bukti TF (Drag/Upload)
                 </th>
                 <th className="border-b border-r border-amber-400 dark:border-amber-600 px-2 py-2 min-w-[120px] text-right">
                   Nominal (Rp)
@@ -468,7 +555,24 @@ export function NotaTableModal({
                 rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="hover:bg-gray-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!generating && dragOverRowId !== row.id) {
+                        setDragOverRowId(row.id);
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setDragOverRowId((cur) => (cur === row.id ? null : cur));
+                      }
+                    }}
+                    onDrop={(e) => handleDropOnRow(e, group, row)}
+                    className={`transition-colors ${
+                      dragOverRowId === row.id
+                        ? 'bg-blue-50/90 dark:bg-blue-950/60 ring-2 ring-inset ring-blue-500'
+                        : 'hover:bg-gray-50/80 dark:hover:bg-slate-800/50'
+                    }`}
                   >
                     <td className="border-r border-gray-200 dark:border-slate-700 p-1.5">
                       <input
@@ -531,7 +635,10 @@ export function NotaTableModal({
                         className="w-full px-2 py-1.5 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </td>
-                    <td className="border-r border-gray-200 dark:border-slate-700 p-1.5">
+                    <td
+                      className="border-r border-gray-200 dark:border-slate-700 p-1.5"
+                      onPaste={(e) => handlePasteBuktiImage(e, group, row)}
+                    >
                       <div className="flex items-center gap-1 justify-center">
                         <input
                           type="text"
@@ -539,8 +646,8 @@ export function NotaTableModal({
                           onChange={(e) => updateRow(group, row.id, { buktiTf: e.target.value })}
                           disabled={generating}
                           placeholder="-"
-                          title="Ketik tanda bukti TF (misal: v)"
-                          className="w-11 px-1.5 py-1.5 text-center border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
+                          title="Ketik tanda bukti TF (misal: v) atau Ctrl+V tempel foto"
+                          className="w-10 px-1 py-1.5 text-center border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-semibold"
                         />
                         <button
                           type="button"
@@ -559,43 +666,80 @@ export function NotaTableModal({
                         >
                           <Check className="h-3.5 w-3.5" />
                         </button>
-                        <label
-                          title="Upload foto struk TF (opsional, ikut masuk lampiran PDF)"
-                          className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                            row.buktiTfImageUrl
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700'
-                          }`}
-                        >
-                          {row.buktiTfImageUrl ? (
-                            <ImageIcon className="h-3.5 w-3.5" />
-                          ) : (
-                            <Upload className="h-3.5 w-3.5" />
-                          )}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={generating}
-                            className="sr-only"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              e.target.value = '';
-                              handleUploadBuktiImage(group, row, f);
-                            }}
-                          />
-                        </label>
-                        {row.buktiTfImageUrl && (
-                          <button
-                            type="button"
-                            disabled={generating}
-                            onClick={() =>
-                              updateRow(group, row.id, { buktiTfImageUrl: null })
-                            }
-                            title="Hapus foto struk TF"
-                            className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400"
+
+                        {row.buktiTfImageUrl ? (
+                          <div className="flex items-center gap-1">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={row.buktiTfImageUrl}
+                              alt={`Bukti TF ${row.namaPenerima}`}
+                              draggable={!generating}
+                              onDragStart={(e) => {
+                                setDraggingBukti({ group, rowId: row.id });
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', row.id);
+                              }}
+                              onDragEnd={() => {
+                                setDraggingBukti(null);
+                                setDragOverRowId(null);
+                              }}
+                              title="Foto Bukti TF (bisa di-drag ke baris lain)"
+                              className={`h-7 w-7 rounded-md object-cover border border-blue-400 dark:border-blue-600 cursor-grab active:cursor-grabbing ${
+                                draggingBukti?.rowId === row.id ? 'opacity-40' : ''
+                              }`}
+                            />
+                            <label
+                              title="Ganti foto struk TF atau drop file baru ke baris ini"
+                              className="p-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition cursor-pointer"
+                            >
+                              <Upload className="h-3 w-3" />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                disabled={generating}
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  e.target.value = '';
+                                  handleUploadBuktiImage(group, row, f);
+                                }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              disabled={generating}
+                              onClick={() =>
+                                updateRow(group, row.id, { buktiTfImageUrl: null })
+                              }
+                              title="Hapus foto struk TF"
+                              className="p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 cursor-pointer"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label
+                            title="Drag & drop foto struk TF ke baris ini, atau klik untuk memilih gambar"
+                            className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-dashed text-[10.5px] font-medium transition cursor-pointer whitespace-nowrap ${
+                              dragOverRowId === row.id
+                                ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/70 text-blue-700 dark:text-blue-200'
+                                : 'border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-slate-300 hover:border-blue-400 hover:bg-blue-50/60 dark:hover:bg-slate-700'
+                            }`}
                           >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                            <Upload className="h-3 w-3" />
+                            <span>Drop / Pilih</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={generating}
+                              className="sr-only"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                e.target.value = '';
+                                handleUploadBuktiImage(group, row, f);
+                              }}
+                            />
+                          </label>
                         )}
                       </div>
                     </td>
@@ -663,7 +807,15 @@ export function NotaTableModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-2 sm:p-4 backdrop-blur-xs">
+    <div
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOverRowId(null);
+        setDraggingBukti(null);
+      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-2 sm:p-4 backdrop-blur-xs"
+    >
       <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl w-full max-w-6xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Modal Header */}
         <div className="px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between gap-3 bg-gray-50/70 dark:bg-slate-900">
