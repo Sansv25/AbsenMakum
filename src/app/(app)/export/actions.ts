@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserProfile } from '@/lib/data/profile';
-import type { ShiftType } from '@/lib/supabase/types';
+import type { ShiftType, AppRole } from '@/lib/supabase/types';
 import type { PdfAttendanceItem } from '@/lib/pdf';
 
 export async function fetchExportData(
@@ -93,15 +93,24 @@ export async function fetchExportData(
     ])
   );
 
-  const profileMap = new Map<string, string>();
+  const profileMap = new Map<string, { name: string; roles: AppRole[] }>();
   if (userIds.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, full_name, email')
+      .select('id, full_name, email, role, roles')
       .in('id', userIds);
 
     for (const p of profiles ?? []) {
-      profileMap.set(p.id, p.full_name?.trim() || p.email || 'Petugas');
+      const resolvedRoles: AppRole[] =
+        Array.isArray(p.roles) && p.roles.length > 0
+          ? (p.roles as AppRole[])
+          : p.role === 'master'
+            ? ['admin']
+            : ['magang'];
+      profileMap.set(p.id, {
+        name: p.full_name?.trim() || p.email || 'Petugas',
+        roles: resolvedRoles,
+      });
     }
   }
 
@@ -154,18 +163,26 @@ export async function fetchExportData(
     const officerNames = Array.from(
       new Set(
         officerIds
-          .map((id) => profileMap.get(id))
+          .map((id) => profileMap.get(id)?.name)
           .filter((name): name is string => !!name)
       )
     );
     const authorName = officerNames.length > 0 ? officerNames.join(', ') : undefined;
+    const primaryAuthorId = officerIds[0];
+    const authorRoles = Array.from(
+      new Set(
+        officerIds.flatMap((id) => profileMap.get(id)?.roles ?? [])
+      )
+    );
 
     result.push({
       work_date: att.work_date,
       shift_type: att.shift_type as ShiftType,
       job_type: att.job_type,
       note: att.note,
+      author_id: primaryAuthorId,
       author_name: authorName,
+      author_roles: authorRoles,
       mulaiUrl,
       selesaiUrl,
       aktivitasUrls,

@@ -24,6 +24,7 @@ import {
   GraduationCap,
   ClipboardCheck,
   Clock,
+  Briefcase,
 } from 'lucide-react';
 import { logout } from '@/app/(auth)/login/actions';
 import type { AppRole } from '@/lib/supabase/types';
@@ -99,6 +100,16 @@ export function RoleBadgeGroup({ roles, isMaster }: { roles?: AppRole[]; isMaste
               className="text-[10px] bg-indigo-100 dark:bg-indigo-950/80 border border-indigo-300 dark:border-indigo-800 text-indigo-800 dark:text-indigo-300 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
             >
               <Clock className="h-2.5 w-2.5" /> Petugas Piket
+            </span>
+          );
+        }
+        if (role === 'freelance') {
+          return (
+            <span
+              key={role}
+              className="text-[10px] bg-teal-100 dark:bg-teal-950/80 border border-teal-300 dark:border-teal-800 text-teal-800 dark:text-teal-300 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
+            >
+              <Briefcase className="h-2.5 w-2.5" /> Freelance
             </span>
           );
         }
@@ -254,7 +265,8 @@ export function AppNavigation({
     Boolean(roles?.includes('owner')) ||
     Boolean(roles?.includes('admin')) ||
     Boolean(roles?.includes('senior')) ||
-    Boolean(roles?.includes('piket'));
+    Boolean(roles?.includes('piket')) ||
+    Boolean(roles?.includes('freelance'));
 
   const userIsMagang = isMagang ?? Boolean(roles?.includes('magang'));
   const userIsSenior = isSenior ?? Boolean(roles?.includes('senior'));

@@ -1,19 +1,43 @@
 import { jsPDF } from 'jspdf';
 import { formatIndonesia } from './dates';
 import { shiftNumber, jobLabel, type JobType } from './shifts';
-import type { ShiftType } from './supabase/types';
+import type { ShiftType, AppRole } from './supabase/types';
 import { PLN_LOGO_BASE64 } from './pdf-logo';
 
 export interface PdfAttendanceItem {
   work_date: string;
   shift_type: ShiftType;
   job_type?: JobType;
+  author_id?: string;
   author_name?: string;
+  author_roles?: AppRole[];
   note: string | null;
   mulaiUrl: string | null;
   selesaiUrl: string | null;
   aktivitasUrls?: string[];
   ticketUrls: string[];
+}
+
+export interface NotaTableRow {
+  id: string;
+  no: string;
+  tglProses: string;
+  namaPenerima: string;
+  kegiatan: string;
+  noRek: string;
+  namaBank: string;
+  buktiTf: string;
+  buktiTfImageUrl?: string | null;
+  nominal: number;
+}
+
+export interface NotaPdfConfig {
+  title: string;
+  magangTitle?: string;
+  freelanceTitle?: string;
+  magangRows: NotaTableRow[];
+  freelanceRows: NotaTableRow[];
+  includeEmptyTables?: boolean;
 }
 
 export interface ProgressCallback {
@@ -241,22 +265,369 @@ function drawSectionHeading(
   return y + 9.5;
 }
 
-// Terapkan Footer pada Seluruh Halaman Dokumen
+// Terapkan Footer pada Seluruh Halaman Dokumen (Portrait & Landscape)
 function applyFooters(doc: jsPDF) {
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.2);
-    doc.line(MARGIN, PAGE_HEIGHT - 10, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 10);
+    doc.line(MARGIN, pageH - 10, pageW - MARGIN, pageH - 10);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
-    doc.text('Dokumen Resmi Operasional • PT PLN Indonesia Comnets Plus (PLN Icon Plus)', MARGIN, PAGE_HEIGHT - 6);
-    doc.text(`Halaman ${p} dari ${totalPages}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 6, {
+    doc.text('Dokumen Resmi Operasional • PT PLN Indonesia Comnets Plus (PLN Icon Plus)', MARGIN, pageH - 6);
+    doc.text(`Halaman ${p} dari ${totalPages}`, pageW - MARGIN, pageH - 6, {
       align: 'right',
     });
+  }
+}
+
+const NOTA_MARGIN = 12;
+const NOTA_PAGE_W = 297;
+const NOTA_PAGE_H = 210;
+const NOTA_MAX_Y = NOTA_PAGE_H - 16;
+
+const NOTA_COLS = [
+  { key: 'no', label: 'NO', w: 10, align: 'center' as const },
+  { key: 'tglProses', label: 'TGL PROSES', w: 24, align: 'center' as const },
+  { key: 'namaPenerima', label: 'NAMA PENERIMA', w: 38, align: 'left' as const },
+  { key: 'kegiatan', label: 'KEGIATAN', w: 72, align: 'left' as const },
+  { key: 'noRek', label: 'NO REK / E-WALLET', w: 38, align: 'left' as const },
+  { key: 'namaBank', label: 'NAMA BANK / E-WALLET', w: 36, align: 'left' as const },
+  { key: 'buktiTf', label: 'BUKTI TF', w: 19, align: 'center' as const },
+  { key: 'nominal', label: 'NOMINAL', w: 36, align: 'right' as const },
+]; // Total = 273 mm
+
+function drawNotaTableHeader(doc: jsPDF, bannerTitle: string, startY: number): number {
+  const totalW = 273;
+  let y = startY;
+
+  // Blue Banner Header
+  doc.setFillColor(68, 114, 196);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.25);
+  doc.rect(NOTA_MARGIN, y, totalW, 6.8, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(255, 255, 255);
+  doc.text(bannerTitle, NOTA_PAGE_W / 2, y + 4.7, { align: 'center' });
+  y += 6.8;
+
+  // Yellow Column Header Row
+  const colHdrH = 7;
+  let x = NOTA_MARGIN;
+  doc.setFillColor(255, 255, 0);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.25);
+  for (const col of NOTA_COLS) {
+    doc.rect(x, y, col.w, colHdrH, 'FD');
+    x += col.w;
+  }
+
+  x = NOTA_MARGIN;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(0, 0, 0);
+  for (const col of NOTA_COLS) {
+    doc.text(col.label, x + col.w / 2, y + 4.7, { align: 'center' });
+    x += col.w;
+  }
+
+  return y + colHdrH;
+}
+
+function drawNotaTableSection(
+  doc: jsPDF,
+  bannerTitle: string,
+  rows: NotaTableRow[],
+  startY: number
+): number {
+  let y = startY;
+
+  // Pastikan banner + header + minimal 1 baris cukup ruang
+  if (y + 22 > NOTA_MAX_Y) {
+    doc.addPage('a4', 'landscape');
+    y = 14;
+  }
+
+  y = drawNotaTableHeader(doc, bannerTitle, y);
+
+  if (rows.length === 0) {
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.2);
+    doc.rect(NOTA_MARGIN, y, 273, 7, 'FD');
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Belum ada data pada tabel ini.', NOTA_PAGE_W / 2, y + 4.8, { align: 'center' });
+    y += 7;
+  } else {
+    for (const row of rows) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+
+      const cellLines: Record<string, string[]> = {
+        no: [row.no || ''],
+        tglProses: [row.tglProses || ''],
+        namaPenerima: doc.splitTextToSize(row.namaPenerima || '-', NOTA_COLS[2].w - 3),
+        kegiatan: doc.splitTextToSize(row.kegiatan || '-', NOTA_COLS[3].w - 3),
+        noRek: doc.splitTextToSize(row.noRek || '', NOTA_COLS[4].w - 3),
+        namaBank: doc.splitTextToSize(row.namaBank || '', NOTA_COLS[5].w - 3),
+        buktiTf: [row.buktiTf || ''],
+        nominal: [],
+      };
+
+      const maxLines = Math.max(
+        1,
+        cellLines.namaPenerima.length,
+        cellLines.kegiatan.length,
+        cellLines.noRek.length,
+        cellLines.namaBank.length
+      );
+      const rowH = Math.max(6.2, maxLines * 3.8 + 2.4);
+
+      if (y + rowH > NOTA_MAX_Y) {
+        doc.addPage('a4', 'landscape');
+        y = drawNotaTableHeader(doc, bannerTitle, 14);
+      }
+
+      let x = NOTA_MARGIN;
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.2);
+      for (const col of NOTA_COLS) {
+        doc.rect(x, y, col.w, rowH, 'FD');
+        x += col.w;
+      }
+
+      x = NOTA_MARGIN;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(0, 0, 0);
+
+      for (const col of NOTA_COLS) {
+        if (col.key === 'nominal') {
+          const valNum = Math.round(Number.isFinite(row.nominal) ? row.nominal : 0);
+          if (valNum > 0 || row.nominal === 0) {
+            const centerY = y + rowH / 2 + 1.2;
+            doc.text('Rp', x + 2, centerY);
+            doc.text(valNum.toLocaleString('en-US'), x + col.w - 2, centerY, { align: 'right' });
+          }
+        } else {
+          const lines = cellLines[col.key] || [''];
+          const blockH = lines.length * 3.8;
+          const startTextY = y + (rowH - blockH) / 2 + 2.9;
+
+          for (let li = 0; li < lines.length; li++) {
+            const lineText = lines[li];
+            const textY = startTextY + li * 3.8;
+            if (col.align === 'center') {
+              doc.text(lineText, x + col.w / 2, textY, { align: 'center' });
+            } else {
+              doc.text(lineText, x + 1.8, textY);
+            }
+          }
+        }
+        x += col.w;
+      }
+
+      y += rowH;
+    }
+  }
+
+  // Yellow TOTAL Row
+  const totalNominal = rows.reduce((sum, r) => sum + (Number.isFinite(r.nominal) ? r.nominal : 0), 0);
+  const totalH = 6.8;
+  if (y + totalH > NOTA_MAX_Y) {
+    doc.addPage('a4', 'landscape');
+    y = 14;
+  }
+
+  const leftSpanW = 273 - NOTA_COLS[7].w;
+  doc.setFillColor(255, 255, 0);
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.25);
+  doc.rect(NOTA_MARGIN, y, leftSpanW, totalH, 'FD');
+  doc.rect(NOTA_MARGIN + leftSpanW, y, NOTA_COLS[7].w, totalH, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text('TOTAL', NOTA_MARGIN + leftSpanW / 2, y + 4.7, { align: 'center' });
+  doc.text('Rp', NOTA_MARGIN + leftSpanW + 2, y + 4.7);
+  doc.text(Math.round(totalNominal).toLocaleString('en-US'), NOTA_MARGIN + 273 - 2, y + 4.7, {
+    align: 'right',
+  });
+
+  return y + totalH + 8;
+}
+
+function drawNotaCoverPages(doc: jsPDF, notaConfig: NotaPdfConfig): void {
+  let y = 18;
+
+  if (notaConfig.title && notaConfig.title.trim()) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    const titleLines = doc.splitTextToSize(notaConfig.title.trim(), 273);
+    for (const line of titleLines) {
+      doc.text(line, NOTA_PAGE_W / 2, y, { align: 'center' });
+      y += 6.5;
+    }
+    y += 3;
+  }
+
+  const includeEmpty = Boolean(notaConfig.includeEmptyTables);
+  const hasMagang = notaConfig.magangRows.length > 0 || includeEmpty;
+  const hasFreelance = notaConfig.freelanceRows.length > 0 || includeEmpty;
+
+  if (hasMagang) {
+    y = drawNotaTableSection(
+      doc,
+      notaConfig.magangTitle?.trim() || 'Komisi Penjualan Magang',
+      notaConfig.magangRows,
+      y
+    );
+  }
+
+  if (hasFreelance) {
+    drawNotaTableSection(
+      doc,
+      notaConfig.freelanceTitle?.trim() || 'Komisi Penjualan Freelance',
+      notaConfig.freelanceRows,
+      y
+    );
+  }
+}
+
+async function drawBuktiTfPages(
+  doc: jsPDF,
+  notaConfig: NotaPdfConfig,
+  onTick?: (msg: string) => void
+): Promise<void> {
+  const items: { category: string; row: NotaTableRow }[] = [
+    ...notaConfig.magangRows
+      .filter((r) => !!r.buktiTfImageUrl)
+      .map((r) => ({ category: 'Magang', row: r })),
+    ...notaConfig.freelanceRows
+      .filter((r) => !!r.buktiTfImageUrl)
+      .map((r) => ({ category: 'Freelance', row: r })),
+  ];
+
+  if (items.length === 0) return;
+
+  doc.addPage('a4', 'portrait');
+  let y = 14;
+
+  const drawBuktiHeader = () => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(15, 23, 42);
+    doc.text('LAMPIRAN BUKTI TRANSFER KOMISI', MARGIN, y + 4);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    if (notaConfig.title?.trim()) {
+      doc.text(notaConfig.title.trim(), PAGE_WIDTH - MARGIN, y + 4, { align: 'right' });
+    }
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.line(MARGIN, y + 6.5, PAGE_WIDTH - MARGIN, y + 6.5);
+    y += 12;
+  };
+
+  drawBuktiHeader();
+
+  const gap = 8;
+  const cardW = (CONTENT_WIDTH - gap) / 2;
+  const maxImgH = 104;
+
+  for (let i = 0; i < items.length; i += 2) {
+    const pair = items.slice(i, i + 2);
+
+    // Hitung tinggi kartu di baris ini dulu
+    const prepared: {
+      category: string;
+      row: NotaTableRow;
+      dataUrl: string;
+      imgW: number;
+      imgH: number;
+    }[] = [];
+
+    for (const entry of pair) {
+      if (!entry.row.buktiTfImageUrl) continue;
+      if (onTick) onTick(`Memproses Bukti TF (${entry.row.namaPenerima})...`);
+      try {
+        const img = await loadImage(entry.row.buktiTfImageUrl);
+        const dataUrl = imageToDataUrl(img);
+        const aspect = (img.naturalWidth || 1) / (img.naturalHeight || 1);
+        let imgW = cardW - 6;
+        let imgH = imgW / aspect;
+        if (imgH > maxImgH) {
+          imgH = maxImgH;
+          imgW = imgH * aspect;
+        }
+        prepared.push({
+          category: entry.category,
+          row: entry.row,
+          dataUrl,
+          imgW,
+          imgH,
+        });
+      } catch (err) {
+        console.error('Gagal memuat gambar bukti TF:', err);
+      }
+    }
+
+    if (prepared.length === 0) continue;
+
+    const maxCardImgH = Math.max(...prepared.map((p) => p.imgH));
+    const cardTotalH = maxCardImgH + 22;
+
+    if (y + cardTotalH > PAGE_HEIGHT - 16) {
+      doc.addPage('a4', 'portrait');
+      y = 14;
+      drawBuktiHeader();
+    }
+
+    for (let colIdx = 0; colIdx < prepared.length; colIdx++) {
+      const p = prepared[colIdx];
+      const cardX = MARGIN + colIdx * (cardW + gap);
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(cardX, y, cardW, cardTotalH, 1.5, 1.5, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`${p.row.no ? `${p.row.no}. ` : ''}${p.row.namaPenerima} (${p.category})`, cardX + 3, y + 5.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.2);
+      doc.setTextColor(71, 85, 105);
+      const bankLine = [p.row.namaBank, p.row.noRek].filter(Boolean).join(' • ');
+      const nominalLine = p.row.nominal > 0 ? `Rp ${Math.round(p.row.nominal).toLocaleString('en-US')}` : '';
+      const subText = [bankLine, nominalLine].filter(Boolean).join(' — ');
+      if (subText) {
+        doc.text(subText, cardX + 3, y + 10);
+      }
+
+      const imgX = cardX + (cardW - p.imgW) / 2;
+      const imgY = y + 13;
+      doc.addImage(p.dataUrl, 'JPEG', imgX, imgY, p.imgW, p.imgH);
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(imgX, imgY, p.imgW, p.imgH);
+    }
+
+    y += cardTotalH + 7;
   }
 }
 
@@ -264,10 +635,12 @@ export async function generateAttendancePdf(
   attendances: PdfAttendanceItem[],
   startDate: string,
   endDate: string,
-  onProgress?: ProgressCallback
+  onProgress?: ProgressCallback,
+  notaConfig?: NotaPdfConfig
 ): Promise<void> {
+  const hasNota = Boolean(notaConfig);
   const doc = new jsPDF({
-    orientation: 'portrait',
+    orientation: hasNota ? 'landscape' : 'portrait',
     unit: 'mm',
     format: 'a4',
   });
@@ -280,6 +653,10 @@ export async function generateAttendancePdf(
     if (a.aktivitasUrls) totalOps += a.aktivitasUrls.length;
     if (a.ticketUrls) totalOps += a.ticketUrls.length;
   }
+  if (notaConfig) {
+    totalOps += notaConfig.magangRows.filter((r) => !!r.buktiTfImageUrl).length;
+    totalOps += notaConfig.freelanceRows.filter((r) => !!r.buktiTfImageUrl).length;
+  }
   totalOps = Math.max(totalOps, 1);
   let currentOp = 0;
 
@@ -290,13 +667,17 @@ export async function generateAttendancePdf(
     }
   }
 
-  let isFirstPage = true;
+  if (notaConfig) {
+    drawNotaCoverPages(doc, notaConfig);
+  }
+
+  let isFirstPage = !hasNota;
 
   for (let i = 0; i < attendances.length; i++) {
     const item = attendances[i];
 
     if (!isFirstPage) {
-      doc.addPage();
+      doc.addPage('a4', 'portrait');
     }
     isFirstPage = false;
 
@@ -442,10 +823,19 @@ export async function generateAttendancePdf(
     }
   }
 
+  if (notaConfig) {
+    await drawBuktiTfPages(doc, notaConfig, (msg) => updateProgress(msg));
+  }
+
   // Terapkan nomor halaman resmi di seluruh halaman
   applyFooters(doc);
 
-  const filename = `absensi-piket_${startDate}_sd_${endDate}.pdf`;
+  const safeTitle = notaConfig?.title
+    ?.trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  const filename = `${safeTitle || 'absensi-piket'}_${startDate}_sd_${endDate}.pdf`;
   doc.save(filename);
 }
 

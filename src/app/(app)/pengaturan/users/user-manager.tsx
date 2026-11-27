@@ -31,6 +31,7 @@ import {
   BarChart3,
   Layers,
   Ticket,
+  Briefcase,
 } from 'lucide-react';
 import { formatIndonesia } from '@/lib/dates';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
@@ -90,6 +91,16 @@ export const ROLE_INFO: Record<
     border: 'border-indigo-300 dark:border-indigo-800',
     badgeBg: 'bg-indigo-500/15 text-indigo-900 dark:text-indigo-200 border-indigo-300 dark:border-indigo-700',
     description: 'Petugas piket shift (Pagi & Malam). Memiliki akses ke Dashboard Absen Piket dan diikutsertakan dalam rekapan piket dashboard.',
+  },
+  freelance: {
+    label: 'Freelance',
+    badgeLabel: 'Freelance',
+    icon: Briefcase,
+    bg: 'bg-teal-100 dark:bg-teal-950/80',
+    text: 'text-teal-800 dark:text-teal-300',
+    border: 'border-teal-300 dark:border-teal-800',
+    badgeBg: 'bg-teal-500/15 text-teal-900 dark:text-teal-200 border-teal-300 dark:border-teal-700',
+    description: 'Petugas Freelance. Memiliki akses ke Dashboard Absen Piket & dipisahkan ke tabel Komisi Penjualan Freelance saat ekspor Nota PDF (tidak ikut rekap harian magang).',
   },
   magang: {
     label: 'Magang',
@@ -229,7 +240,7 @@ export function UserManager({
 
     const isMasterUser = editRoles.some((r) => r === 'owner' || r === 'admin');
     const syncedRole = isMasterUser ? 'master' : 'user';
-    const isShiftUser = editRoles.includes('magang') || editRoles.includes('piket');
+    const isShiftUser = editRoles.includes('magang') || editRoles.includes('piket') || editRoles.includes('freelance');
     const excludeFromRecap = !isShiftUser;
 
     const res = await updateUserProfileAdminAction(
@@ -528,7 +539,8 @@ export function UserManager({
             const isTargetOwner = user.email.toLowerCase() === MASTER_EMAIL.toLowerCase();
             const userRoles = resolveUserRoles(user);
             const isPending = !user.is_approved;
-            const isPiketOfficer = userRoles.includes('piket');
+            const isPiketOfficer = userRoles.includes('piket') || userRoles.includes('freelance');
+            const isFreelanceUser = userRoles.includes('freelance');
             const isMagangUser = userRoles.includes('magang');
 
             // Pilih icon utama untuk avatar
@@ -547,6 +559,9 @@ export function UserManager({
             } else if (userRoles.includes('senior')) {
               AvatarIcon = Star;
               avatarClass = 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800';
+            } else if (isFreelanceUser) {
+              AvatarIcon = Briefcase;
+              avatarClass = 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800';
             }
 
             return (
@@ -749,7 +764,7 @@ export function UserManager({
                   Pilih Role (Dapat Dipilih Lebih Dari Satu):
                 </label>
 
-                {(['owner', 'admin', 'senior', 'piket', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
+                {(['owner', 'admin', 'senior', 'piket', 'freelance', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
                   const info = ROLE_INFO[roleKey];
                   const Icon = info.icon;
                   const isChecked = roleModalRoles.includes(roleKey);
@@ -788,7 +803,7 @@ export function UserManager({
                               Akun Utama
                             </span>
                           )}
-                          {roleKey === 'piket' && (
+                          {(roleKey === 'piket' || roleKey === 'freelance') && (
                             <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 font-semibold px-2 py-0.2 rounded-full border border-indigo-300 dark:border-indigo-700">
                               Rekap Piket
                             </span>
@@ -813,12 +828,12 @@ export function UserManager({
                 <span className="text-[11px] font-semibold text-gray-700 dark:text-slate-300 block">
                   Status Rekapitulasi Kehadiran:
                 </span>
-                {roleModalRoles.includes('piket') && roleModalRoles.includes('magang') ? (
+                {(roleModalRoles.includes('piket') || roleModalRoles.includes('freelance')) && roleModalRoles.includes('magang') ? (
                   <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
                     <BarChart3 className="h-4 w-4" />
                     <span>DIHITUNG dalam Rekapitulasi Piket Petugas (Shift) dan Rekap Absen Harian Magang.</span>
                   </div>
-                ) : roleModalRoles.includes('piket') ? (
+                ) : roleModalRoles.includes('piket') || roleModalRoles.includes('freelance') ? (
                   <div className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-400 font-semibold">
                     <Clock className="h-4 w-4" />
                     <span>DIHITUNG dalam tabel Rekapitulasi Piket Petugas, grafik dashboard, &amp; laporan PDF.</span>
@@ -942,7 +957,7 @@ export function UserManager({
                   Role Akun (Boleh Ditumpuk):
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(['owner', 'admin', 'senior', 'piket', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
+                  {(['owner', 'admin', 'senior', 'piket', 'freelance', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
                     const info = ROLE_INFO[roleKey];
                     const Icon = info.icon;
                     const isChecked = editRoles.includes(roleKey);
@@ -1079,7 +1094,7 @@ export function UserManager({
                   Role Akun (Boleh Ditumpuk):
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(['admin', 'senior', 'piket', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
+                  {(['admin', 'senior', 'piket', 'freelance', 'magang', 'tiket'] as AppRole[]).map((roleKey) => {
                     const info = ROLE_INFO[roleKey];
                     const Icon = info.icon;
                     const isChecked = createRoles.includes(roleKey);

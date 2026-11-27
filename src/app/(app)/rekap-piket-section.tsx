@@ -349,11 +349,11 @@ export function RekapPiketSection({
     });
   }, [startDate, endDate, currentMonth, initialAttendances, initialAttachments]);
 
-  // Petugas yang masuk rekapitulasi piket: HANYA yang memiliki role 'piket'
+  // Petugas yang masuk rekapitulasi piket: role 'piket' atau 'freelance'
   const activeProfiles = useMemo(() => {
     return initialProfiles.filter((p) => {
       if (p.roles && Array.isArray(p.roles) && p.roles.length > 0) {
-        return p.roles.includes('piket');
+        return p.roles.includes('piket') || p.roles.includes('freelance');
       }
       return false;
     });

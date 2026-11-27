@@ -16,6 +16,7 @@ import {
   GraduationCap,
   Clock,
   Ticket,
+  Briefcase,
 } from 'lucide-react';
 import { normalizeIndonesianPhone, isValidIndonesianPhone, extractLocalPhoneDigits } from '@/lib/phone';
 
@@ -32,7 +33,7 @@ export function CompleteProfileForm({
 }: CompleteProfileFormProps) {
   const [fullName, setFullName] = useState(initialFullName);
   const [phone, setPhone] = useState(initialPhone);
-  const [requestedRole, setRequestedRole] = useState<'magang' | 'piket' | 'tiket'>('magang');
+  const [requestedRole, setRequestedRole] = useState<'magang' | 'piket' | 'freelance' | 'tiket'>('magang');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -172,7 +173,7 @@ export function CompleteProfileForm({
         <label className="block text-xs font-semibold text-gray-700 dark:text-slate-300 mb-1.5">
           Peran / Posisi Akun <span className="text-red-500">*</span>
         </label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <button
             type="button"
             onClick={() => setRequestedRole('magang')}
@@ -199,6 +200,20 @@ export function CompleteProfileForm({
             <Clock className={`h-4 w-4 mb-1 ${requestedRole === 'piket' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'}`} />
             <span className="text-xs font-bold leading-tight">Petugas Piket</span>
             <span className="text-[10px] opacity-75 mt-0.5 leading-tight">Shift &amp; Piket</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRequestedRole('freelance')}
+            className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all ${
+              requestedRole === 'freelance'
+                ? 'border-teal-500 bg-teal-50/80 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 ring-2 ring-teal-500/30'
+                : 'border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-800/60 text-gray-600 dark:text-slate-400 hover:border-gray-300'
+            }`}
+          >
+            <Briefcase className={`h-4 w-4 mb-1 ${requestedRole === 'freelance' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'}`} />
+            <span className="text-xs font-bold leading-tight">Freelance</span>
+            <span className="text-[10px] opacity-75 mt-0.5 leading-tight">Piket Mitra</span>
           </button>
 
           <button

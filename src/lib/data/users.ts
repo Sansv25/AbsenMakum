@@ -51,8 +51,8 @@ export async function adminGetUsers(): Promise<{ users: AdminUserItem[]; error?:
             u.roles = ['magang'];
           }
         }
-        // Pastikan akun dengan role piket / magang dihitung dalam rekap
-        const isShiftUser = u.roles.includes('magang') || u.roles.includes('piket');
+        // Pastikan akun dengan role piket / freelance / magang dihitung dalam rekap piket/shift
+        const isShiftUser = u.roles.includes('magang') || u.roles.includes('piket') || u.roles.includes('freelance');
         u.exclude_from_recap = !isShiftUser;
       });
     }
@@ -90,7 +90,7 @@ export async function adminCreateUser(
 
   // Simpan roles di profiles
   try {
-    const isShiftUser = roles.includes('magang') || roles.includes('piket');
+    const isShiftUser = roles.includes('magang') || roles.includes('piket') || roles.includes('freelance');
     await supabase
       .from('profiles')
       .update({
@@ -144,7 +144,7 @@ export async function adminUpdateUserRoles(
 
   const hasAdminRights = newRoles.some((r) => r === 'owner' || r === 'admin');
   const syncedRole: UserRole = hasAdminRights ? 'master' : 'user';
-  const hasShiftRole = newRoles.includes('magang') || newRoles.includes('piket');
+  const hasShiftRole = newRoles.includes('magang') || newRoles.includes('piket') || newRoles.includes('freelance');
   const excludeFromRecap = !hasShiftRole;
 
   try {
@@ -193,7 +193,7 @@ export async function adminSetUserRole(
   // Sync roles
   try {
     const newRoles: AppRole[] = targetRole === 'master' ? ['admin'] : ['magang'];
-    const hasShiftRole = newRoles.includes('magang') || newRoles.includes('piket');
+    const hasShiftRole = newRoles.includes('magang') || newRoles.includes('piket') || newRoles.includes('freelance');
     await supabase
       .from('profiles')
       .update({

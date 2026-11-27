@@ -12,13 +12,14 @@ export interface UserProfileInfo {
   isAdmin: boolean;
   isSenior: boolean;
   isPiket: boolean;
+  isFreelance: boolean;
   isMagang: boolean;
   isTiket: boolean;
   isMaster: boolean; // true if isOwner || isAdmin || isSenior (general admin rights)
   canManageSettings: boolean; // isOwner || isAdmin (senior tidak memiliki akses)
   canManageAdvanced: boolean; // isOwner only (monitoring, email recap, reset data)
   canCreateTicket: boolean; // isOwner || isTiket
-  canAccessPiket: boolean; // isOwner || isAdmin || isSenior || isPiket
+  canAccessPiket: boolean; // isOwner || isAdmin || isSenior || isPiket || isFreelance
   fullName: string | null;
   phone: string | null;
   description: string | null;
@@ -44,6 +45,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       isAdmin: false,
       isSenior: false,
       isPiket: false,
+      isFreelance: false,
       isMagang: true,
       isTiket: false,
       isMaster: false,
@@ -91,13 +93,14 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
     const isAdmin = roles.includes('admin');
     const isSenior = roles.includes('senior');
     const isPiket = roles.includes('piket');
+    const isFreelance = roles.includes('freelance');
     const isMagang = roles.includes('magang');
     const isTiket = roles.includes('tiket');
     const isMaster = isOwner || isAdmin || (profile.role === 'master' && !isSenior);
     const canManageSettings = isOwner || isAdmin || (profile.role === 'master' && !isSenior);
     const canManageAdvanced = isOwner;
     const canCreateTicket = isOwner || isTiket;
-    const canAccessPiket = isOwner || isAdmin || isSenior || isPiket;
+    const canAccessPiket = isOwner || isAdmin || isSenior || isPiket || isFreelance;
     const isApproved = isMaster || isSenior ? true : (profile.is_approved ?? false);
 
     // Sinkronisasi self-healing jika master_email belum tercatat sebagai master/owner di db
@@ -109,7 +112,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
             role: 'master',
             roles,
             is_approved: true,
-            exclude_from_recap: (!isMagang && !isPiket),
+            exclude_from_recap: (!isMagang && !isPiket && !isFreelance),
           })
           .eq('id', user.id);
       } catch {
@@ -126,6 +129,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       isAdmin,
       isSenior,
       isPiket,
+      isFreelance,
       isMagang,
       isTiket,
       isMaster,
@@ -143,7 +147,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
   // Jika belum ada di tabel profiles (fallback self-healing)
   const defaultRole: UserRole = isMasterEmail ? 'master' : 'user';
   const metaRole = (user.user_metadata?.selected_role || user.user_metadata?.requested_role) as AppRole | undefined;
-  const defaultRoleToUse: AppRole = metaRole && ['magang', 'piket', 'tiket'].includes(metaRole) ? metaRole : 'magang';
+  const defaultRoleToUse: AppRole = metaRole && ['magang', 'piket', 'freelance', 'tiket'].includes(metaRole) ? metaRole : 'magang';
   const defaultRoles: AppRole[] = isMasterEmail ? ['owner', 'magang'] : [defaultRoleToUse];
   const metaFullName = (user.user_metadata?.full_name || user.user_metadata?.name || '') as string;
   const metaPhone = (user.user_metadata?.phone || user.user_metadata?.phone_number || '') as string;
@@ -158,7 +162,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       full_name: metaFullName || null,
       phone: metaPhone || null,
       is_approved: isApproved,
-      exclude_from_recap: (!defaultRoles.includes('magang') && !defaultRoles.includes('piket')),
+      exclude_from_recap: (!defaultRoles.includes('magang') && !defaultRoles.includes('piket') && !defaultRoles.includes('freelance')),
     });
   } catch {
     // Fallback jika roles belum ada
@@ -176,10 +180,11 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
   const isAdmin = defaultRoles.includes('admin');
   const isSenior = defaultRoles.includes('senior');
   const isPiket = defaultRoles.includes('piket');
+  const isFreelance = defaultRoles.includes('freelance');
   const isMagang = defaultRoles.includes('magang');
   const isTiket = defaultRoles.includes('tiket');
   const canCreateTicket = isOwner || isTiket;
-  const canAccessPiket = isOwner || isAdmin || isSenior || isPiket;
+  const canAccessPiket = isOwner || isAdmin || isSenior || isPiket || isFreelance;
 
   return {
     userId: user.id,
@@ -190,6 +195,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
     isAdmin,
     isSenior,
     isPiket,
+    isFreelance,
     isMagang,
     isTiket,
     isMaster: isMasterEmail,
@@ -239,9 +245,9 @@ export async function updateCurrentUserProfile(
     updatePayload.description = description ? description.trim() : null;
   }
 
-  if (requestedRole && ['magang', 'piket', 'tiket'].includes(requestedRole)) {
+  if (requestedRole && ['magang', 'piket', 'freelance', 'tiket'].includes(requestedRole)) {
     updatePayload.roles = [requestedRole];
-    updatePayload.exclude_from_recap = (requestedRole !== 'magang' && requestedRole !== 'piket');
+    updatePayload.exclude_from_recap = (requestedRole !== 'magang' && requestedRole !== 'piket' && requestedRole !== 'freelance');
   }
 
   const { error } = await supabase
