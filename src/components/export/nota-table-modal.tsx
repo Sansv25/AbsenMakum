@@ -114,6 +114,8 @@ function buildInitialTables(attendances: PdfAttendanceItem[]): {
 
     const row: NotaTableRow = {
       id: createRowId(),
+      authorId: g.key.startsWith('name:') ? undefined : g.key,
+      sourceName: g.name,
       no: '',
       tglProses: defaultDate,
       namaPenerima: g.name,
@@ -791,7 +793,7 @@ export function NotaTableModal({
         {/* Footer Actions */}
         <div className="px-4 sm:px-6 py-3.5 border-t border-gray-100 dark:border-slate-800 bg-gray-50/70 dark:bg-slate-900 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
           <div className="text-[11px] text-gray-500 dark:text-slate-400">
-            Total Gabungan: <strong className="text-gray-800 dark:text-slate-200">Rp {formatNominalDisplay(magangTotal + freelanceTotal) || '0'}</strong> • Foto dokumentasi piket &amp; struk TF otomatis dilampirkan setelah halaman tabel.
+            Total Gabungan: <strong className="text-gray-800 dark:text-slate-200">Rp {formatNominalDisplay(magangTotal + freelanceTotal) || '0'}</strong> • Urutan PDF: Tabel &amp; Foto Magang, lalu Tabel &amp; Foto Freelance (grid ringkas).
           </div>
 
           <div className="flex items-center gap-2">

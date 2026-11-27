@@ -20,6 +20,8 @@ export interface PdfAttendanceItem {
 
 export interface NotaTableRow {
   id: string;
+  authorId?: string;
+  sourceName?: string;
   no: string;
   tglProses: string;
   namaPenerima: string;
@@ -60,15 +62,26 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-// Convert HTMLImageElement to base64 JPEG data URL via canvas
-function imageToDataUrl(img: HTMLImageElement): string {
+// Convert HTMLImageElement to resized JPEG data URL via canvas to keep PDF compact and fast
+function imageToDataUrl(img: HTMLImageElement, maxDim = 1100): string {
   const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth || 800;
-  canvas.height = img.naturalHeight || 600;
+  let w = img.naturalWidth || 800;
+  let h = img.naturalHeight || 600;
+  if (w > maxDim || h > maxDim) {
+    if (w > h) {
+      h = Math.round((h * maxDim) / w);
+      w = maxDim;
+    } else {
+      w = Math.round((w * maxDim) / h);
+      h = maxDim;
+    }
+  }
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
-  ctx.drawImage(img, 0, 0);
-  return canvas.toDataURL('image/jpeg', 0.85);
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/jpeg', 0.8);
 }
 
 // Gambar Header Utama / Kop Surat Resmi Laporan Absensi
@@ -468,8 +481,349 @@ function drawNotaTableSection(
   return y + totalH + 8;
 }
 
-function drawNotaCoverPages(doc: jsPDF, notaConfig: NotaPdfConfig): void {
-  let y = 18;
+interface CompactPhotoEntry {
+  url: string;
+  caption: string;
+  subCaption?: string;
+  isBuktiTf?: boolean;
+}
+
+interface OfficerPhotoGroup {
+  no: string;
+  name: string;
+  kegiatan: string;
+  photos: CompactPhotoEntry[];
+}
+
+function formatShortDateId(dateStr: string): string {
+  const parts = (dateStr || '').split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}`;
+  }
+  return dateStr;
+}
+
+function collectPhotosFromAttendances(
+  items: PdfAttendanceItem[],
+  row?: NotaTableRow
+): CompactPhotoEntry[] {
+  const photos: CompactPhotoEntry[] = [];
+
+  for (const item of items) {
+    const jobText = item.job_type ? jobLabel(item.job_type) : 'Piket';
+    const prefix = `${formatShortDateId(item.work_date)} S${shiftNumber(item.shift_type)} • ${jobText}`;
+
+    if (item.mulaiUrl) {
+      photos.push({ url: item.mulaiUrl, caption: 'Mulai Kerja', subCaption: prefix });
+    }
+    if (item.selesaiUrl) {
+      photos.push({ url: item.selesaiUrl, caption: 'Selesai Kerja', subCaption: prefix });
+    }
+    if (item.aktivitasUrls && item.aktivitasUrls.length > 0) {
+      item.aktivitasUrls.forEach((url, idx) => {
+        photos.push({
+          url,
+          caption: `Aktivitas #${idx + 1}`,
+          subCaption: prefix,
+        });
+      });
+    }
+    if (item.ticketUrls && item.ticketUrls.length > 0) {
+      item.ticketUrls.forEach((url, idx) => {
+        photos.push({
+          url,
+          caption: `Tiket #${idx + 1}`,
+          subCaption: prefix,
+        });
+      });
+    }
+  }
+
+  if (row?.buktiTfImageUrl) {
+    const tfDetail = [
+      row.namaBank?.trim(),
+      row.nominal > 0 ? `Rp ${Math.round(row.nominal).toLocaleString('en-US')}` : '',
+    ]
+      .filter(Boolean)
+      .join(' • ');
+    photos.push({
+      url: row.buktiTfImageUrl,
+      caption: 'Bukti Transfer',
+      subCaption: tfDetail || row.namaPenerima,
+      isBuktiTf: true,
+    });
+  }
+
+  return photos;
+}
+
+function buildSectionPhotoGroups(
+  rows: NotaTableRow[],
+  rowAttendanceMap: Map<string, PdfAttendanceItem[]>,
+  unmatchedAttendances: PdfAttendanceItem[]
+): OfficerPhotoGroup[] {
+  const groups: OfficerPhotoGroup[] = [];
+
+  for (const row of rows) {
+    const items = rowAttendanceMap.get(row.id) ?? [];
+    const photos = collectPhotosFromAttendances(items, row);
+    if (photos.length > 0) {
+      groups.push({
+        no: row.no,
+        name: row.namaPenerima?.trim() || 'Petugas Piket',
+        kegiatan: row.kegiatan?.trim() || '',
+        photos,
+      });
+    }
+  }
+
+  if (unmatchedAttendances.length > 0) {
+    const byOfficer = new Map<string, PdfAttendanceItem[]>();
+    for (const att of unmatchedAttendances) {
+      const k = att.author_id || `name:${(att.author_name || 'Petugas Piket').trim().toLowerCase()}`;
+      if (!byOfficer.has(k)) byOfficer.set(k, []);
+      byOfficer.get(k)!.push(att);
+    }
+    for (const items of byOfficer.values()) {
+      const photos = collectPhotosFromAttendances(items);
+      if (photos.length > 0) {
+        groups.push({
+          no: '',
+          name: items[0].author_name?.trim() || 'Petugas Piket',
+          kegiatan: '',
+          photos,
+        });
+      }
+    }
+  }
+
+  return groups;
+}
+
+function drawCompactOfficerBar(
+  doc: jsPDF,
+  group: OfficerPhotoGroup,
+  variant: 'magang' | 'freelance',
+  y: number,
+  isContinuation = false
+): number {
+  const isFreelance = variant === 'freelance';
+  doc.setFillColor(isFreelance ? 240 : 239, isFreelance ? 253 : 246, isFreelance ? 250 : 255);
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.2);
+  doc.rect(NOTA_MARGIN, y, 273, 6.2, 'FD');
+
+  doc.setFillColor(isFreelance ? 13 : 37, isFreelance ? 148 : 99, isFreelance ? 136 : 235);
+  doc.rect(NOTA_MARGIN, y, 1.8, 6.2, 'F');
+
+  const prefixNo = group.no ? `${group.no}. ` : '';
+  const suffix = isContinuation ? ' (lanjutan)' : '';
+  const nameLabel = `${prefixNo}${group.name}${suffix}`;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.2);
+  doc.setTextColor(15, 23, 42);
+  doc.text(nameLabel, NOTA_MARGIN + 3.5, y + 4.3);
+
+  const nameW = doc.getTextWidth(nameLabel);
+  const infoParts = [group.kegiatan, `${group.photos.length} foto`].filter(Boolean).join(' • ');
+  if (infoParts) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.setTextColor(71, 85, 105);
+    const maxInfoW = 273 - nameW - 8;
+    const clipped = doc.splitTextToSize(infoParts, Math.max(maxInfoW, 30))[0] || '';
+    doc.text(clipped, NOTA_MARGIN + 5.5 + nameW, y + 4.3);
+  }
+
+  return y + 7.5;
+}
+
+async function drawCompactPhotoSection(
+  doc: jsPDF,
+  bannerTitle: string,
+  groups: OfficerPhotoGroup[],
+  startY: number,
+  variant: 'magang' | 'freelance',
+  onProgress: (msg: string) => void
+): Promise<number> {
+  if (groups.length === 0) return startY;
+
+  const COLS = 4;
+  const GAP = 3;
+  const CARD_W = (273 - GAP * (COLS - 1)) / COLS; // 66 mm
+  const HEADER_H = 7.2;
+  const IMG_BOX_H = 43.5;
+  const CARD_H = HEADER_H + IMG_BOX_H + 1.5; // 52.2 mm
+
+  let y = startY;
+
+  // Pastikan judul seksi + bar petugas pertama + 1 baris foto muat di halaman ini
+  if (y + 8 + 7.5 + CARD_H > NOTA_MAX_Y) {
+    doc.addPage('a4', 'landscape');
+    y = 14;
+  }
+
+  // Section Banner
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(bannerTitle, NOTA_MARGIN, y + 4);
+  doc.setDrawColor(148, 163, 184);
+  doc.setLineWidth(0.3);
+  doc.line(NOTA_MARGIN, y + 5.8, NOTA_MARGIN + 273, y + 5.8);
+  y += 8.5;
+
+  for (const group of groups) {
+    if (y + 7.5 + CARD_H > NOTA_MAX_Y) {
+      doc.addPage('a4', 'landscape');
+      y = 14;
+    }
+
+    y = drawCompactOfficerBar(doc, group, variant, y, false);
+
+    for (let i = 0; i < group.photos.length; i += COLS) {
+      const rowPhotos = group.photos.slice(i, i + COLS);
+
+      if (i > 0 && y + CARD_H > NOTA_MAX_Y) {
+        doc.addPage('a4', 'landscape');
+        y = 14;
+        y = drawCompactOfficerBar(doc, group, variant, y, true);
+      }
+
+      for (let col = 0; col < rowPhotos.length; col++) {
+        const photo = rowPhotos[col];
+        const cardX = NOTA_MARGIN + col * (CARD_W + GAP);
+
+        onProgress(`Memproses ${photo.caption} (${group.name})...`);
+
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(photo.isBuktiTf ? 59 : 203, photo.isBuktiTf ? 130 : 213, photo.isBuktiTf ? 246 : 225);
+        doc.setLineWidth(photo.isBuktiTf ? 0.35 : 0.2);
+        doc.rect(cardX, y, CARD_W, CARD_H, 'FD');
+
+        // Header label inside photo card
+        if (photo.isBuktiTf) {
+          doc.setFillColor(239, 246, 255);
+        } else {
+          doc.setFillColor(248, 250, 252);
+        }
+        doc.rect(cardX, y, CARD_W, HEADER_H, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.line(cardX, y + HEADER_H, cardX + CARD_W, y + HEADER_H);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.8);
+        doc.setTextColor(photo.isBuktiTf ? 29 : 15, photo.isBuktiTf ? 78 : 23, photo.isBuktiTf ? 216 : 42);
+        doc.text(photo.caption, cardX + 1.8, y + 3.1);
+
+        if (photo.subCaption) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(5.8);
+          doc.setTextColor(100, 116, 139);
+          const subLine = doc.splitTextToSize(photo.subCaption, CARD_W - 3.6)[0] || '';
+          doc.text(subLine, cardX + 1.8, y + 6);
+        }
+
+        try {
+          const img = await loadImage(photo.url);
+          const dataUrl = imageToDataUrl(img, 1100);
+          const maxImgW = CARD_W - 2.4;
+          const maxImgH = IMG_BOX_H - 1.2;
+          const aspect = (img.naturalWidth || 1) / (img.naturalHeight || 1);
+          let imgW = maxImgW;
+          let imgH = imgW / aspect;
+          if (imgH > maxImgH) {
+            imgH = maxImgH;
+            imgW = imgH * aspect;
+          }
+          const imgX = cardX + (CARD_W - imgW) / 2;
+          const imgY = y + HEADER_H + 0.8 + (maxImgH - imgH) / 2;
+          doc.addImage(dataUrl, 'JPEG', imgX, imgY, imgW, imgH);
+        } catch (err) {
+          console.error(`Gagal memuat gambar (${photo.caption}):`, err);
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(6.5);
+          doc.setTextColor(148, 163, 184);
+          doc.text('Gambar tidak dapat dimuat', cardX + CARD_W / 2, y + HEADER_H + IMG_BOX_H / 2, {
+            align: 'center',
+          });
+        }
+      }
+
+      y += CARD_H + 2.5;
+    }
+
+    y += 1.5;
+  }
+
+  return y;
+}
+
+function matchAttendanceToRow(att: PdfAttendanceItem, rows: NotaTableRow[]): NotaTableRow | undefined {
+  const attName = att.author_name?.trim().toLowerCase() || '';
+  return rows.find((row) => {
+    if (row.authorId && att.author_id && row.authorId === att.author_id) {
+      return true;
+    }
+    if (row.sourceName && attName && row.sourceName.trim().toLowerCase() === attName) {
+      return true;
+    }
+    if (row.namaPenerima && attName && row.namaPenerima.trim().toLowerCase() === attName) {
+      return true;
+    }
+    return false;
+  });
+}
+
+async function generateNotaWithCompactDocs(
+  doc: jsPDF,
+  attendances: PdfAttendanceItem[],
+  notaConfig: NotaPdfConfig,
+  updateProgress: (msg: string) => void
+): Promise<void> {
+  const rowAttendanceMap = new Map<string, PdfAttendanceItem[]>();
+  const unmatchedMagang: PdfAttendanceItem[] = [];
+  const unmatchedFreelance: PdfAttendanceItem[] = [];
+
+  for (const att of attendances) {
+    const matchedFreelance = matchAttendanceToRow(att, notaConfig.freelanceRows);
+    if (matchedFreelance) {
+      if (!rowAttendanceMap.has(matchedFreelance.id)) rowAttendanceMap.set(matchedFreelance.id, []);
+      rowAttendanceMap.get(matchedFreelance.id)!.push(att);
+      continue;
+    }
+
+    const matchedMagang = matchAttendanceToRow(att, notaConfig.magangRows);
+    if (matchedMagang) {
+      if (!rowAttendanceMap.has(matchedMagang.id)) rowAttendanceMap.set(matchedMagang.id, []);
+      rowAttendanceMap.get(matchedMagang.id)!.push(att);
+      continue;
+    }
+
+    if (att.author_roles?.includes('freelance')) {
+      unmatchedFreelance.push(att);
+    } else {
+      unmatchedMagang.push(att);
+    }
+  }
+
+  const magangGroups = buildSectionPhotoGroups(
+    notaConfig.magangRows,
+    rowAttendanceMap,
+    unmatchedMagang
+  );
+  const freelanceGroups = buildSectionPhotoGroups(
+    notaConfig.freelanceRows,
+    rowAttendanceMap,
+    unmatchedFreelance
+  );
+
+  const includeEmpty = Boolean(notaConfig.includeEmptyTables);
+  const hasMagangSection = notaConfig.magangRows.length > 0 || includeEmpty || magangGroups.length > 0;
+  const hasFreelanceSection = notaConfig.freelanceRows.length > 0 || includeEmpty || freelanceGroups.length > 0;
+
+  let y = 16;
 
   if (notaConfig.title && notaConfig.title.trim()) {
     doc.setFont('helvetica', 'bold');
@@ -480,154 +834,54 @@ function drawNotaCoverPages(doc: jsPDF, notaConfig: NotaPdfConfig): void {
       doc.text(line, NOTA_PAGE_W / 2, y, { align: 'center' });
       y += 6.5;
     }
-    y += 3;
+    y += 2;
   }
 
-  const includeEmpty = Boolean(notaConfig.includeEmptyTables);
-  const hasMagang = notaConfig.magangRows.length > 0 || includeEmpty;
-  const hasFreelance = notaConfig.freelanceRows.length > 0 || includeEmpty;
-
-  if (hasMagang) {
+  // 1. BAGIAN MAGANG: Tabel Komisi Penjualan Magang -> Foto Dokumentasi & Bukti TF Magang
+  if (hasMagangSection) {
     y = drawNotaTableSection(
       doc,
       notaConfig.magangTitle?.trim() || 'Komisi Penjualan Magang',
       notaConfig.magangRows,
       y
     );
+
+    if (magangGroups.length > 0) {
+      await drawCompactPhotoSection(
+        doc,
+        'DOKUMENTASI PIKET & BUKTI TRANSFER — MAGANG',
+        magangGroups,
+        y,
+        'magang',
+        updateProgress
+      );
+    }
   }
 
-  if (hasFreelance) {
-    drawNotaTableSection(
+  // 2. BAGIAN FREELANCE: Halaman Baru -> Tabel Komisi Penjualan Freelance -> Foto Dokumentasi & Bukti TF Freelance
+  if (hasFreelanceSection) {
+    if (hasMagangSection) {
+      doc.addPage('a4', 'landscape');
+      y = 14;
+    }
+
+    y = drawNotaTableSection(
       doc,
       notaConfig.freelanceTitle?.trim() || 'Komisi Penjualan Freelance',
       notaConfig.freelanceRows,
       y
     );
-  }
-}
 
-async function drawBuktiTfPages(
-  doc: jsPDF,
-  notaConfig: NotaPdfConfig,
-  onTick?: (msg: string) => void
-): Promise<void> {
-  const items: { category: string; row: NotaTableRow }[] = [
-    ...notaConfig.magangRows
-      .filter((r) => !!r.buktiTfImageUrl)
-      .map((r) => ({ category: 'Magang', row: r })),
-    ...notaConfig.freelanceRows
-      .filter((r) => !!r.buktiTfImageUrl)
-      .map((r) => ({ category: 'Freelance', row: r })),
-  ];
-
-  if (items.length === 0) return;
-
-  doc.addPage('a4', 'portrait');
-  let y = 14;
-
-  const drawBuktiHeader = () => {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(15, 23, 42);
-    doc.text('LAMPIRAN BUKTI TRANSFER KOMISI', MARGIN, y + 4);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(100, 116, 139);
-    if (notaConfig.title?.trim()) {
-      doc.text(notaConfig.title.trim(), PAGE_WIDTH - MARGIN, y + 4, { align: 'right' });
+    if (freelanceGroups.length > 0) {
+      await drawCompactPhotoSection(
+        doc,
+        'DOKUMENTASI PIKET & BUKTI TRANSFER — FREELANCE',
+        freelanceGroups,
+        y,
+        'freelance',
+        updateProgress
+      );
     }
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(0.3);
-    doc.line(MARGIN, y + 6.5, PAGE_WIDTH - MARGIN, y + 6.5);
-    y += 12;
-  };
-
-  drawBuktiHeader();
-
-  const gap = 8;
-  const cardW = (CONTENT_WIDTH - gap) / 2;
-  const maxImgH = 104;
-
-  for (let i = 0; i < items.length; i += 2) {
-    const pair = items.slice(i, i + 2);
-
-    // Hitung tinggi kartu di baris ini dulu
-    const prepared: {
-      category: string;
-      row: NotaTableRow;
-      dataUrl: string;
-      imgW: number;
-      imgH: number;
-    }[] = [];
-
-    for (const entry of pair) {
-      if (!entry.row.buktiTfImageUrl) continue;
-      if (onTick) onTick(`Memproses Bukti TF (${entry.row.namaPenerima})...`);
-      try {
-        const img = await loadImage(entry.row.buktiTfImageUrl);
-        const dataUrl = imageToDataUrl(img);
-        const aspect = (img.naturalWidth || 1) / (img.naturalHeight || 1);
-        let imgW = cardW - 6;
-        let imgH = imgW / aspect;
-        if (imgH > maxImgH) {
-          imgH = maxImgH;
-          imgW = imgH * aspect;
-        }
-        prepared.push({
-          category: entry.category,
-          row: entry.row,
-          dataUrl,
-          imgW,
-          imgH,
-        });
-      } catch (err) {
-        console.error('Gagal memuat gambar bukti TF:', err);
-      }
-    }
-
-    if (prepared.length === 0) continue;
-
-    const maxCardImgH = Math.max(...prepared.map((p) => p.imgH));
-    const cardTotalH = maxCardImgH + 22;
-
-    if (y + cardTotalH > PAGE_HEIGHT - 16) {
-      doc.addPage('a4', 'portrait');
-      y = 14;
-      drawBuktiHeader();
-    }
-
-    for (let colIdx = 0; colIdx < prepared.length; colIdx++) {
-      const p = prepared[colIdx];
-      const cardX = MARGIN + colIdx * (cardW + gap);
-
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(203, 213, 225);
-      doc.setLineWidth(0.25);
-      doc.roundedRect(cardX, y, cardW, cardTotalH, 1.5, 1.5, 'FD');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.setTextColor(15, 23, 42);
-      doc.text(`${p.row.no ? `${p.row.no}. ` : ''}${p.row.namaPenerima} (${p.category})`, cardX + 3, y + 5.5);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.2);
-      doc.setTextColor(71, 85, 105);
-      const bankLine = [p.row.namaBank, p.row.noRek].filter(Boolean).join(' • ');
-      const nominalLine = p.row.nominal > 0 ? `Rp ${Math.round(p.row.nominal).toLocaleString('en-US')}` : '';
-      const subText = [bankLine, nominalLine].filter(Boolean).join(' — ');
-      if (subText) {
-        doc.text(subText, cardX + 3, y + 10);
-      }
-
-      const imgX = cardX + (cardW - p.imgW) / 2;
-      const imgY = y + 13;
-      doc.addImage(p.dataUrl, 'JPEG', imgX, imgY, p.imgW, p.imgH);
-      doc.setDrawColor(226, 232, 240);
-      doc.rect(imgX, imgY, p.imgW, p.imgH);
-    }
-
-    y += cardTotalH + 7;
   }
 }
 
@@ -668,21 +922,20 @@ export async function generateAttendancePdf(
   }
 
   if (notaConfig) {
-    drawNotaCoverPages(doc, notaConfig);
-  }
+    await generateNotaWithCompactDocs(doc, attendances, notaConfig, updateProgress);
+  } else {
+    let isFirstPage = true;
 
-  let isFirstPage = !hasNota;
+    for (let i = 0; i < attendances.length; i++) {
+      const item = attendances[i];
 
-  for (let i = 0; i < attendances.length; i++) {
-    const item = attendances[i];
+      if (!isFirstPage) {
+        doc.addPage('a4', 'portrait');
+      }
+      isFirstPage = false;
 
-    if (!isFirstPage) {
-      doc.addPage('a4', 'portrait');
-    }
-    isFirstPage = false;
-
-    // Header Kop Surat Resmi & Tabel Metadata (termasuk Catatan Petugas)
-    let y = drawFullHeader(doc, item);
+      // Header Kop Surat Resmi & Tabel Metadata (termasuk Catatan Petugas)
+      let y = drawFullHeader(doc, item);
 
     // 1. Mulai Kerja
     if (item.mulaiUrl) {
@@ -821,10 +1074,7 @@ export async function generateAttendancePdf(
         }
       }
     }
-  }
-
-  if (notaConfig) {
-    await drawBuktiTfPages(doc, notaConfig, (msg) => updateProgress(msg));
+    }
   }
 
   // Terapkan nomor halaman resmi di seluruh halaman
