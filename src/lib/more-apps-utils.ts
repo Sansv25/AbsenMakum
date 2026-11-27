@@ -1,3 +1,52 @@
+import type { AppRole, MoreAppItem } from '@/lib/supabase/types';
+
+export const VALID_APP_ROLES: AppRole[] = [
+  'owner',
+  'admin',
+  'senior',
+  'piket',
+  'freelance',
+  'magang',
+  'tiket',
+];
+
+export const ROLE_SHORT_LABELS: Record<AppRole, string> = {
+  owner: 'Owner',
+  admin: 'Admin Piket',
+  senior: 'Senior',
+  piket: 'Petugas Piket',
+  freelance: 'Freelance',
+  magang: 'Magang',
+  tiket: 'Tiket',
+};
+
+/**
+ * Checks whether an app shortcut has restricted visibility beyond "Semua Pengguna".
+ */
+export function isRestrictedApp(item: Pick<MoreAppItem, 'allowed_roles' | 'allowed_user_ids'>): boolean {
+  const rolesCount = item.allowed_roles?.length ?? 0;
+  const usersCount = item.allowed_user_ids?.length ?? 0;
+  return rolesCount > 0 || usersCount > 0;
+}
+
+/**
+ * Formats a concise access summary label for Owner view.
+ */
+export function formatAppAccessSummary(item: Pick<MoreAppItem, 'allowed_roles' | 'allowed_user_ids'>): string {
+  const roles = item.allowed_roles ?? [];
+  const users = item.allowed_user_ids ?? [];
+  if (roles.length === 0 && users.length === 0) return 'Semua';
+
+  const parts: string[] = [];
+  if (roles.length > 0) {
+    parts.push(roles.slice(0, 2).map((r) => ROLE_SHORT_LABELS[r] || r).join(', ') + (roles.length > 2 ? ` +${roles.length - 2}` : ''));
+  }
+  if (users.length > 0) {
+    parts.push(`${users.length} orang`);
+  }
+  return parts.join(' • ');
+}
+
 /**
  * Normalizes a user-supplied shortcut URL to http/https and validates safety.
  * Rejects dangerous protocols such as javascript:, data:, or file:.

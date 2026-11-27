@@ -6,13 +6,16 @@ import {
   deleteMoreApp,
   reorderMoreApps,
   updateMoreApp,
+  updateMoreAppAccess,
 } from '@/lib/data/more-apps';
-import type { MoreAppItem } from '@/lib/supabase/types';
+import type { AppRole, MoreAppItem } from '@/lib/supabase/types';
 
 export async function createMoreAppAction(input: {
   name: string;
   url: string;
   iconUrl?: string | null;
+  allowedRoles?: AppRole[];
+  allowedUserIds?: string[];
 }): Promise<{ success: boolean; error?: string; item?: MoreAppItem }> {
   const result = await createMoreApp(input);
   if (!result.success) {
@@ -28,11 +31,28 @@ export async function updateMoreAppAction(
     name: string;
     url: string;
     iconUrl?: string | null;
+    allowedRoles?: AppRole[];
+    allowedUserIds?: string[];
   }
 ): Promise<{ success: boolean; error?: string }> {
   const result = await updateMoreApp(id, input);
   if (!result.success) {
     return { success: false, error: result.error || 'Gagal memperbarui shortcut aplikasi.' };
+  }
+  revalidatePath('/more-app');
+  return { success: true };
+}
+
+export async function updateMoreAppAccessAction(
+  id: string,
+  input: {
+    allowedRoles: AppRole[];
+    allowedUserIds: string[];
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const result = await updateMoreAppAccess(id, input);
+  if (!result.success) {
+    return { success: false, error: result.error || 'Gagal memperbarui pengaturan akses aplikasi.' };
   }
   revalidatePath('/more-app');
   return { success: true };

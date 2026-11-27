@@ -77,7 +77,16 @@ export interface MoreAppItem {
   url: string;
   icon_url: string | null;
   sort_order: number;
+  allowed_roles?: AppRole[];
+  allowed_user_ids?: string[];
   created_by?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface MoreAppUserOption {
+  id: string;
+  full_name: string | null;
+  email: string;
+  roles: AppRole[];
 }

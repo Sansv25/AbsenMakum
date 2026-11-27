@@ -14,14 +14,24 @@ import {
   getAppInitials,
   getDefaultFaviconUrl,
   getDisplayHost,
+  isRestrictedApp,
   normalizeAppUrl,
 } from '@/lib/more-apps-utils';
-import type { MoreAppItem } from '@/lib/supabase/types';
+import { AccessSelector } from './access-selector';
+import type { AppRole, MoreAppItem, MoreAppUserOption } from '@/lib/supabase/types';
 
 interface ShortcutModalProps {
   editingItem: MoreAppItem | null;
+  isOwner?: boolean;
+  userOptions?: MoreAppUserOption[];
   onClose: () => void;
-  onSave: (payload: { name: string; url: string; iconUrl: string | null }) => Promise<{ success: boolean; error?: string }>;
+  onSave: (payload: {
+    name: string;
+    url: string;
+    iconUrl: string | null;
+    allowedRoles?: AppRole[];
+    allowedUserIds?: string[];
+  }) => Promise<{ success: boolean; error?: string }>;
 }
 
 const GRADIENT_CLASSES = [
@@ -74,10 +84,25 @@ async function resizeImageFileToDataUrl(file: File): Promise<string> {
   return canvas.toDataURL('image/png', 0.9);
 }
 
-export function ShortcutModal({ editingItem, onClose, onSave }: ShortcutModalProps) {
+export function ShortcutModal({
+  editingItem,
+  isOwner = false,
+  userOptions = [],
+  onClose,
+  onSave,
+}: ShortcutModalProps) {
   const [name, setName] = useState(editingItem?.name ?? '');
   const [url, setUrl] = useState(editingItem?.url ?? '');
   const [iconUrl, setIconUrl] = useState(editingItem?.icon_url ?? '');
+  const [isRestricted, setIsRestricted] = useState(
+    editingItem ? isRestrictedApp(editingItem) : false
+  );
+  const [allowedRoles, setAllowedRoles] = useState<AppRole[]>(
+    editingItem?.allowed_roles ?? []
+  );
+  const [allowedUserIds, setAllowedUserIds] = useState<string[]>(
+    editingItem?.allowed_user_ids ?? []
+  );
   const [customIconMode, setCustomIconMode] = useState(false);
   const [fetchingMeta, setFetchingMeta] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -169,12 +194,23 @@ export function ShortcutModal({ editingItem, onClose, onSave }: ShortcutModalPro
       return;
     }
 
+    if (isOwner && isRestricted && allowedRoles.length === 0 && allowedUserIds.length === 0) {
+      setError('Pilih minimal 1 role atau 1 orang pada pengaturan akses, atau pilih "Semua Pengguna".');
+      return;
+    }
+
     setSaving(true);
     const resolvedIcon = iconUrl.trim() || getDefaultFaviconUrl(parsed.url);
     const res = await onSave({
       name: trimmedName,
       url: parsed.url,
       iconUrl: resolvedIcon,
+      ...(isOwner
+        ? {
+            allowedRoles: isRestricted ? allowedRoles : [],
+            allowedUserIds: isRestricted ? allowedUserIds : [],
+          }
+        : {}),
     });
 
     if (!res.success) {
@@ -196,11 +232,11 @@ export function ShortcutModal({ editingItem, onClose, onSave }: ShortcutModalPro
       onClick={() => !saving && onClose()}
     >
       <div
-        className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-2xl overflow-hidden"
+        className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="text-base font-bold text-gray-900 dark:text-slate-100">
               {editingItem ? 'Edit Shortcut Aplikasi' : 'Tambah Shortcut'}
@@ -219,7 +255,7 @@ export function ShortcutModal({ editingItem, onClose, onSave }: ShortcutModalPro
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
           {/* Preview Tile + Icon Controls */}
           <div className="flex items-center gap-3.5 p-3 rounded-xl bg-gray-50 dark:bg-slate-800/60 border border-gray-200/80 dark:border-slate-700/80">
             <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-xs flex items-center justify-center overflow-hidden flex-shrink-0 relative">
@@ -349,6 +385,20 @@ export function ShortcutModal({ editingItem, onClose, onSave }: ShortcutModalPro
                 className="w-full px-3.5 py-2 border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[40px]"
               />
             </div>
+          )}
+
+          {isOwner && (
+            <AccessSelector
+              isRestricted={isRestricted}
+              allowedRoles={allowedRoles}
+              allowedUserIds={allowedUserIds}
+              userOptions={userOptions}
+              onChange={(next) => {
+                setIsRestricted(next.isRestricted);
+                setAllowedRoles(next.allowedRoles);
+                setAllowedUserIds(next.allowedUserIds);
+              }}
+            />
           )}
 
           {error && (

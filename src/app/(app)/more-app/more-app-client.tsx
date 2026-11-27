@@ -14,26 +14,35 @@ import {
   ChevronRight,
   X,
   ShieldCheck,
+  Shield,
+  Lock,
+  Crown,
 } from 'lucide-react';
 import {
   createMoreAppAction,
   deleteMoreAppAction,
   reorderMoreAppsAction,
+  updateMoreAppAccessAction,
   updateMoreAppAction,
 } from './actions';
 import { ShortcutModal, pickAppColorClass } from './shortcut-modal';
+import { AppAccessModal } from './access-modal';
 import {
+  formatAppAccessSummary,
   getAppInitials,
   getDefaultFaviconUrl,
   getDisplayHost,
+  isRestrictedApp,
   normalizeAppUrl,
 } from '@/lib/more-apps-utils';
 import { showAlert, showConfirm, showToast } from '@/lib/swal';
-import type { MoreAppItem } from '@/lib/supabase/types';
+import type { AppRole, MoreAppItem, MoreAppUserOption } from '@/lib/supabase/types';
 
 interface MoreAppClientProps {
   initialItems: MoreAppItem[];
   canManage: boolean;
+  isOwner: boolean;
+  userOptions: MoreAppUserOption[];
 }
 
 function AppIconImage({ item }: { item: MoreAppItem }) {
@@ -84,13 +93,19 @@ function AppIconImage({ item }: { item: MoreAppItem }) {
   );
 }
 
-export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
+export function MoreAppClient({
+  initialItems,
+  canManage,
+  isOwner,
+  userOptions,
+}: MoreAppClientProps) {
   const router = useRouter();
   const [prevInitial, setPrevInitial] = useState(initialItems);
   const [items, setItems] = useState<MoreAppItem[]>(initialItems);
   const [searchQuery, setSearchQuery] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MoreAppItem | null>(null);
+  const [accessModalItem, setAccessModalItem] = useState<MoreAppItem | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -122,6 +137,8 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
     name: string;
     url: string;
     iconUrl: string | null;
+    allowedRoles?: AppRole[];
+    allowedUserIds?: string[];
   }) {
     if (editingItem) {
       const res = await updateMoreAppAction(editingItem.id, payload);
@@ -135,6 +152,18 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
     const res = await createMoreAppAction(payload);
     if (res.success) {
       showToast(`Shortcut "${payload.name}" berhasil ditambahkan`, 'success');
+      router.refresh();
+    }
+    return res;
+  }
+
+  async function handleSaveAccess(
+    id: string,
+    payload: { allowedRoles: AppRole[]; allowedUserIds: string[] }
+  ) {
+    const res = await updateMoreAppAccessAction(id, payload);
+    if (res.success) {
+      showToast('Pengaturan akses aplikasi berhasil diperbarui', 'success');
       router.refresh();
     }
     return res;
@@ -255,10 +284,16 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
           <span>
             <strong className="text-gray-800 dark:text-slate-200">{filteredItems.length}</strong> aplikasi
           </span>
-          {canManage && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold">
-              <ShieldCheck className="h-3 w-3" /> Mode Kelola Admin
+          {isOwner ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-semibold">
+              <Crown className="h-3 w-3" /> Kelola Akses: Owner
             </span>
+          ) : (
+            canManage && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold">
+                <ShieldCheck className="h-3 w-3" /> Mode Kelola Admin
+              </span>
+            )
           )}
         </div>
       </div>
@@ -296,6 +331,9 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
             const href = safeParsed.ok ? safeParsed.url : '#';
             const displayHost = getDisplayHost(item.url);
             const isBusy = busyId === item.id;
+            const restricted = isRestrictedApp(item);
+            const canModifyItem = isOwner || (canManage && !restricted);
+            const accessSummary = formatAppAccessSummary(item);
 
             return (
               <div
@@ -304,27 +342,57 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
                   isBusy ? 'opacity-50 pointer-events-none' : ''
                 }`}
               >
-                {/* Admin Controls (sibling to link so buttons are never nested inside <a>) */}
-                {canManage && !reorderMode && (
+                {/* Access Indicator Badge (hanya terlihat oleh Owner) */}
+                {isOwner && restricted && (
+                  <div
+                    className="absolute top-2.5 left-2.5 z-10 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[9px] font-bold max-w-[58%] truncate"
+                    title={`Akses terbatas: ${accessSummary}`}
+                  >
+                    <Lock className="h-2.5 w-2.5 flex-shrink-0" />
+                    <span className="truncate">{accessSummary}</span>
+                  </div>
+                )}
+
+                {/* Admin / Owner Controls (sibling to link so buttons are never nested inside <a>) */}
+                {(isOwner || canModifyItem) && !reorderMode && (
                   <div className="absolute top-2.5 right-2.5 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">
-                    <button
-                      type="button"
-                      onClick={() => openEditModal(item)}
-                      className="p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/95 border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 shadow-2xs transition-colors"
-                      title={`Edit ${item.name}`}
-                      aria-label={`Edit ${item.name}`}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(item)}
-                      className="p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/95 border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-red-600 dark:text-slate-300 dark:hover:text-red-400 shadow-2xs transition-colors"
-                      title={`Hapus ${item.name}`}
-                      aria-label={`Hapus ${item.name}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => setAccessModalItem(item)}
+                        className={`p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/95 border shadow-2xs transition-colors ${
+                          restricted
+                            ? 'border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/60'
+                            : 'border-gray-200 dark:border-slate-700 text-gray-500 hover:text-amber-600 dark:text-slate-300 dark:hover:text-amber-400'
+                        }`}
+                        title={`Kelola Akses ${item.name} (Khusus Owner)`}
+                        aria-label={`Kelola Akses ${item.name}`}
+                      >
+                        <Shield className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {canModifyItem && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(item)}
+                          className="p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/95 border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400 shadow-2xs transition-colors"
+                          title={`Edit ${item.name}`}
+                          aria-label={`Edit ${item.name}`}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(item)}
+                          className="p-1.5 rounded-lg bg-white/90 dark:bg-slate-800/95 border border-gray-200 dark:border-slate-700 text-gray-500 hover:text-red-600 dark:text-slate-300 dark:hover:text-red-400 shadow-2xs transition-colors"
+                          title={`Hapus ${item.name}`}
+                          aria-label={`Hapus ${item.name}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -332,7 +400,7 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex flex-col items-center text-center p-5 pt-6 gap-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 flex flex-col items-center text-center p-5 pt-7 gap-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <AppIconImage item={item} />
 
@@ -404,8 +472,20 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
         <ShortcutModal
           key={editingItem?.id ?? 'new-shortcut'}
           editingItem={editingItem}
+          isOwner={isOwner}
+          userOptions={userOptions}
           onClose={() => setModalOpen(false)}
           onSave={handleSaveModal}
+        />
+      )}
+
+      {accessModalItem && isOwner && (
+        <AppAccessModal
+          key={accessModalItem.id}
+          item={accessModalItem}
+          userOptions={userOptions}
+          onClose={() => setAccessModalItem(null)}
+          onSave={handleSaveAccess}
         />
       )}
     </>
