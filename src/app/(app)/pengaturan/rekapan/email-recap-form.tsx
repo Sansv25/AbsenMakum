@@ -278,24 +278,24 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
       {/* ============================================================== */}
       {/* 0. PANDUAN DUA JALUR EMAIL REKAPAN ICONNET                     */}
       {/* ============================================================== */}
-      <div className="bg-slate-50 dark:bg-slate-850/80 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 space-y-3">
+      <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 space-y-3">
         <div className="flex items-center gap-2">
           <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
           <h3 className="text-sm font-bold text-gray-900 dark:text-slate-100">
             Panduan 2 Jenis Email Rekapan ICONNET
           </h3>
         </div>
-        <p className="text-xs text-gray-600 dark:text-slate-400 leading-relaxed">
+        <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">
           Sistem absensi ICONNET memisahkan laporan rekapan menjadi <strong>2 jalur email penerima yang berbeda</strong> agar target laporan tidak tertukar:
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
           {/* Box Magang */}
-          <div className="bg-emerald-50/70 dark:bg-emerald-950/30 p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60 space-y-1.5">
+          <div className="bg-emerald-50/70 dark:bg-emerald-950/50 p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800/70 space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
               <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <span>1. Rekapan Magang (Harian)</span>
             </div>
-            <p className="text-[11px] text-emerald-900/80 dark:text-emerald-200/80 leading-relaxed">
+            <p className="text-[11px] text-emerald-900/80 dark:text-emerald-200 leading-relaxed">
               <strong>Isi:</strong> Rekap presensi harian anak magang (menampilkan siapa yang <strong>hadir</strong> beserta jam/foto bukti &amp; siapa yang <strong>tidak hadir / absen</strong>).
             </p>
             <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">
@@ -304,12 +304,12 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
           </div>
 
           {/* Box Piket */}
-          <div className="bg-blue-50/70 dark:bg-blue-950/30 p-3.5 rounded-xl border border-blue-200 dark:border-blue-800/60 space-y-1.5">
+          <div className="bg-blue-50/70 dark:bg-blue-950/50 p-3.5 rounded-xl border border-blue-200 dark:border-blue-800/70 space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 dark:text-blue-300">
               <ShieldCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <span>2. Rekapan Piket (Shift Pagi &amp; Sore)</span>
             </div>
-            <p className="text-[11px] text-blue-900/80 dark:text-blue-200/80 leading-relaxed">
+            <p className="text-[11px] text-blue-900/80 dark:text-blue-200 leading-relaxed">
               <strong>Isi:</strong> Laporan dokumen <strong>PDF resmi</strong> kegiatan petugas piket shift pagi (08.00–16.30) &amp; sore (16.30–08.00) lengkap dengan checklist tugas, foto lapangan, dan tanda tangan digital.
             </p>
             <p className="text-[10px] text-blue-700 dark:text-blue-400 font-semibold">
@@ -827,7 +827,7 @@ export function EmailRecapForm({ initialSettings }: EmailRecapFormProps) {
         )}
 
         {/* KARTU TEST KIRIM REKAPAN PIKET SEKARANG */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-850 p-4 rounded-2xl border border-blue-100 dark:border-slate-700 space-y-3">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900 p-4 rounded-2xl border border-blue-100 dark:border-slate-700 space-y-3">
           <div>
             <h4 className="text-xs font-bold text-gray-900 dark:text-slate-100 flex items-center gap-1.5">
               <Send className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />

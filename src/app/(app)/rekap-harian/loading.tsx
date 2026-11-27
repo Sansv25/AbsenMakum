@@ -12,7 +12,7 @@ export default function RekapHarianLoading() {
             </div>
             <div className="h-6 w-52 bg-gray-200 dark:bg-slate-800 rounded-lg" />
           </div>
-          <div className="h-3.5 w-80 bg-gray-100 dark:bg-slate-850 rounded" />
+          <div className="h-3.5 w-80 bg-gray-100 dark:bg-slate-800 rounded" />
         </div>
         <div className="flex items-center gap-2">
           <div className="h-9 w-28 bg-gray-200 dark:bg-slate-800 rounded-xl" />

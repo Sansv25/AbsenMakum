@@ -1054,7 +1054,7 @@ export default function TicketingDashboardPage() {
           /* ========================================================================= */
           <div className="bg-white dark:bg-slate-900 border border-gray-200/90 dark:border-slate-800 rounded-2xl overflow-hidden divide-y divide-gray-100 dark:divide-slate-800/80 shadow-2xs">
             {/* Table Header (Desktop) */}
-            <div className="hidden lg:grid grid-cols-12 gap-3 px-4 py-2.5 bg-gray-50/90 dark:bg-slate-850 text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider items-center">
+            <div className="hidden lg:grid grid-cols-12 gap-3 px-4 py-2.5 bg-gray-50/90 dark:bg-slate-800/80 text-[10px] font-bold text-gray-400 dark:text-slate-400 uppercase tracking-wider items-center">
               <div className="col-span-4">Pelanggan &amp; ID</div>
               <div className="col-span-3">Keluhan</div>
               <div className="col-span-2">Output / Resolusi</div>
@@ -1262,7 +1262,7 @@ export default function TicketingDashboardPage() {
                 type="button"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={safeCurrentPage <= 1}
-                className="px-2.5 sm:px-3 py-1.5 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-750 disabled:opacity-30 disabled:cursor-not-allowed font-medium transition flex items-center gap-1 min-h-[34px] cursor-pointer"
+                className="px-2.5 sm:px-3 py-1.5 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed font-medium transition flex items-center gap-1 min-h-[34px] cursor-pointer"
                 title="Halaman Sebelumnya"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -1310,7 +1310,7 @@ export default function TicketingDashboardPage() {
                 type="button"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={safeCurrentPage >= totalPages}
-                className="px-2.5 sm:px-3 py-1.5 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-750 disabled:opacity-30 disabled:cursor-not-allowed font-medium transition flex items-center gap-1 min-h-[34px] cursor-pointer"
+                className="px-2.5 sm:px-3 py-1.5 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed font-medium transition flex items-center gap-1 min-h-[34px] cursor-pointer"
                 title="Halaman Berikutnya"
               >
                 <span className="hidden sm:inline">Berikutnya</span>
