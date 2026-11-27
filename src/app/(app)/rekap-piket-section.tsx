@@ -893,11 +893,6 @@ export function RekapPiketSection({
                           <div className="font-semibold text-gray-900 dark:text-slate-100 text-xs sm:text-sm">
                             {item.name}
                           </div>
-                          {item.email && (
-                            <div className="text-[11px] text-gray-400 dark:text-slate-500 truncate max-w-[220px]">
-                              {item.email}
-                            </div>
-                          )}
                         </td>
                         <td className="py-3 px-3 text-center whitespace-nowrap">
                           <span className="inline-block px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800 whitespace-nowrap">
@@ -952,11 +947,6 @@ export function RekapPiketSection({
                           <p className="font-semibold text-xs text-gray-900 dark:text-slate-100 truncate">
                             {item.name}
                           </p>
-                          {item.email && (
-                            <p className="text-[10px] text-gray-400 dark:text-slate-500 truncate">
-                              {item.email}
-                            </p>
-                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -1436,6 +1426,11 @@ export function RekapPiketSection({
                   Jadwal Piket: {detailOfficer.name}
                 </h4>
               </div>
+              {detailOfficer.email && (
+                <p className="text-[11px] text-gray-500 dark:text-slate-400 truncate mt-0.5">
+                  {detailOfficer.email}
+                </p>
+              )}
               <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1">
                 Periode: <strong className="text-gray-700 dark:text-slate-200">{periodLabel}</strong>
               </p>
