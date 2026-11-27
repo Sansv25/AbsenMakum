@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUserProfile } from '@/lib/data/profile';
+import { isMissingWalletColumnError, readFallbackWalletsMap } from '@/lib/data/wallet-store';
 import type { ShiftType, AppRole } from '@/lib/supabase/types';
 import type { PdfAttendanceItem } from '@/lib/pdf';
 
@@ -93,23 +94,59 @@ export async function fetchExportData(
     ])
   );
 
-  const profileMap = new Map<string, { name: string; roles: AppRole[] }>();
+  const profileMap = new Map<
+    string,
+    {
+      name: string;
+      roles: AppRole[];
+      walletProvider: string | null;
+      walletNumber: string | null;
+    }
+  >();
   if (userIds.length > 0) {
-    const { data: profiles } = await supabase
+    const fallbackWallets = await readFallbackWalletsMap(supabase);
+
+    let profileRows: Array<{
+      id: string;
+      full_name?: string | null;
+      email?: string | null;
+      role?: string | null;
+      roles?: AppRole[] | null;
+      wallet_provider?: string | null;
+      wallet_number?: string | null;
+    }> = [];
+
+    const { data: profilesWithWallet, error: profErr } = await supabase
       .from('profiles')
-      .select('id, full_name, email, role, roles')
+      .select('id, full_name, email, role, roles, wallet_provider, wallet_number')
       .in('id', userIds);
 
-    for (const p of profiles ?? []) {
+    if (profErr && isMissingWalletColumnError(profErr)) {
+      const { data: profilesBasic } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, roles')
+        .in('id', userIds);
+      profileRows = (profilesBasic ?? []) as typeof profileRows;
+    } else {
+      profileRows = (profilesWithWallet ?? []) as typeof profileRows;
+    }
+
+    for (const p of profileRows) {
       const resolvedRoles: AppRole[] =
         Array.isArray(p.roles) && p.roles.length > 0
           ? (p.roles as AppRole[])
           : p.role === 'master'
             ? ['admin']
             : ['magang'];
+      const fb = fallbackWallets[p.id];
+      const walletProvider = p.wallet_provider ?? fb?.wallet_provider ?? null;
+      const walletNumber = p.wallet_number ?? fb?.wallet_number ?? null;
+
       profileMap.set(p.id, {
         name: p.full_name?.trim() || p.email || 'Petugas',
         roles: resolvedRoles,
+        walletProvider,
+        walletNumber,
       });
     }
   }
@@ -175,6 +212,8 @@ export async function fetchExportData(
       )
     );
 
+    const primaryProfile = primaryAuthorId ? profileMap.get(primaryAuthorId) : undefined;
+
     result.push({
       work_date: att.work_date,
       shift_type: att.shift_type as ShiftType,
@@ -183,6 +222,8 @@ export async function fetchExportData(
       author_id: primaryAuthorId,
       author_name: authorName,
       author_roles: authorRoles,
+      author_wallet_provider: primaryProfile?.walletProvider ?? null,
+      author_wallet_number: primaryProfile?.walletNumber ?? null,
       mulaiUrl,
       selesaiUrl,
       aktivitasUrls,

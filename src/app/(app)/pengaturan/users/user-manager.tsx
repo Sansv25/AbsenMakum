@@ -650,7 +650,7 @@ export function UserManager({
 
                     {user.description && (
                       <p className="text-[11px] text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-800/60 border border-gray-100 dark:border-slate-700 rounded-lg px-2.5 py-1 mt-1.5 font-normal">
-                        <span className="font-semibold text-gray-700 dark:text-slate-200">Catatan/Rekening:</span> {user.description}
+                        <span className="font-semibold text-gray-700 dark:text-slate-200">Deskripsi:</span> {user.description}
                       </p>
                     )}
                   </div>

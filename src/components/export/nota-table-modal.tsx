@@ -64,6 +64,8 @@ function buildInitialTables(attendances: PdfAttendanceItem[]): {
     key: string;
     name: string;
     isFreelance: boolean;
+    walletNumber: string;
+    walletProvider: string;
     jobs: Map<string, Set<number>>;
   }
 
@@ -80,6 +82,8 @@ function buildInitialTables(attendances: PdfAttendanceItem[]): {
         key,
         name,
         isFreelance,
+        walletNumber: item.author_wallet_number?.trim() || '',
+        walletProvider: item.author_wallet_provider?.trim() || '',
         jobs: new Map(),
       });
     }
@@ -87,6 +91,12 @@ function buildInitialTables(attendances: PdfAttendanceItem[]): {
     const g = groups.get(key)!;
     if (isFreelance) {
       g.isFreelance = true;
+    }
+    if (!g.walletNumber && item.author_wallet_number) {
+      g.walletNumber = item.author_wallet_number.trim();
+    }
+    if (!g.walletProvider && item.author_wallet_provider) {
+      g.walletProvider = item.author_wallet_provider.trim();
     }
 
     const jLabel = item.job_type ? jobLabel(item.job_type) : 'Operasional';
@@ -119,8 +129,8 @@ function buildInitialTables(attendances: PdfAttendanceItem[]): {
       tglProses: defaultDate,
       namaPenerima: g.name,
       kegiatan: activityParts.join(' dan ') || 'Piket Operasional',
-      noRek: '',
-      namaBank: '',
+      noRek: g.walletNumber,
+      namaBank: g.walletProvider,
       buktiTf: '',
       buktiTfImageUrl: null,
       nominal: 0,

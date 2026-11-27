@@ -3,11 +3,15 @@
 import { revalidatePath } from 'next/cache';
 import { updateCurrentUserProfile } from '@/lib/data/profile';
 import { createClient } from '@/lib/supabase/server';
+import { validateWalletInput } from '@/lib/wallet';
 
 export async function updateProfileAction(formData: FormData) {
   const fullName = (formData.get('fullName') as string) || '';
   const phone = (formData.get('phone') as string) || '';
   const description = (formData.get('description') as string) || '';
+  const walletType = (formData.get('walletType') as string) || '';
+  const walletProvider = (formData.get('walletProvider') as string) || '';
+  const walletNumber = (formData.get('walletNumber') as string) || '';
 
   if (!fullName.trim()) {
     return { error: 'Nama wajib diisi.' };
@@ -18,12 +22,28 @@ export async function updateProfileAction(formData: FormData) {
     return { error: 'Nomor Telepon tidak valid (minimal 9 digit).' };
   }
 
-  const result = await updateCurrentUserProfile(fullName, cleanedPhone, description);
+  const walletCheck = validateWalletInput({
+    walletType,
+    walletProvider,
+    walletNumber,
+  });
+  if (!walletCheck.ok) {
+    return { error: walletCheck.error };
+  }
+
+  const result = await updateCurrentUserProfile(
+    fullName,
+    cleanedPhone,
+    description,
+    null,
+    walletCheck.value
+  );
   if (!result.success) {
     return { error: result.error || 'Gagal menyimpan profil.' };
   }
 
   revalidatePath('/profil');
+  revalidatePath('/export');
   revalidatePath('/');
   revalidatePath('/riwayat');
   return { success: true };

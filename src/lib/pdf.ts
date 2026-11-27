@@ -11,6 +11,8 @@ export interface PdfAttendanceItem {
   author_id?: string;
   author_name?: string;
   author_roles?: AppRole[];
+  author_wallet_provider?: string | null;
+  author_wallet_number?: string | null;
   note: string | null;
   mulaiUrl: string | null;
   selesaiUrl: string | null;

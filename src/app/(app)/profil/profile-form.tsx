@@ -21,10 +21,21 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
+  Wallet,
+  Landmark,
+  Smartphone,
+  X,
 } from 'lucide-react';
 import { RoleBadgeGroup } from '@/components/ui/nav';
 import type { AppRole } from '@/lib/supabase/types';
 import { normalizeIndonesianPhone, isValidIndonesianPhone, extractLocalPhoneDigits } from '@/lib/phone';
+import {
+  BANK_PROVIDERS,
+  EWALLET_PROVIDERS,
+  inferWalletType,
+  validateWalletInput,
+  type WalletType,
+} from '@/lib/wallet';
 
 interface ProfileFormProps {
   initialData: {
@@ -32,6 +43,9 @@ interface ProfileFormProps {
     fullName: string | null;
     phone: string | null;
     description: string | null;
+    walletType?: WalletType | null;
+    walletProvider?: string | null;
+    walletNumber?: string | null;
     isMaster: boolean;
     role: string;
     roles?: AppRole[];
@@ -42,9 +56,27 @@ interface ProfileFormProps {
 export function ProfileForm({ initialData }: ProfileFormProps) {
   const { theme, setTheme } = useTheme();
 
+  const initialProvider = initialData.walletProvider ?? '';
+  const initialType: WalletType =
+    initialData.walletType === 'bank' || initialData.walletType === 'ewallet'
+      ? initialData.walletType
+      : initialProvider
+      ? inferWalletType(initialProvider)
+      : 'ewallet';
+
   const [fullName, setFullName] = useState(initialData.fullName ?? '');
   const [phone, setPhone] = useState(initialData.phone ? extractLocalPhoneDigits(initialData.phone) : '');
   const [description, setDescription] = useState(initialData.description ?? '');
+  const [walletType, setWalletType] = useState<WalletType>(initialType);
+  const [walletProvider, setWalletProvider] = useState(initialProvider);
+  const [walletNumber, setWalletNumber] = useState(initialData.walletNumber ?? '');
+  const [isCustomProvider, setIsCustomProvider] = useState(
+    Boolean(
+      initialProvider &&
+        !EWALLET_PROVIDERS.some((p) => p.toLowerCase() === initialProvider.toLowerCase()) &&
+        !BANK_PROVIDERS.some((p) => p.toLowerCase() === initialProvider.toLowerCase())
+    )
+  );
 
   const [loading, setLoading] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -112,12 +144,25 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       return;
     }
 
+    const walletCheck = validateWalletInput({
+      walletType,
+      walletProvider,
+      walletNumber,
+    });
+    if (!walletCheck.ok) {
+      setError(walletCheck.error);
+      return;
+    }
+
     try {
       setLoading(true);
       const formData = new FormData();
       formData.append('fullName', fullName.trim());
       formData.append('phone', normalizedPhone);
       formData.append('description', description.trim());
+      formData.append('walletType', walletCheck.value.wallet_type ?? '');
+      formData.append('walletProvider', walletCheck.value.wallet_provider ?? '');
+      formData.append('walletNumber', walletCheck.value.wallet_number ?? '');
 
       const res = await updateProfileAction(formData);
       if (res?.error) {
@@ -125,7 +170,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
         showAlert('Gagal Menyimpan', res.error, 'error');
       } else {
         setSavedSuccess(true);
-        showAlert('Berhasil', 'Perubahan profil dan deskripsi akun berhasil disimpan!', 'success');
+        showAlert('Berhasil', 'Perubahan profil, wallet, dan deskripsi akun berhasil disimpan!', 'success');
       }
     } catch {
       setError('Terjadi kesalahan saat menyimpan profil.');
@@ -310,14 +355,182 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
             </p>
           </div>
 
-          {/* Deskripsi Akun (Nomor Mandiri, No DANA, dll) */}
+          {/* Wallet Akun (1 Wallet: Bank atau E-Wallet) */}
+          <div className="p-4 rounded-xl bg-gray-50/80 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700/80 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-xs font-semibold text-gray-800 dark:text-slate-200">
+                  Wallet Pencairan (Bank / E-Wallet)
+                </span>
+              </div>
+              {(walletProvider || walletNumber) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWalletProvider('');
+                    setWalletNumber('');
+                    setIsCustomProvider(false);
+                  }}
+                  className="text-[10px] font-medium text-red-600 dark:text-red-400 hover:underline inline-flex items-center gap-0.5"
+                >
+                  <X className="h-3 w-3" /> Kosongkan
+                </button>
+              ) : (
+                <span className="text-[10px] text-gray-400 dark:text-slate-500">Opsional</span>
+              )}
+            </div>
+
+            {/* Pilih Jenis: E-Wallet atau Bank */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setWalletType('ewallet');
+                  if (BANK_PROVIDERS.some((p) => p.toLowerCase() === walletProvider.trim().toLowerCase())) {
+                    setWalletProvider('');
+                  }
+                  setIsCustomProvider(false);
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-1.5 ${
+                  walletType === 'ewallet'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                <span>E-Wallet</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setWalletType('bank');
+                  if (EWALLET_PROVIDERS.some((p) => p.toLowerCase() === walletProvider.trim().toLowerCase())) {
+                    setWalletProvider('');
+                  }
+                  setIsCustomProvider(false);
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-1.5 ${
+                  walletType === 'bank'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                    : 'bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700'
+                }`}
+              >
+                <Landmark className="h-3.5 w-3.5" />
+                <span>Transfer Bank</span>
+              </button>
+            </div>
+
+            {/* Pilihan Cepat Nama Provider */}
+            <div>
+              <p className="text-[11px] font-medium text-gray-600 dark:text-slate-400 mb-1.5">
+                {walletType === 'ewallet' ? 'Pilih E-Wallet:' : 'Pilih Bank:'}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {(walletType === 'ewallet' ? EWALLET_PROVIDERS : BANK_PROVIDERS).map((providerName) => {
+                  const selected =
+                    !isCustomProvider &&
+                    walletProvider.trim().toLowerCase() === providerName.toLowerCase();
+                  return (
+                    <button
+                      key={providerName}
+                      type="button"
+                      onClick={() => {
+                        setIsCustomProvider(false);
+                        setWalletProvider(providerName);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                        selected
+                          ? 'bg-blue-50 dark:bg-blue-950/70 border-blue-500 text-blue-700 dark:text-blue-300'
+                          : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-slate-300 hover:border-blue-300 dark:hover:border-blue-600'
+                      }`}
+                    >
+                      {providerName}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomProvider(true);
+                    const allPresets = [...EWALLET_PROVIDERS, ...BANK_PROVIDERS];
+                    if (allPresets.some((p) => p.toLowerCase() === walletProvider.trim().toLowerCase())) {
+                      setWalletProvider('');
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                    isCustomProvider
+                      ? 'bg-blue-50 dark:bg-blue-950/70 border-blue-500 text-blue-700 dark:text-blue-300'
+                      : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-400 hover:border-blue-300'
+                  }`}
+                >
+                  + Lainnya
+                </button>
+              </div>
+            </div>
+
+            {isCustomProvider && (
+              <div>
+                <label
+                  htmlFor="walletProviderCustom"
+                  className="block text-[11px] font-medium text-gray-600 dark:text-slate-300 mb-1"
+                >
+                  Nama {walletType === 'ewallet' ? 'E-Wallet' : 'Bank'} Lainnya
+                </label>
+                <input
+                  id="walletProviderCustom"
+                  type="text"
+                  value={walletProvider}
+                  onChange={(e) => setWalletProvider(e.target.value)}
+                  maxLength={50}
+                  placeholder={walletType === 'ewallet' ? 'Contoh: AstraPay, Sakuku...' : 'Contoh: BPD Bali, Permata...'}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-xs text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[40px]"
+                />
+              </div>
+            )}
+
+            {/* Input Nomor Rekening / E-Wallet */}
+            <div>
+              <label
+                htmlFor="walletNumber"
+                className="block text-[11px] font-medium text-gray-700 dark:text-slate-300 mb-1"
+              >
+                {walletType === 'ewallet' ? 'Nomor E-Wallet / HP' : 'Nomor Rekening Bank'}
+              </label>
+              <input
+                id="walletNumber"
+                type="text"
+                value={walletNumber}
+                onChange={(e) => setWalletNumber(e.target.value)}
+                maxLength={50}
+                placeholder={
+                  walletProvider.trim().toUpperCase() === 'QRIS'
+                    ? 'Contoh: Qris / 085814641067'
+                    : walletType === 'ewallet'
+                    ? 'Contoh: 085814641067'
+                    : 'Contoh: 1450018885307'
+                }
+                className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-xs text-gray-900 dark:text-slate-100 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[40px]"
+              />
+            </div>
+
+            <p className="text-[11px] text-gray-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Wallet className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+              <span>
+                1 wallet per akun. Data ini otomatis mengisi kolom <strong>No Rek / E-Wallet</strong> dan{' '}
+                <strong>Nama Bank / E-Wallet</strong> saat ekspor Nota PDF.
+              </span>
+            </p>
+          </div>
+
+          {/* Deskripsi Akun */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label
                 htmlFor="description"
                 className="block text-xs font-semibold text-gray-700 dark:text-slate-300"
               >
-                Deskripsi Akun (Rekening Bank / E-Wallet)
+                Deskripsi Akun
               </label>
               <span className="text-[10px] text-gray-400 dark:text-slate-500">Opsional</span>
             </div>
@@ -327,14 +540,14 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="nomor mandiri no dana dll (Contoh: Rek Mandiri: 1234567890 a/n Made, DANA/GoPay: 08123456789)"
+                placeholder="Catatan singkat, divisi, atau keterangan tambahan terkait akun Anda..."
                 className="w-full p-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl text-xs text-gray-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed placeholder:text-gray-400 dark:placeholder:text-slate-500"
               />
             </div>
             <p className="text-[11px] text-gray-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
               <FileText className="h-3 w-3 text-blue-500 flex-shrink-0" />
               <span>
-                Catatan informasi ini digunakan untuk pencatatan rekening Bank Mandiri, DANA, GoPay, atau catatan operasional Anda.
+                Catatan informasi atau keterangan operasional akun Anda (data rekening/e-wallet diisi pada bagian Wallet di atas).
               </span>
             </p>
           </div>

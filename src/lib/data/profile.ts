@@ -1,5 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
 import type { UserRole, AppRole } from '@/lib/supabase/types';
+import {
+  isMissingWalletColumnError,
+  readFallbackWalletsMap,
+  writeFallbackUserWallet,
+} from '@/lib/data/wallet-store';
+import { inferWalletType, type WalletInfo, type WalletType } from '@/lib/wallet';
 
 export const MASTER_EMAIL = 'madesanjaya255@gmail.com';
 
@@ -24,6 +30,9 @@ export interface UserProfileInfo {
   fullName: string | null;
   phone: string | null;
   description: string | null;
+  walletType: WalletType | null;
+  walletProvider: string | null;
+  walletNumber: string | null;
   isApproved: boolean;
 }
 
@@ -58,6 +67,9 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       fullName: null,
       phone: null,
       description: null,
+      walletType: null,
+      walletProvider: null,
+      walletNumber: null,
       isApproved: false,
     };
   }
@@ -123,6 +135,25 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       }
     }
 
+    let resolvedWalletType: WalletType | null =
+      profile.wallet_type === 'bank' || profile.wallet_type === 'ewallet'
+        ? profile.wallet_type
+        : null;
+    let resolvedWalletProvider: string | null = profile.wallet_provider ?? null;
+    let resolvedWalletNumber: string | null = profile.wallet_number ?? null;
+
+    if (!resolvedWalletProvider && !resolvedWalletNumber) {
+      const fallbackWallets = await readFallbackWalletsMap(supabase);
+      const fb = fallbackWallets[user.id];
+      if (fb) {
+        resolvedWalletType = fb.wallet_type ?? inferWalletType(fb.wallet_provider);
+        resolvedWalletProvider = fb.wallet_provider ?? null;
+        resolvedWalletNumber = fb.wallet_number ?? null;
+      }
+    } else if (!resolvedWalletType && resolvedWalletProvider) {
+      resolvedWalletType = inferWalletType(resolvedWalletProvider);
+    }
+
     return {
       userId: user.id,
       email: user.email ?? null,
@@ -144,6 +175,9 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
       fullName: profile.full_name ?? null,
       phone: profile.phone ?? null,
       description: profile.description ?? null,
+      walletType: resolvedWalletType,
+      walletProvider: resolvedWalletProvider,
+      walletNumber: resolvedWalletNumber,
       isApproved,
     };
   }
@@ -212,18 +246,22 @@ export async function getCurrentUserProfile(): Promise<UserProfileInfo> {
     fullName: metaFullName || null,
     phone: metaPhone || null,
     description: null,
+    walletType: null,
+    walletProvider: null,
+    walletNumber: null,
     isApproved,
   };
 }
 
 /**
- * Memperbarui data nama, nomor telepon, dan deskripsi akun pengguna aktif
+ * Memperbarui data nama, nomor telepon, deskripsi akun, dan wallet pengguna aktif
  */
 export async function updateCurrentUserProfile(
   fullName: string,
   phone: string,
   description?: string | null,
-  requestedRole?: AppRole | null
+  requestedRole?: AppRole | null,
+  wallet?: WalletInfo
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const {
@@ -234,7 +272,7 @@ export async function updateCurrentUserProfile(
     return { success: false, error: 'Tidak terautentikasi.' };
   }
 
-  const updatePayload: {
+  const basePayload: {
     full_name: string;
     phone: string;
     updated_at: string;
@@ -248,13 +286,23 @@ export async function updateCurrentUserProfile(
   };
 
   if (description !== undefined) {
-    updatePayload.description = description ? description.trim() : null;
+    basePayload.description = description ? description.trim() : null;
   }
 
   if (requestedRole && ['magang', 'piket', 'freelance', 'tiket'].includes(requestedRole)) {
-    updatePayload.roles = [requestedRole];
-    updatePayload.exclude_from_recap = (requestedRole !== 'magang' && requestedRole !== 'piket' && requestedRole !== 'freelance');
+    basePayload.roles = [requestedRole];
+    basePayload.exclude_from_recap = (requestedRole !== 'magang' && requestedRole !== 'piket' && requestedRole !== 'freelance');
   }
+
+  const updatePayload =
+    wallet !== undefined
+      ? {
+          ...basePayload,
+          wallet_type: wallet.wallet_type,
+          wallet_provider: wallet.wallet_provider,
+          wallet_number: wallet.wallet_number,
+        }
+      : basePayload;
 
   const { error } = await supabase
     .from('profiles')
@@ -262,7 +310,32 @@ export async function updateCurrentUserProfile(
     .eq('id', user.id);
 
   if (error) {
+    if (wallet !== undefined && isMissingWalletColumnError(error)) {
+      const { error: baseErr } = await supabase
+        .from('profiles')
+        .update(basePayload)
+        .eq('id', user.id);
+
+      if (baseErr) {
+        return { success: false, error: baseErr.message };
+      }
+
+      const fallbackRes = await writeFallbackUserWallet(supabase, user.id, wallet);
+      if (fallbackRes.error) {
+        return { success: false, error: fallbackRes.error };
+      }
+      return { success: true };
+    }
     return { success: false, error: error.message };
+  }
+
+  // Pastikan fallback lama disinkronkan/dibersihkan saat kolom profiles sudah aktif
+  if (wallet !== undefined) {
+    await writeFallbackUserWallet(supabase, user.id, {
+      wallet_type: null,
+      wallet_provider: null,
+      wallet_number: null,
+    });
   }
 
   return { success: true };

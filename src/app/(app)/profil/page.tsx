@@ -11,7 +11,7 @@ export default async function ProfilPage() {
       <div>
         <h1 className="text-xl font-bold text-gray-900 dark:text-slate-100">Profil Saya</h1>
         <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-          Pengaturan akun, preferensi tema gelap (Dark Mode), dan informasi nomor rekening/e-wallet.
+          Pengaturan akun, preferensi tema gelap (Dark Mode), dan rekening bank atau e-wallet pencairan.
         </p>
       </div>
 
@@ -21,6 +21,9 @@ export default async function ProfilPage() {
           fullName: profile.fullName,
           phone: profile.phone,
           description: profile.description,
+          walletType: profile.walletType,
+          walletProvider: profile.walletProvider,
+          walletNumber: profile.walletNumber,
           isMaster: profile.isMaster,
           role: profile.role,
           roles: profile.roles,

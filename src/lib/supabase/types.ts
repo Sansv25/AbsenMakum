@@ -16,6 +16,9 @@ export interface Profile {
   full_name?: string | null;
   phone?: string | null;
   description?: string | null;
+  wallet_type?: 'bank' | 'ewallet' | null;
+  wallet_provider?: string | null;
+  wallet_number?: string | null;
   is_approved?: boolean;
   exclude_from_recap?: boolean;
   created_at: string;
