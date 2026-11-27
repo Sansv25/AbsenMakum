@@ -182,6 +182,7 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
   }
 
   return (
+    <>
     <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -397,6 +398,7 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
           )}
         </div>
       )}
+    </div>
 
       {modalOpen && (
         <ShortcutModal
@@ -406,6 +408,6 @@ export function MoreAppClient({ initialItems, canManage }: MoreAppClientProps) {
           onSave={handleSaveModal}
         />
       )}
-    </div>
+    </>
   );
 }

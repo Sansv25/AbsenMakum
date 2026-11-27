@@ -205,6 +205,7 @@ export function RiwayatView({
   }
 
   return (
+    <>
     <div className="space-y-5">
       {/* 1. Month Navigator */}
       <div className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-2xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm transition-colors">
@@ -554,11 +555,12 @@ export function RiwayatView({
           </div>
         </div>
       )}
+    </div>
 
       {/* 5. DRAWER SLIDE-OVER (3 Pekerjaan per Shift) */}
       {drawerShift && (
         <div
-          className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-200"
+          className="fixed inset-0 !mt-0 z-[100] bg-black/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-200"
           onClick={() => setDrawerShift(null)}
         >
           <div
@@ -897,6 +899,6 @@ export function RiwayatView({
         slides={lightboxSlides}
         index={lightboxIndex}
       />
-    </div>
+    </>
   );
 }

@@ -192,7 +192,7 @@ export function ShortcutModal({ editingItem, onClose, onSave }: ShortcutModalPro
 
   return (
     <div
-      className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 !mt-0 z-[90] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
       onClick={() => !saving && onClose()}
     >
       <div

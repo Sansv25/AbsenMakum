@@ -289,6 +289,7 @@ export function RekapHarianClient({
   }
 
   return (
+    <>
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
       {/* 1. TOP HEADER & QUICK ACTIONS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1 border-b border-gray-200/80 dark:border-slate-800">
@@ -820,11 +821,12 @@ export function RekapHarianClient({
           })
         )}
       </div>
+    </div>
 
       {/* 6. MODAL KONFIRMASI HADIR MANUAL TANPA FOTO (ADMIN/OWNER) */}
       {manualModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 !mt-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150"
           onClick={() => !savingManual && setManualModal(null)}
         >
           <div
@@ -935,6 +937,6 @@ export function RekapHarianClient({
           slides={[{ src: lightboxSrc, title: `Bukti Foto GPS Map • ${formatIndonesia(currentDate)}` }]}
         />
       )}
-    </div>
+    </>
   );
 }

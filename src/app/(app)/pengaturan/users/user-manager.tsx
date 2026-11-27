@@ -411,6 +411,7 @@ export function UserManager({
   }
 
   return (
+    <>
     <div className="space-y-4">
       {fetchError && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-amber-900 text-xs">
@@ -734,10 +735,11 @@ export function UserManager({
           })
         )}
       </div>
+    </div>
 
       {/* Modal Kelola Role Bertumpuk */}
       {roleModalUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 !mt-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div>
@@ -1231,6 +1233,6 @@ export function UserManager({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
